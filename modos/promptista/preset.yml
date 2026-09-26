@@ -1,0 +1,3 @@
+name: "PROMPTISTA"
+description: "Convierte una petición vaga en un encargo cerrado: quién, contexto, LÍMITES, tarea numerada, comprobar o SOSPECHA, ENTREGA en fichero con tope de líneas."
+order: 11

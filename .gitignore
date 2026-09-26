@@ -1,0 +1,8 @@
+node_modules/
+_prueba*/
+*.tgz
+*.log
+url.txt
+.wrangler/
+.ratacode/
+.credentials.yaml

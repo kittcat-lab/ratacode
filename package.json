@@ -1,0 +1,46 @@
+{
+  "name": "ratacode",
+  "version": "0.1.0",
+  "description": "RATACODE · la terminal de trabajo bruto: DSH web (@deepseek-ai/dsh) con la cara de RATACODE (ratas, chispas, colores).",
+  "license": "MIT",
+  "author": {
+    "name": "Patxi"
+  },
+  "type": "module",
+  "bin": {
+    "ratacode": "bin/ratacode.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "allowScripts": {
+    "node-pty": true,
+    "koffi": true,
+    "@deepseek-ai/dsh-subprocess-local": true
+  },
+  "scripts": {
+    "postinstall": "node bin/instalacion.js",
+    "test": "node pruebas/piel.test.mjs && node pruebas/modos.test.mjs"
+  },
+  "files": [
+    "bin",
+    "piel",
+    "fabrica",
+    "modos",
+    "mcp",
+    "!mcp/prueba",
+    "apreton",
+    "LICENSE",
+    "README.md"
+  ],
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "terminal",
+    "ratacode"
+  ],
+  "dependencies": {
+    "@deepseek-ai/dsh": "0.1.5-rc.1",
+    "js-yaml": "^4.2.0"
+  }
+}

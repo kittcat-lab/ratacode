@@ -1,0 +1,29 @@
+{
+  "name": "ratacode-piel",
+  "version": "0.1.0",
+  "description": "RATACODE · la piel: inyecta el CSS y los scripts de RATACODE en el index que sirve DSH web (index transform tap).",
+  "license": "MIT",
+  "author": {
+    "name": "Patxi"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "activos",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2"
+  }
+}

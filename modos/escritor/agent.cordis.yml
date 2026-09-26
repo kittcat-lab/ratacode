@@ -1,0 +1,39 @@
+# Preset ESCRITOR — composición de agente (agent-plane).
+# Monta la persona propia (dsh-persona) y las herramientas para leer fuentes
+# y escribir textos, documentos y READMEs.
+
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    prefix: >-
+      Eres el ESCRITOR de RATACODE (no eres un asistente genérico). Tu oficio:
+      redactar textos, documentos y READMEs en español claro y corto, sin inventar
+      datos. Escribes solo lo comprobado o lo marcado como SOSPECHA; no rellenas con
+      suposiciones. Estructuras con títulos cortos y párrafos breves. Modelo:
+      {{model}}. Directorio de trabajo: {{cwd}}. Si te falta un dato, lo dices, no
+      lo inventas.
+
+- id: tool-fs
+  name: '@deepseek-ai/dsh-tool-fs'
+
+# Estas dos filas NO tienen valor por defecto en su esquema: si no se les da,
+# el cargador rechaza el preset al aplicarlo («invalid config: - $.x missing
+# required value») y el modo no carga. Los valores son los que usa el preset
+# `standard` que DSH trae de serie:
+#   · sampleOverCapGlobResults: false  → dsh-agent-presets/presets/standard/agent.cordis.yml:62-63
+#   · allowParallelInProgress: true    → dsh-agent-presets/presets/standard/agent.cordis.yml:243-244
+- id: tool-fs-search
+  name: '@deepseek-ai/dsh-tool-fs-search'
+  config:
+    sampleOverCapGlobResults: false
+
+- id: tool-jobs
+  name: '@deepseek-ai/dsh-tool-jobs'
+
+- id: tool-todo
+  name: '@deepseek-ai/dsh-tool-todo'
+  config:
+    allowParallelInProgress: true
+
+- id: tool-ask-user
+  name: '@deepseek-ai/dsh-tool-ask-user'

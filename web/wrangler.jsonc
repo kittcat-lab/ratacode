@@ -1,0 +1,10 @@
+{
+  // Worker de assets de RATACODE: sirve `producto\web` tal cual, sin build.
+  // Mismo patrón que cualquier web de assets en Cloudflare (un index.html y
+  // las rutas del dominio propio). `wrangler.jsonc` NO se sirve: lo aparta
+  // `.assetsignore` del mismo directorio.
+  "name": "ratacode-web",
+  "compatibility_date": "2026-09-01",
+  "assets": { "directory": "." },
+  "routes": [{ "pattern": "mod-rat.com", "custom_domain": true }]
+}

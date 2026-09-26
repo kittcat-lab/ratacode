@@ -1,0 +1,4 @@
+# Lo que NO se sube como asset del Worker `ratacode-web`.
+# (El propio `.assetsignore` nunca se sirve; se lista por claridad.)
+wrangler.jsonc
+.assetsignore

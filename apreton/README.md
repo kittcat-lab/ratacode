@@ -1,0 +1,36 @@
+# RATACODE · Apretón de manos: cuál elegir según tu app
+
+| Tu app | Qué usar | Por qué |
+|---|---|---|
+| Claude Code, Codex, OpenClaw, Rowboat | **navegador.md** o **mcp.md** | Si tu app tiene navegador, usa el panel web (navegador.md). Si tiene MCP, usa el servidor MCP (mcp.md). Las dos formas funcionan. |
+| ChatGPT web (el chat) | **mcp.md** con túnel | ChatGPT web habla MCP por HTTP. Necesitas el túnel de Cloudflare (paso 4c del plan). La clave va en la URL del túnel. |
+| Cualquier chat sin MCP ni navegador | **headless.md** | `ratacode headless "encargo"` hace el trabajo sin pantalla y deja el resultado en un fichero. |
+| Cualquier agente que no sea de los anteriores | **mcp.md** (genérico) | Si tu agente habla MCP por stdio, usa la configuración genérica de mcp.md. |
+
+## Dónde están los prompts
+- **navegador.md** — para agentes con navegador (Claude Code, Codex, OpenClaw, Rowboat…)
+- **headless.md** — para `ratacode headless "encargo"`
+- **mcp.md** — para apps con MCP (Claude Code, Codex, OpenClaw, Rowboat, ChatGPT web con túnel, genérico)
+
+## Qué hace RATACODE
+Un DSH (DeepSeek Harness) con la cara de RATACODE. Los modelos baratos (B.AI: deepseek-v4.1-flash, glm-5.3-flash, qwen3.8-flash, hy3, mimo-v2.5) hacen el trabajo pesado. Tú planificas, revisas y cierras.
+
+## Cómo funciona el ciclo
+1. **Diagnóstico** — solo mirar, sin tocar ficheros.
+2. **Revisión** — comprueba los fallos que más pesen.
+3. **Arreglo** — de uno en uno, cambio mínimo, misma prueba antes/después.
+4. **Cierre** — lee el diff, repite la prueba, abre la app y lo ve.
+
+**No arranques servidores. No publiques. Si falta algo, dilo.**
+
+## Las trampas que ya costaron
+- **T2:** el espacio de trabajo ya viene puesto; no abras diálogos nativos.
+- **T4:** no uses capturas; lee ficheros o usa `get_task_result`.
+- **T11:** nunca leas `.credentials.yaml`, `.env` ni bóvedas.
+- **T12:** el cliente MCP tiene que pasarle el ENTORNO al servidor (Claude Code: `--env`; Codex: `env_vars`, no la clave escrita en el fichero). Si no, sale `falta B_AI_API_KEY en el entorno del cliente MCP`.
+- **T13:** si el tutor dice algo falso, corrígelo con la prueba.
+- **T16:** `url.txt` se borra al arrancar y se escribe cuando el puerto contesta. Si no carga, espera 15 s y vuelve a leerla; si el puerto no escucha, arranca `ratacode` otra vez. El porqué de un cierre queda en `<casa>\ratacode.log`.
+- **T17:** no termines el turno con la tarea en marcha: usa `run_task` con `esperar_segundos` o no pares hasta que `get_task_status` diga `completed`/`failed`. Por stdio, la tarea vive lo que vive el cliente.
+- **T18:** un encargo grande, en sesión/chat nuevo: los encargos van en ficheros y no necesitan historial.
+
+Elige el prompt que mejor encaje con tu app. Copia, pega, adapta y ejecuta.

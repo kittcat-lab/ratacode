@@ -1,0 +1,6 @@
+# La capa de RATACODE sobre el perfil web de DSH.
+# Una sola fila: la piel. Se monta sobre el árbol del motor y engancha en el
+# index que sirve dsh-host-frontend-static (ver lib/index.js).
+- insert:
+    - id: ratacode-piel
+      name: ratacode-piel

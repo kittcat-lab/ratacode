@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RATACODE · manos baratas para tu agente o tu chat</title>
+<meta name="description" content="RATACODE: la terminal de trabajo bruto. DSH con la cara de RATACODE: le mandas el trabajo pesado a modelos baratos (B.AI, OpenRouter, DeepSeek) y el resultado vuelve a tu agente o a tu chat.">
+<meta name="theme-color" content="#101113">
+<link rel="canonical" href="https://mod-rat.com/">
+<meta property="og:title" content="RATACODE · manos baratas para tu agente o tu chat">
+<meta property="og:description" content="La terminal de trabajo bruto: modelos baratos haciendo el trabajo pesado, con la cara de RATACODE.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mod-rat.com/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect width='96' height='96' rx='18' fill='%23101113'/%3E%3Cpath d='M47 33 26 16 12 13l4 29 11 10 5 20 15 14V33Z' fill='%23151619' stroke='%23ff268e' stroke-width='4'/%3E%3Cpath d='m49 33 21-17 14-3-4 29-11 10-5 20-15 14V33Z' fill='%23151619' stroke='%23e4f226' stroke-width='4'/%3E%3Cpath d='m31 47 12 7-8 3-4-10Zm34 0-12 7 8 3 4-10Z' fill='%23f0eee6'/%3E%3C/svg%3E">
+<style>
+:root{
+  --mr-black:#101113; --mr-panel:#181a1d; --mr-raised:#222529; --mr-line:#353a3d;
+  --mr-white:#f0eee6; --mr-muted:#a8adae; --mr-pink:#ff268e; --mr-yellow:#e4f226; --mr-cyan:#26c6cc;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--mr-black); color:var(--mr-white);
+  font:16px/1.6 system-ui,'Segoe UI',sans-serif;
+  -webkit-text-size-adjust:100%;
+}
+::selection{background:#8a2055;color:#fffaf1}
+a{color:var(--mr-cyan)}
+:focus-visible{outline:2px solid var(--mr-cyan);outline-offset:2px}
+#chispas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+main{position:relative;z-index:1;max-width:760px;margin:0 auto;padding:24px 20px 48px}
+header{display:flex;align-items:center;gap:14px;padding:10px 0 26px}
+header svg{width:56px;height:56px;flex:none}
+.wordmark{font:900 italic 30px/1 'Segoe UI',sans-serif;letter-spacing:-1px}
+.wordmark b{color:var(--mr-pink)}
+.lema{color:var(--mr-muted);font-size:14px}
+.badge{
+  display:inline-block;margin:8px 0 0;padding:2px 10px;border:1px solid var(--mr-line);
+  border-radius:999px;color:var(--mr-yellow);font-size:12px;letter-spacing:2px
+}
+h1{font-size:clamp(30px,6vw,44px);line-height:1.15;margin:14px 0 8px}
+h1 .chispa{color:var(--mr-yellow)}
+h2{font-size:20px;margin:36px 0 10px}
+h2 small{color:var(--mr-muted);font-weight:400;font-size:14px}
+.frase{color:var(--mr-muted);font-size:18px;margin:0 0 20px}
+.frase strong{color:var(--mr-white)}
+.card{
+  background:var(--mr-panel);border:1px solid var(--mr-line);border-radius:14px;
+  padding:18px;margin:14px 0
+}
+.codigo{
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  background:var(--mr-black);border:1px solid var(--mr-line);border-radius:10px;padding:10px 14px
+}
+.codigo code{font:600 15px/1.5 ui-monospace,Consolas,monospace;color:var(--mr-yellow);word-break:break-all}
+.codigo .ficha{color:var(--mr-muted);font-size:12px}
+button{
+  font:700 16px/1.2 'Segoe UI',sans-serif;color:#fffaf1;cursor:pointer;
+  background:var(--mr-pink);border:0;border-radius:10px;padding:14px 20px;width:100%
+}
+button:active{transform:translateY(1px)}
+button[aria-pressed="true"]{background:#8a2055}
+.aviso-copiado{color:var(--mr-cyan);font-size:14px;min-height:1.4em;margin:8px 0 0}
+.lista{display:grid;gap:12px}
+@media(min-width:640px){.lista{grid-template-columns:repeat(3,1fr)}}
+.modo{background:var(--mr-panel);border:1px solid var(--mr-line);border-radius:12px;padding:14px}
+.modo h3{margin:0 0 6px;font-size:16px}
+.modo h3 span{color:var(--mr-pink)}
+.modo p{margin:0;color:var(--mr-muted);font-size:14px}
+.claves{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.claves code{
+  background:var(--mr-raised);border:1px solid var(--mr-line);border-radius:8px;
+  padding:4px 10px;font-size:13px;color:var(--mr-cyan)
+}
+.seguridad{color:var(--mr-muted);font-size:14px;margin:0;padding-left:18px}
+.seguridad li{margin:4px 0}
+.seguridad b{color:var(--mr-white)}
+footer{
+  margin-top:44px;padding-top:16px;border-top:1px solid var(--mr-line);
+  color:var(--mr-muted);font-size:14px;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center
+}
+footer .marca{display:flex;align-items:center;gap:8px;color:var(--mr-white);font:900 italic 16px/1 'Segoe UI',sans-serif}
+footer .marca svg{width:22px;height:22px}
+#boton-chispas{
+  position:fixed;right:14px;bottom:14px;z-index:2;width:auto;padding:8px 12px;
+  background:var(--mr-raised);border:1px solid var(--mr-line);color:var(--mr-muted);
+  font-size:13px;border-radius:999px
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<canvas id="chispas" aria-hidden="true"></canvas>
+<main>
+  <header>
+    <!-- el emblema: producto\piel\activos\ratacode-emblema.svg, inline para que la página sea un solo fichero -->
+    <svg viewBox="0 0 96 96" fill="none" role="img" aria-label="Emblema de RATACODE: una rata entre chispas">
+      <path d="M43 5A43 43 0 0 0 8 66M18 79l10 8" stroke="#ff268e" stroke-width="3"/>
+      <path d="M54 5a43 43 0 0 1 35 59M79 80l-12 8" stroke="#e4f226" stroke-width="3"/>
+      <path d="m48 21-8-17-1 15-9-9 5 20M48 21 55 3l2 16 10-9-7 20" fill="#e4f226"/>
+      <path d="M47 33 26 16 12 13l4 29 11 10 5 20 15 14V33Z" fill="#151619" stroke="#ff268e" stroke-width="2.5"/>
+      <path d="m49 33 21-17 14-3-4 29-11 10-5 20-15 14V33Z" fill="#151619" stroke="#e4f226" stroke-width="2.5"/>
+      <path d="m23 26 5 16 8-6-13-10Zm50 0-5 16-8-6 13-10Z" fill="#34373b"/>
+      <path d="m31 47 12 7-8 3-4-10Zm34 0-12 7 8 3 4-10Z" fill="#f0eee6"/>
+      <path d="m40 72 8 5 8-5-8 12-8-12Z" fill="#26c6cc"/>
+      <path d="m35 65-29-6m29 11L8 73m53-8 29-6m-29 11 27 3" stroke="#92968e" stroke-width="1.5"/>
+      <path d="m39 37 5 3M61 39l-7 3M33 76l7-2M65 28l5 2" stroke="#777c78"/>
+      <path d="M3 44v8m90-8v8M44 93h8" stroke="#26c6cc" stroke-width="2"/>
+    </svg>
+    <div>
+      <div class="wordmark">RATA<b>CODE</b></div>
+      <div class="lema">la terminal de trabajo bruto</div>
+    </div>
+  </header>
+
+  <span class="badge">TRABAJO BRUTO</span>
+  <h1>Manos baratas para tu agente o tu chat<span class="chispa">.</span></h1>
+  <p class="frase">Le pasas el <strong>trabajo pesado</strong> a modelos baratos
+  (B.AI, OpenRouter, DeepSeek) y el resultado vuelve a tu agente o a tu chat.
+  Es <strong>DSH</strong> con la cara de RATACODE: ni el motor ni el frontend se tocan.</p>
+
+  <div class="card">
+    <h2 style="margin-top:0">Instalación <small>· un comando, Windows + Node 24</small></h2>
+    <div class="codigo"><code>npm i -g ratacode</code><span class="ficha">y luego: <code>ratacode</code></span></div>
+    <p style="margin:10px 0 0">Mientras el paquete no esté en npm, desde el repositorio:</p>
+    <div class="codigo"><code>npm i -g github:kittcat-lab/ratacode</code><span class="ficha">y luego: <code>ratacode</code></span></div>
+    <p class="ficha" style="margin:8px 0 0">Si npm se atasca con esa (resuelve GitHub por git), el tarball del
+    repositorio: <code>git clone https://github.com/kittcat-lab/ratacode</code> · <code>cd ratacode &amp;&amp; npm pack</code> ·
+    <code>npm i -g ./ratacode-0.1.0.tgz</code>. El botón de aquí abajo lo explica entero.</p>
+    <p style="margin:14px 0 10px">¿Quieres que lo instale tu agente? Pégale esto:</p>
+    <button id="copiar" type="button">Copiar prompt de instalación</button>
+    <p class="aviso-copiado" id="aviso" role="status"></p>
+  </div>
+
+  <h2>Las 3 formas de usarlo</h2>
+  <div class="lista">
+    <div class="modo">
+      <h3><span>01</span> Navegador</h3>
+      <p><code>ratacode</code> abre la terminal en tu navegador (puerto 3777). La URL con
+      su token queda en <code>%USERPROFILE%\.ratacode\url.txt</code>.</p>
+    </div>
+    <div class="modo">
+      <h3><span>02</span> Headless</h3>
+      <p><code>ratacode headless "encargo"</code>: sin pantalla, encargo por terminal y
+      la entrega en un fichero.</p>
+    </div>
+    <div class="modo">
+      <h3><span>03</span> MCP</h3>
+      <p><code>ratacode mcp</code>: ChatGPT web, Claude Code, Codex, Rowboat u OpenClaw
+      le mandan tareas (<code>list_models</code> → <code>run_task</code> →
+      <code>get_task_result</code>).</p>
+    </div>
+  </div>
+
+  <h2>Las 3 claves <small>· las pones tú, nunca viajan en el paquete</small></h2>
+  <div class="claves">
+    <code>B_AI_API_KEY</code><code>OPENROUTER_API_KEY</code><code>DEEPSEEK_API_KEY</code>
+  </div>
+  <p class="frase" style="font-size:15px">Se ponen la primera vez (Ajustes → Models) o como variables de entorno.</p>
+
+  <h2>Seguridad</h2>
+  <ul class="seguridad">
+    <li><b>Carpeta cerrada:</b> todo vive en <code>%USERPROFILE%\.ratacode</code>, nunca en
+      <code>~/.dsh</code>. Las tareas MCP solo trabajan dentro de su <code>working_directory</code>.</li>
+    <li><b>Las claves no salen:</b> se usan, no se cuentan — ni por el MCP, ni por el cuaderno,
+      ni por los shells de sus agentes.</li>
+  </ul>
+
+  <footer>
+    <span class="marca">
+      <svg viewBox="0 0 96 96" fill="none" aria-hidden="true"><path d="M47 33 26 16 12 13l4 29 11 10 5 20 15 14V33Z" fill="#151619" stroke="#ff268e" stroke-width="3"/><path d="m49 33 21-17 14-3-4 29-11 10-5 20-15 14V33Z" fill="#151619" stroke="#e4f226" stroke-width="3"/><path d="m31 47 12 7-8 3-4-10Zm34 0-12 7 8 3 4-10Z" fill="#f0eee6"/></svg>
+      RATACODE
+    </span>
+    <span>MIT © 2026 Patxi</span>
+    <a href="https://github.com/kittcat-lab/ratacode">GitHub · kittcat-lab/ratacode</a>
+    <span>hecho sobre DSH (<a href="https://www.npmjs.com/package/@deepseek-ai/dsh">@deepseek-ai/dsh</a>, MIT)</span>
+  </footer>
+</main>
+<button id="boton-chispas" type="button" aria-pressed="true">✦ chispas</button>
+
+<script>
+// El prompt que se copia: instalar, arrancar y leer el apreton. En español, sin palabrería.
+// El paso 2 vale HOY: mientras el paquete no esté en npm, se instala desde el repositorio.
+// Medido el 26-sep-2026: la vía de GitHub por git (npm i -g github:…) puede atascarse en
+// Windows con árboles grandes, así que el prompt trae detrás la vía COMPROBADA (el tarball
+// del propio repositorio), y el día que el paquete esté publicado la primera línea vale.
+var PROMPT = [
+'Instala RATACODE (la terminal de trabajo bruto) y déjala corriendo. Sin preguntar, paso a paso:',
+'',
+'1. Comprueba Node 24: node -v. Si falta, PARA y dímelo (no la instales por tu cuenta).',
+'2. Instálala. Prueba en este orden y quédate con la primera que funcione:',
+'     npm i -g ratacode                              (si ya está publicada en npm)',
+'     npm i -g github:kittcat-lab/ratacode           (desde el repositorio)',
+'   y si esa falla (npm resuelve GitHub por git y en Windows se atasca con árboles grandes),',
+'   la vía comprobada, el tarball del propio repositorio:',
+'     git clone https://github.com/kittcat-lab/ratacode',
+'     cd ratacode && npm pack && npm i -g ./ratacode-0.1.0.tgz',
+'3. ratacode   ← déjalo corriendo: imprime una URL con su token y la guarda en %USERPROFILE%\\.ratacode\\url.txt',
+'4. Abre esa URL y comprueba que carga la cara de RATACODE.',
+'5. Lee el cuaderno de manejo: apreton/README.md del repo github.com/kittcat-lab/ratacode, y sigue el que toque (navegador, headless o MCP).',
+'',
+'LÍMITES: trabaja solo dentro de tu carpeta de trabajo; no leas .credentials.yaml ni ficheros de claves; las claves las pone el humano en Ajustes → Models.',
+'Cuando la URL conteste, mi encargo es: …'
+].join('\n');
+
+var boton = document.getElementById('copiar');
+var aviso = document.getElementById('aviso');
+boton.addEventListener('click', function () {
+  function puesto() {
+    aviso.textContent = '✓ Prompt copiado: pégalo en tu chat y déjale trabajar.';
+    boton.setAttribute('aria-pressed', 'true');
+    setTimeout(function () { boton.setAttribute('aria-pressed', 'false'); }, 2000);
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(PROMPT).then(puesto, function () { viejaEscuela(); });
+  } else viejaEscuela();
+  function viejaEscuela() {
+    var t = document.createElement('textarea');
+    t.value = PROMPT; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+    document.body.appendChild(t); t.select();
+    try { document.execCommand('copy'); puesto(); } catch (e) { aviso.textContent = 'No pude copiar: selecciona y copia a mano.'; }
+    document.body.removeChild(t);
+  }
+});
+
+// Chispas: opcionales y livianas. Canvas fino, pocas partículas, pausa con la pestaña
+// escondida y apagadas por defecto si el sistema pide menos movimiento.
+(function () {
+  var lienzo = document.getElementById('chispas');
+  var ctx = lienzo.getContext('2d');
+  var interruptor = document.getElementById('boton-chispas');
+  var COLORES = ['#ff268e', '#e4f226', '#26c6cc'];
+  var chispas = [];
+  var encendidas = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var latido = 0;
+
+  function medir() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    lienzo.width = innerWidth * dpr; lienzo.height = innerHeight * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  medir(); addEventListener('resize', medir);
+
+  function nace() {
+    chispas.push({
+      x: Math.random() * innerWidth, y: innerHeight + 8,
+      vy: -(0.35 + Math.random() * 0.8), vx: (Math.random() - 0.5) * 0.4,
+      tam: 2 + Math.random() * 3, vida: 1,
+      color: COLORES[(Math.random() * COLORES.length) | 0]
+    });
+  }
+  function paso() {
+    latido++;
+    if (chispas.length < 26 && latido % 22 === 0) nace();
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    for (var i = chispas.length - 1; i >= 0; i--) {
+      var c = chispas[i];
+      c.x += c.vx; c.y += c.vy; c.vida -= 0.006;
+      if (c.vida <= 0 || c.y < -10) { chispas.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.min(c.vida, 0.9);
+      ctx.fillStyle = c.color;
+      ctx.fillRect(c.x, c.y, c.tam, c.tam); // cuadraditos: lo más barato que hay
+    }
+    ctx.globalAlpha = 1;
+    if (encendidas && !document.hidden && chispas.length) requestAnimationFrame(paso);
+    else latido = 20; // para que al volver reviva pronto
+  }
+  function revive() { if (encendidas && !document.hidden) requestAnimationFrame(paso); }
+  document.addEventListener('visibilitychange', revive);
+  interruptor.setAttribute('aria-pressed', String(encendidas));
+  interruptor.textContent = encendidas ? '✦ chispas' : '✧ chispas';
+  interruptor.addEventListener('click', function () {
+    encendidas = !encendidas;
+    interruptor.setAttribute('aria-pressed', String(encendidas));
+    interruptor.textContent = encendidas ? '✦ chispas' : '✧ chispas';
+    if (encendidas) revive(); else { chispas.length = 0; ctx.clearRect(0, 0, innerWidth, innerHeight); }
+  });
+  revive();
+})();
+</script>
+</body>
+</html>

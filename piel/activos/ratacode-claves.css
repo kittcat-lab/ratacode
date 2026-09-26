@@ -1,0 +1,36 @@
+/* RATACODE · la ventana de las 3 claves. La cara: negro, amarillo, rosa, cian y la rata. */
+#ratacode-claves-fondo{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;
+ padding:20px;background:rgba(9,10,12,.74);backdrop-filter:blur(3px)}
+.rc-claves{width:min(560px,100%);max-height:calc(100vh - 40px);overflow-y:auto;box-sizing:border-box;
+ background:var(--mr-panel,#181a1d);border:1px solid var(--mr-line,#353a3d);border-top:3px solid var(--mr-yellow,#e4f226);
+ border-radius:10px;box-shadow:0 18px 60px rgba(0,0,0,.55),6px 6px 0 rgba(255,38,142,.16);padding:24px 26px 20px}
+.rc-cab{display:flex;align-items:center;gap:12px}
+.rc-cab .mr-emblema{width:42px;height:46px;flex:none}
+.rc-titulo{font:900 italic 23px/1.05 'Segoe UI',sans-serif;letter-spacing:-.9px;color:var(--mr-yellow,#e4f226)}
+.rc-titulo b{color:var(--mr-pink,#ff268e);font-weight:900}
+.rc-kicker{margin-left:auto;font:9px Consolas,monospace;letter-spacing:1.6px;color:#818a8e;text-align:right;line-height:1.5}
+.rc-des{margin:14px 0 2px;color:#b8bdbb;font-size:13.5px;line-height:1.55}
+.rc-des code{background:#15171a;border:1px solid #282c30;border-radius:4px;padding:1px 5px;font-size:12px;color:#26c6cc}
+.rc-campo{margin-top:16px}
+.rc-fila{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}
+.rc-nombre{font-weight:750;color:#f0eee6;font-size:14px}
+.rc-var{font:10px Consolas,monospace;color:#818a8e;margin-left:8px}
+.rc-enlace{font-size:12px;color:#26c6cc;text-decoration:none;border-bottom:1px dashed rgba(38,198,204,.45);white-space:nowrap}
+.rc-enlace:hover{color:#7fe3e7;border-bottom-style:solid}
+.rc-input{display:block;width:100%;box-sizing:border-box;background:#101113;color:#f0eee6;
+ border:1px solid #353a3d;border-left:3px solid #e4f226;border-radius:6px;padding:9px 11px;font-size:13px}
+.rc-input::placeholder{color:#6d7478}
+.rc-input:focus-visible{outline:2px solid #26c6cc;outline-offset:1px}
+.rc-puesta{display:block;padding:9px 11px;border:1px dashed #353a3d;border-left:3px solid #26c6cc;border-radius:6px;
+ background:#1a1d20;color:#7fe3e7;font-size:13px}
+.rc-puesta small{display:block;color:#818a8e;font:10px Consolas,monospace;margin-top:2px}
+.rc-error{margin:14px 0 0;color:#ff6f9e;font-size:13px;line-height:1.45}
+.rc-acciones{display:flex;justify-content:flex-end;gap:12px;margin-top:20px}
+.rc-guardar{min-width:132px;background:#e4f226;color:#141612;border:1px solid #f4ff66;border-radius:4px;
+ font-weight:750;letter-spacing:.02em;padding:9px 16px;cursor:pointer;box-shadow:3px 3px 0 #ff268e}
+.rc-guardar:hover{background:#f2ff4c}
+.rc-guardar:disabled{opacity:.45;cursor:default;box-shadow:none}
+.rc-luego{background:transparent;color:#b8bdbb;border:1px solid #353a3d;border-radius:4px;padding:9px 16px;cursor:pointer}
+.rc-luego:hover{background:#ffffff08;color:#f0eee6}
+@media(max-width:560px){.rc-claves{padding:18px 16px}.rc-kicker{display:none}}
+@media(prefers-reduced-motion:reduce){#ratacode-claves-fondo{backdrop-filter:none}}

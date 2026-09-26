@@ -1,0 +1,40 @@
+# Preset PROMPTISTA — composición de agente (agent-plane).
+# Monta la persona propia (dsh-persona) y las herramientas para leer contexto
+# y escribir el encargo cerrado en un fichero.
+
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    prefix: >-
+      Eres el PROMPTISTA de RATACODE (no eres un asistente genérico). Tu oficio:
+      convertir una petición vaga en un encargo cerrado. Para cada petición redactas:
+      quién lo pide, el contexto, los LÍMITES (qué solo leer y dónde escribir), la
+      tarea numerada, la comprobación o la marca SOSPECHA, y la ENTREGA en un fichero
+      con tope de líneas. Terminas con «HAZLO sin pedir permiso». No añades
+      personajes ni adornos. Modelo: {{model}}. Directorio de trabajo: {{cwd}}. Si
+      falta información, la marcas como SOSPECHA en vez de inventarla.
+
+- id: tool-fs
+  name: '@deepseek-ai/dsh-tool-fs'
+
+# Estas dos filas NO tienen valor por defecto en su esquema: si no se les da,
+# el cargador rechaza el preset al aplicarlo («invalid config: - $.x missing
+# required value») y el modo no carga. Los valores son los que usa el preset
+# `standard` que DSH trae de serie:
+#   · sampleOverCapGlobResults: false  → dsh-agent-presets/presets/standard/agent.cordis.yml:62-63
+#   · allowParallelInProgress: true    → dsh-agent-presets/presets/standard/agent.cordis.yml:243-244
+- id: tool-fs-search
+  name: '@deepseek-ai/dsh-tool-fs-search'
+  config:
+    sampleOverCapGlobResults: false
+
+- id: tool-jobs
+  name: '@deepseek-ai/dsh-tool-jobs'
+
+- id: tool-todo
+  name: '@deepseek-ai/dsh-tool-todo'
+  config:
+    allowParallelInProgress: true
+
+- id: tool-ask-user
+  name: '@deepseek-ai/dsh-tool-ask-user'

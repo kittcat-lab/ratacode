@@ -1,0 +1,94 @@
+# RATACODE · Settings de fábrica.
+# Lo copia `bin/ratacode.js` a `<casa>/settings.yaml` la PRIMERA vez que se
+# estrena una casa; si la casa ya existe, no se toca lo que haya puesto el usuario.
+#
+# 0 claves dentro. El usuario pone las suyas la primera vez y quedan en
+# $DSH_HOME/.credentials.yaml (la web Ajustes > Models las escribe) o bien
+# exportando B_AI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY.
+#
+# Proveedores: B.AI y OpenRouter se declaran aquí (llm-pi-ai).
+# DeepSeek NO se declara a propósito: DSH ya trae su adaptador nativo
+# (@deepseek-ai/dsh-llm-deepseek), que registra la ruta "deepseek-official"
+# contra https://api.deepseek.com y lee DEEPSEEK_API_KEY. Declarar además un
+# "deepseek" en llm-pi-ai.providers no choca por id (el nativo no se llama
+# "deepseek"), pero duplicaría el proveedor en el selector y sustituiría su
+# catálogo real por una lista de modelos escrita a mano. Se usa el nativo.
+
+agent-presets:
+  default: standard
+
+permission:
+  defaultPreset: danger-full-access
+
+agent-default-model:
+  provider: b-ai
+  model: "deepseek-v4.1-flash"
+
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
+
+llm-pi-ai:
+  providers:
+    # ── B.AI ──────────────────────────────────────────────────────────
+    b-ai:
+      displayName: B.AI
+      api: openai-completions
+      baseURL: https://api.b.ai/v1
+      apiKeyEnv: B_AI_API_KEY
+      timeoutMs: 120000
+      models:
+        - id: deepseek-v4.1-flash
+          name: deepseek-v4.1-flash
+          contextWindow: 1000000
+          maxTokens: 32000
+          input:
+            - text
+            - image
+          compat:
+            maxTokensField: max_tokens
+            chatTemplateKwargs: {}
+            chatTemplateArgs: {}
+        - id: hy3
+          name: hy3
+        - id: glm-5.3-flash
+          name: glm-5.3-flash
+        - id: mimo-v2.5
+          name: mimo-v2.5
+        - id: qwen3.8-flash
+          name: qwen3.8-flash
+
+    # ── OpenRouter ────────────────────────────────────────────────────
+    openrouter:
+      displayName: OpenRouter
+      api: openai-completions
+      baseURL: https://openrouter.ai/api/v1
+      apiKeyEnv: OPENROUTER_API_KEY
+      timeoutMs: 120000
+      models:
+        - id: upstage/solar-mini4
+          name: Solar Mini 4
+          contextWindow: 524288
+          maxTokens: 131072
+          input:
+            - text
+        - id: qwen/qwen3.8-flash
+          name: Qwen3.8 Flash
+          contextWindow: 1000000
+          maxTokens: 131072
+          input:
+            - text
+            - image
+        - id: z-ai/glm-5.3-flash
+          name: GLM 5.3 Flash
+          contextWindow: 1310720
+          maxTokens: 131072
+          input:
+            - text
+            - image
+        - id: deepseek/deepseek-v4-flash-vision-exp
+          name: DeepSeek V4 Flash Vision
+          contextWindow: 1048576
+          maxTokens: 131072
+          input:
+            - text
+            - image
