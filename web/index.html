@@ -121,12 +121,12 @@ footer .marca svg{width:22px;height:22px}
 
   <div class="card">
     <h2 style="margin-top:0">Instalación <small>· un comando, Windows + Node 24</small></h2>
-    <div class="codigo"><code>npm i -g ratacode</code><span class="ficha">y luego: <code>ratacode</code></span></div>
-    <p style="margin:10px 0 0">Mientras el paquete no esté en npm, desde el repositorio:</p>
-    <div class="codigo"><code>npm i -g github:kittcat-lab/ratacode</code><span class="ficha">y luego: <code>ratacode</code></span></div>
-    <p class="ficha" style="margin:8px 0 0">Si npm se atasca con esa (resuelve GitHub por git), el tarball del
-    repositorio: <code>git clone https://github.com/kittcat-lab/ratacode</code> · <code>cd ratacode &amp;&amp; npm pack</code> ·
-    <code>npm i -g ./ratacode-0.1.0.tgz</code>. El botón de aquí abajo lo explica entero.</p>
+    <div class="codigo"><code>npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.1.0/ratacode-0.1.0.tgz</code><span class="ficha">y luego: <code>ratacode</code></span></div>
+    <p style="margin:10px 0 0">El <code>.tgz</code> de la release de GitHub: sin git y sin cuenta de npm.
+    Cuando el paquete esté en npm, bastará con <code>npm i -g ratacode</code>.</p>
+    <p class="ficha" style="margin:8px 0 0">Último recurso, si esa descarga falla:
+    <code>git clone https://github.com/kittcat-lab/ratacode &amp;&amp; cd ratacode &amp;&amp; npm pack &amp;&amp; npm i -g ./ratacode-0.1.0.tgz</code>.
+    El botón de aquí abajo lo explica entero.</p>
     <p style="margin:14px 0 10px">¿Quieres que lo instale tu agente? Pégale esto:</p>
     <button id="copiar" type="button">Copiar prompt de instalación</button>
     <p class="aviso-copiado" id="aviso" role="status"></p>
@@ -180,21 +180,18 @@ footer .marca svg{width:22px;height:22px}
 
 <script>
 // El prompt que se copia: instalar, arrancar y leer el apreton. En español, sin palabrería.
-// El paso 2 vale HOY: mientras el paquete no esté en npm, se instala desde el repositorio.
-// Medido el 26-sep-2026: la vía de GitHub por git (npm i -g github:…) puede atascarse en
-// Windows con árboles grandes, así que el prompt trae detrás la vía COMPROBADA (el tarball
-// del propio repositorio), y el día que el paquete esté publicado la primera línea vale.
+// El paso 2 vale HOY: mientras el paquete no esté en npm, se instala desde la release de GitHub
+// (el .tgz que cuelga de ella: sin git y sin cuenta de npm). El día que el paquete esté publicado,
+// la línea de npm vale; el rodeo de git clone + npm pack queda como último recurso en una línea.
 var PROMPT = [
 'Instala RATACODE (la terminal de trabajo bruto) y déjala corriendo. Sin preguntar, paso a paso:',
 '',
 '1. Comprueba Node 24: node -v. Si falta, PARA y dímelo (no la instales por tu cuenta).',
-'2. Instálala. Prueba en este orden y quédate con la primera que funcione:',
-'     npm i -g ratacode                              (si ya está publicada en npm)',
-'     npm i -g github:kittcat-lab/ratacode           (desde el repositorio)',
-'   y si esa falla (npm resuelve GitHub por git y en Windows se atasca con árboles grandes),',
-'   la vía comprobada, el tarball del propio repositorio:',
-'     git clone https://github.com/kittcat-lab/ratacode',
-'     cd ratacode && npm pack && npm i -g ./ratacode-0.1.0.tgz',
+'2. Instálala desde la release de GitHub (sin git y sin cuenta de npm):',
+'     npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.1.0/ratacode-0.1.0.tgz',
+'   Cuando el paquete esté en npm bastará con: npm i -g ratacode',
+'   Último recurso, si esa descarga falla:',
+'     git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.1.0.tgz',
 '3. ratacode   ← déjalo corriendo: imprime una URL con su token y la guarda en %USERPROFILE%\\.ratacode\\url.txt',
 '4. Abre esa URL y comprueba que carga la cara de RATACODE.',
 '5. Lee el cuaderno de manejo: apreton/README.md del repo github.com/kittcat-lab/ratacode, y sigue el que toque (navegador, headless o MCP).',

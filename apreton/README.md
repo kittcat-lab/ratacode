@@ -7,6 +7,17 @@
 | Cualquier chat sin MCP ni navegador | **headless.md** | `ratacode headless "encargo"` hace el trabajo sin pantalla y deja el resultado en un fichero. |
 | Cualquier agente que no sea de los anteriores | **mcp.md** (genérico) | Si tu agente habla MCP por stdio, usa la configuración genérica de mcp.md. |
 
+## Instalación (un comando)
+Mientras el paquete no esté en npm, desde la release de GitHub (sin git ni cuenta de npm):
+
+```bash
+npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.1.0/ratacode-0.1.0.tgz
+```
+
+Cuando esté publicado en npm, bastará con `npm i -g ratacode`. Último recurso, si la descarga falla:
+`git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.1.0.tgz`.
+Después, `ratacode` (necesita Windows y Node 24).
+
 ## Dónde están los prompts
 - **navegador.md** — para agentes con navegador (Claude Code, Codex, OpenClaw, Rowboat…)
 - **headless.md** — para `ratacode headless "encargo"`

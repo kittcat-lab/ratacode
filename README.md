@@ -14,23 +14,20 @@ vuelve a tu agente o a tu chat.
 
 ## Instalación (un comando)
 
+Mientras el paquete no esté publicado en npm, se instala desde la release de GitHub
+(el `.tgz` que cuelga de ella; no hace falta ni git ni cuenta de npm):
+
+```bash
+npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.1.0/ratacode-0.1.0.tgz
+```
+
+Cuando esté en npm, bastará con:
+
 ```bash
 npm i -g ratacode
 ```
 
-Mientras el paquete no esté publicado en npm, se instala desde el repositorio:
-
-```bash
-npm i -g github:kittcat-lab/ratacode
-```
-
-Si esa falla (npm resuelve GitHub por git y en Windows puede atascarse con árboles
-grandes: medido el 26-sep-2026), la vía comprobada es el tarball del propio repositorio:
-
-```bash
-git clone https://github.com/kittcat-lab/ratacode
-cd ratacode && npm pack && npm i -g ./ratacode-0.1.0.tgz
-```
+Último recurso, si la descarga falla: `git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.1.0.tgz`.
 
 Y para abrirla (lo mismo en los dos casos):
 
@@ -99,9 +96,9 @@ quien hace el trabajo de verdad. Gracias por dejarla engancharse sin tocar nada.
 (B.AI, OpenRouter, DeepSeek) and get the result back in your agent or chat.
 
 - **Requires:** Windows and Node 24.
-- **Install (one command):** `npm i -g ratacode` — or, while it is not on npm yet,
-  `npm i -g github:kittcat-lab/ratacode` (fallback: clone the repo, `npm pack` and
-  `npm i -g ./ratacode-0.1.0.tgz`) — then run `ratacode`.
+- **Install (one command):** `npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.1.0/ratacode-0.1.0.tgz`
+  — the release tarball, no git and no npm account needed; once it is on npm, `npm i -g ratacode`
+  (last resort: `git clone` the repo, `npm pack` and `npm i -g ./ratacode-0.1.0.tgz`) — then run `ratacode`.
 - **Bring your own keys:** `B_AI_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY` — set
   them in the web UI (Settings → Models) or as environment variables; they are never bundled.
 - **Three ways to use it:** browser (`ratacode`), headless (`ratacode headless "task"`),
