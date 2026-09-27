@@ -156,7 +156,7 @@ function uso() {
     '  también por Streamable HTTP. Todo lo que va detrás de «mcp» es suyo.',
     '',
     '    ratacode mcp                     MCP por stdio',
-    '    ratacode mcp --http --port 3121  MCP por stdio Y por HTTP',
+    '    ratacode mcp --http --acepto-lectura-total   MCP por stdio Y por HTTP (puerto 3778; ver mcp/README.md)',
     '    ratacode mcp --status            enseña el estado de la casa y sale',
     '    ratacode mcp --help              la ayuda del MCP',
     '',
@@ -524,6 +524,52 @@ function matarArbol(hijo) {
   } catch { /* el hijo ya se fue */ }
 }
 
+/**
+ * ¿Hay alguien escuchando ya en ese puerto? Se pregunta ANTES de arrancar el
+ * motor: si está ocupado, el fallo del motor son 45 líneas de traza en inglés
+ * con rutas internas (`EADDRINUSE`), y el usuario nuevo se come todas.
+ * @param {number} puerto - puerto a probar.
+ * @param {string} host - a quién preguntar (loopback).
+ * @returns {Promise<boolean>}
+ */
+function puertoOcupado(puerto, host = '127.0.0.1') {
+  return new Promise((listo) => {
+    const s = connect({ host, port: puerto });
+    s.setTimeout(1000);
+    const terminar = (ocupado) => { s.destroy(); listo(ocupado); };
+    s.once('connect', () => terminar(true));
+    s.once('error', () => terminar(false));
+    s.once('timeout', () => terminar(false));
+  });
+}
+
+/**
+ * ¿Hay credencial para este proveedor? Se mira el ENTORNO y, si el fichero de
+ * claves de la casa existe, se da por buena (la resuelve el motor). Nunca se lee
+ * el valor de nada.
+ * @param {string} casa - la casa de RATACODE.
+ * @param {object} ajustes - el settings.yaml ya leído.
+ * @param {string} proveedor - la ruta del proveedor.
+ * @returns {{nombre: string, esta: boolean, enLaCasa: boolean}|null} null si la ruta no declara credencial.
+ */
+function credencialDe(casa, ajustes, proveedor) {
+  const enLaCasa = existsSync(join(casa, '.credentials.yaml'));
+  if (proveedor === 'deepseek-official') {
+    const nombre = ajustes?.['llm-deepseek']?.apiKeyEnv ?? 'DEEPSEEK_API_KEY';
+    return { nombre, esta: hayVariable(nombre), enLaCasa };
+  }
+  const perfil = ajustes?.['llm-pi-ai']?.providers?.[proveedor];
+  const nombre = perfil && typeof perfil === 'object' ? perfil.apiKeyEnv : undefined;
+  if (typeof nombre !== 'string' || nombre.trim() === '') return null;
+  return { nombre, esta: hayVariable(nombre), enLaCasa };
+}
+
+/** ¿Está esa variable en el entorno, con algo dentro? (Nunca se mira QUÉ.) */
+function hayVariable(nombre) {
+  const valor = process.env[nombre];
+  return typeof valor === 'string' && valor.trim() !== '';
+}
+
 // ── el encargo sin pantalla ─────────────────────────────────────────────────
 function correrHeadless({ motor, casa, carpeta, perfilHeadless, encargo, modelo }) {
   const parches = [];
@@ -642,9 +688,6 @@ function correrPanel({ motor, casa, carpeta, ordenes }) {
   const args = [motor.bin, '--profile', 'web', '--patch', parche, '--port', String(ordenes.puerto)];
   if (!ordenes.abrir) args.push('--no-open');
   const rutaUrl = join(casa, 'url.txt');
-  // Al empezar, FUERA la URL de la vez anterior: si esta instancia no llega a
-  // escuchar, nadie se lleva una URL muerta (parecía viva y no lo estaba).
-  try { rmSync(rutaUrl, { force: true }); } catch { /* no había nada que borrar */ }
   const empezo = Date.now();
   anotar(casa, 'RATACODE arranca · puerto ' + ordenes.puerto + ' · carpeta ' + carpeta);
   const hijo = spawn(process.execPath, args, {
@@ -668,6 +711,11 @@ function correrPanel({ motor, casa, carpeta, ordenes }) {
     }
     try {
       mkdirSync(casa, { recursive: true });
+      // La URL de la vez anterior se quita AQUÍ, no al arrancar: si esta
+      // instancia no llega a escuchar, la del panel que ya estaba vivo no se
+      // toca (antes, un segundo `ratacode` sobre la misma casa dejaba al primero
+      // sin url.txt antes de saber siquiera si podría escuchar).
+      try { rmSync(rutaUrl, { force: true }); } catch { /* no había nada que borrar */ }
       writeFileSync(rutaUrl, url + '\n');
     } catch (e) {
       process.stderr.write('RATACODE · no pude escribir ' + rutaUrl + ': ' + e.message + '\n');
@@ -755,7 +803,7 @@ function correrMcp({ casa, argv }) {
   process.on('exit', fuera);
 }
 
-function main() {
+async function main() {
   exigirNode();
   const ordenes = leerOrdenes(process.argv.slice(2));
   if (ordenes.ayuda) {
@@ -815,15 +863,54 @@ function main() {
     : 'los que ya tuviera la casa (no se toca settings.yaml)') + '\n');
 
   if (ordenes.modo === 'headless') {
+    // Antes de arrancar el motor, mira si hay con qué: si el modelo por defecto
+    // apunta a un proveedor sin clave por ningún lado, el motor falla en inglés
+    // y con tripas (`MISSING_CREDENTIAL: llm-pi-ai: no credential for provider
+    // route "b-ai"…`). Mejor dos líneas en español y no arrancar nada.
+    const ajustesCasa = leerAjustes(casa) ?? {};
+    const porDefecto = ajustesCasa['agent-default-model'] ?? {};
+    const eleccion = ordenes.modelo === null
+      ? { proveedor: porDefecto.provider, modelo: porDefecto.model }
+      : resolverModelo(casa, ordenes.modelo, porDefecto);
+    if (typeof eleccion.proveedor === 'string' && eleccion.proveedor !== '') {
+      const credencial = credencialDe(casa, ajustesCasa, eleccion.proveedor);
+      if (credencial !== null && !credencial.esta && !credencial.enLaCasa) {
+        process.stderr.write([
+          '',
+          'RATACODE · PARA.',
+          '',
+          '  El modelo «' + (eleccion.modelo ?? '(sin nombre)') + '» va por el proveedor «' + eleccion.proveedor
+            + '», y no encuentro su clave (' + credencial.nombre + ').',
+          '  Ponla en la web (Ajustes → Models: queda en ' + join(casa, '.credentials.yaml')
+            + ') o expórtala: ' + credencial.nombre + '=... (y vuelve a lanzarlo).',
+          '',
+        ].join('\n'));
+        process.exitCode = 1;
+        return;
+      }
+    }
     correrHeadless({ motor, casa, carpeta, perfilHeadless, encargo: ordenes.encargo, modelo: ordenes.modelo });
+    return;
+  }
+  // El puerto, ANTES de arrancar el motor: si está ocupado, el fallo crudo del
+  // motor (EADDRINUSE en inglés, 45 líneas) no le sirve a nadie.
+  if (ordenes.puerto !== 0 && await puertoOcupado(ordenes.puerto)) {
+    process.stderr.write([
+      '',
+      'RATACODE · PARA.',
+      '',
+      '  El puerto ' + ordenes.puerto + ' ya está ocupado (¿tienes otro RATACODE abierto?).',
+      '  Prueba con otro:  ratacode --port ' + (ordenes.puerto === 3778 ? 3779 : 3778),
+      '  O mira quién lo tiene:  Get-NetTCPConnection -LocalPort ' + ordenes.puerto,
+      '',
+    ].join('\n'));
+    process.exitCode = 1;
     return;
   }
   correrPanel({ motor, casa, carpeta, ordenes });
 }
 
-try {
-  main();
-} catch (e) {
+main().catch((e) => {
   process.stderr.write('RATACODE · ' + (e && e.message ? e.message : String(e)) + '\n');
   process.exitCode = 1;
-}
+});
