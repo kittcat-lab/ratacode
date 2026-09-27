@@ -3,7 +3,7 @@
 | Tu app | Qué usar | Por qué |
 |---|---|---|
 | Claude Code, Codex, OpenClaw, Rowboat | **navegador.md** o **mcp.md** | Si tu app tiene navegador, usa el panel web (navegador.md). Si tiene MCP, usa el servidor MCP (mcp.md). Las dos formas funcionan. |
-| ChatGPT web (el chat) | **mcp.md** con túnel | ChatGPT web habla MCP por HTTP. Necesitas el túnel de Cloudflare (paso 4c del plan). La clave va en la URL del túnel. |
+| ChatGPT web (el chat) | **mcp.md** con túnel | ChatGPT web habla MCP por HTTP. Necesitas el túnel de Cloudflare: `node mcp/tunel.mjs --home <casa> --acepto-lectura-total` (lo cuenta mcp.md). La clave va en la URL. |
 | Cualquier chat sin MCP ni navegador | **headless.md** | `ratacode headless "encargo"` hace el trabajo sin pantalla y deja el resultado en un fichero. |
 | Cualquier agente que no sea de los anteriores | **mcp.md** (genérico) | Si tu agente habla MCP por stdio, usa la configuración genérica de mcp.md. |
 

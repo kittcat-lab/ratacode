@@ -1,7 +1,6 @@
 /* ============================================================
    RATACODE · «vida» (13-sep-2026 · chispa liviana)
-   La nube de chispas, traída de la web de Push & Lift
-   (`WEB_PL\publica\js\vida.js`, de su autor — gracias).
+   La nube de chispas: un efecto propio de RATACODE (canvas fino, sin dependencias).
    Va DETRÁS de las respuestas, nunca dentro de la caja de escribir: las chispas
    forman el emblema de RATACODE, se apartan cuando pasa el ratón y vuelven a su
    sitio con un muelle. No recoge clics: no estorba al escribir.

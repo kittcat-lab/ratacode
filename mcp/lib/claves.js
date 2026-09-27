@@ -1,15 +1,21 @@
 /**
- * claves — ¿está la credencial en el entorno? Sólo sí o no.
+ * claves — ¿está la credencial? Sólo sí o no, y sin leer nunca el valor.
  *
  * ── REGLA DE LA CASA (24-sep, por indicación del tutor) ─────────────────────
  * Este servidor NO lee ficheros de credenciales. Ni `.credentials.yaml`, ni
- * `.env`, ni bóvedas, ni nada por el estilo. La ÚNICA fuente que mira es el
- * entorno del proceso, que es exactamente lo que el cliente MCP le ha dado al
- * arrancarlo. Si falta una clave, se para y se dice con todas las letras; no se
- * va a buscar por ahí ni se rodea el problema.
+ * `.env`, ni bóvedas, ni nada por el estilo. Las fuentes que mira son dos, y
+ * ninguna abre nada:
  *
- * Y nunca se lee el VALOR para nada: sólo se comprueba si está.
+ *   1 · el ENTORNO del proceso (lo que el cliente MCP le ha dado al arrancarlo);
+ *   2 · y si el fichero de credenciales de la casa EXISTE —eso, y nada más: ni
+ *      se abre ni se parsea—, se deja que sea el MOTOR (que es su dueño) quien
+ *      resuelva la clave de ahí. Así valen las claves guardadas con
+ *      Ajustes → Models sin que este servidor toque un secreto.
+ *
+ * Si no hay ni una cosa ni la otra, se para y se dice con todas las letras.
  */
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * ¿Está esta credencial en el entorno del servidor?
@@ -20,6 +26,21 @@ export function estaEnElEntorno(nombre) {
   if (typeof nombre !== 'string' || nombre.trim() === '') return false;
   const valor = process.env[nombre];
   return typeof valor === 'string' && valor.trim() !== '';
+}
+
+/**
+ * ¿Tiene la casa un fichero de credenciales? SÓLO se mira si existe: este
+ * servidor no lo abre, no lo parsea y no lee ningún valor. Quien resuelve la
+ * clave de ahí es el motor, cuando arranca la tarea.
+ * @param {string} casa - la casa de RATACODE.
+ * @returns {boolean}
+ */
+export function hayCredencialesEnLaCasa(casa) {
+  try {
+    return existsSync(join(casa, '.credentials.yaml'));
+  } catch {
+    return false;
+  }
 }
 
 /**

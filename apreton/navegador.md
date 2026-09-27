@@ -34,7 +34,7 @@ HAZLO sin pedir permiso.
 - Si el modelo contesta, la respuesta sale en el panel.
 
 ## Cómo vigilar sin capturas
-No mires la pantalla. Lee los ficheros de sesión directamente: estado, herramientas usadas, permisos pedidos, último mensaje. Un captura cada vez gasta cuota; un fichero no.
+No mires la pantalla. Lee los ficheros de sesión directamente: estado, herramientas usadas, permisos pedidos, último mensaje. Una captura cada vez gasta cuota; un fichero no.
 
 ## Trampas que ya costaron (tropiezos 2, 4, 6, 7, 11, 13, 16, 17, 18)
 

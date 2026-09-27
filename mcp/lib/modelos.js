@@ -11,7 +11,7 @@
  * precios. Si un dato no está, se devuelve `null` y se dice.
  */
 import { ajustesMcp, leerAjustes } from './casa.js';
-import { estaEnElEntorno, faltaEnElEntorno } from './claves.js';
+import { estaEnElEntorno, faltaEnElEntorno, hayCredencialesEnLaCasa } from './claves.js';
 
 /** El id de la ruta nativa de DeepSeek en el core (medido en `dsh-sdk-jsonrpc-server/lib/index.js:118`). */
 export const PROVEEDOR_NATIVO = 'deepseek-official';
@@ -41,6 +41,7 @@ function texto(valor) {
 export function catalogo(casa) {
   const { documento, error } = leerAjustes(casa);
   const ajustes = ajustesMcp(casa);
+  const enLaCasa = hayCredencialesEnLaCasa(casa);
   const avisos = [];
   if (error !== null) avisos.push(error);
   avisos.push(...ajustes.avisos);
@@ -62,7 +63,8 @@ export function catalogo(casa) {
       base_url: texto(perfil.baseURL),
       credencial: apiKeyEnv,
       tiene_clave: esta === true,
-      falta: esta === false ? faltaEnElEntorno(apiKeyEnv) : null,
+      en_la_casa: apiKeyEnv === null ? false : enLaCasa,
+      falta: esta === false && !enLaCasa ? faltaEnElEntorno(apiKeyEnv) : null,
       declarado_por_el_usuario: true,
     });
     const lista = Array.isArray(perfil.models) ? perfil.models : [];
@@ -73,7 +75,7 @@ export function catalogo(casa) {
         avisos.push('el proveedor «' + id + '» tiene un modelo sin id; lo salto');
         continue;
       }
-      modelos.push(fichaModelo({ casa, ajustes, provider: id, modelo, modelId, tieneClave: esta === true }));
+      modelos.push(fichaModelo({ casa, ajustes, provider: id, modelo, modelId, tieneClave: esta === true, enLaCasa }));
     }
   }
 
@@ -88,7 +90,8 @@ export function catalogo(casa) {
     base_url: texto(nativo.baseURL),
     credencial: claveNativa,
     tiene_clave: estaNativa,
-    falta: estaNativa ? null : faltaEnElEntorno(claveNativa),
+    en_la_casa: enLaCasa,
+    falta: estaNativa || enLaCasa ? null : faltaEnElEntorno(claveNativa),
     declarado_por_el_usuario: Object.keys(nativo).length > 0,
   });
   const modelosNativos = Array.isArray(nativo.models) ? nativo.models : [];
@@ -96,7 +99,7 @@ export function catalogo(casa) {
     const modelo = mapa(modeloBruto);
     const modelId = texto(modelo.id);
     if (modelId === null) continue;
-    modelos.push(fichaModelo({ casa, ajustes, provider: PROVEEDOR_NATIVO, modelo, modelId, tieneClave: estaNativa }));
+    modelos.push(fichaModelo({ casa, ajustes, provider: PROVEEDOR_NATIVO, modelo, modelId, tieneClave: estaNativa, enLaCasa }));
   }
 
   // ── el modelo por defecto de la casa ─────────────────────────────────────
@@ -120,7 +123,7 @@ export function catalogo(casa) {
 }
 
 /** Una ficha de modelo, con lo que se sabe y con null en lo que no. */
-function fichaModelo({ casa, ajustes, provider, modelo, modelId, tieneClave }) {
+function fichaModelo({ casa, ajustes, provider, modelo, modelId, tieneClave, enLaCasa = false }) {
   const capacidades = Array.isArray(modelo.input) ? modelo.input.filter((m) => typeof m === 'string') : null;
   return {
     name: texto(modelo.name) ?? modelId,
@@ -130,7 +133,9 @@ function fichaModelo({ casa, ajustes, provider, modelo, modelId, tieneClave }) {
     max_tokens: numero(modelo.maxTokens),
     capacidades,
     coste: precioDe(ajustes.precios, provider, modelId),
-    estado: tieneClave ? 'disponible' : 'sin_clave',
+    // `disponible` = la clave está en el entorno; si no, el motor puede sacarla
+    // de las guardadas en la casa (Ajustes > Models); si tampoco, sin clave.
+    estado: tieneClave ? 'disponible' : (enLaCasa ? 'disponible_si_esta_guardada_en_la_casa' : 'sin_clave'),
     es_por_defecto: false,
     descripcion: texto(modelo.description),
   };
@@ -154,25 +159,28 @@ function precioDe(precios, provider, modelId) {
 }
 
 /**
- * La credencial que necesita una ruta, y si está en el entorno.
- * Sirve para PARAR ANTES de arrancar nada cuando falta la clave, en vez de
- * dejar que el motor falle nueve segundos después con un error más oscuro.
+ * La credencial que necesita una ruta, y si está disponible.
+ * Sirve para PARAR ANTES de arrancar nada cuando no hay clave por ningún lado,
+ * en vez de dejar que el motor falle nueve segundos después con un error más
+ * oscuro. Y sirve para lo contrario: si la casa tiene credenciales guardadas
+ * (Ajustes > Models), NO se para — el motor las resuelve él.
  * @param {string} casa - la casa de RATACODE.
  * @param {string} provider - la ruta del proveedor.
- * @returns {{nombre: string, esta: boolean}|null} null si la ruta no declara credencial (entonces no se bloquea: no podemos saberlo).
+ * @returns {{nombre: string, esta: boolean, enLaCasa: boolean}|null} null si la ruta no declara credencial (entonces no se bloquea: no podemos saberlo).
  */
 export function credencialDeProveedor(casa, provider) {
   const { documento } = leerAjustes(casa);
+  const enLaCasa = hayCredencialesEnLaCasa(casa);
   if (provider === PROVEEDOR_NATIVO) {
     const nativo = mapa(documento['llm-deepseek']);
     const nombre = texto(nativo.apiKeyEnv) ?? CLAVE_NATIVA_POR_DEFECTO;
-    return { nombre, esta: estaEnElEntorno(nombre) };
+    return { nombre, esta: estaEnElEntorno(nombre), enLaCasa };
   }
   const perfil = mapa(mapa(documento['llm-pi-ai']).providers)[provider];
   if (perfil === null || typeof perfil !== 'object') return null;
   const nombre = texto(mapa(perfil).apiKeyEnv);
   if (nombre === null) return null;
-  return { nombre, esta: estaEnElEntorno(nombre) };
+  return { nombre, esta: estaEnElEntorno(nombre), enLaCasa };
 }
 
 /**

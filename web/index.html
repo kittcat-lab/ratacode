@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>RATACODE · manos baratas para tu agente o tu chat</title>
 <meta name="description" content="RATACODE: la terminal de trabajo bruto. DSH con la cara de RATACODE: le mandas el trabajo pesado a modelos baratos (B.AI, OpenRouter, DeepSeek) y el resultado vuelve a tu agente o a tu chat.">
@@ -118,6 +119,8 @@ footer .marca svg{width:22px;height:22px}
   <p class="frase">Le pasas el <strong>trabajo pesado</strong> a modelos baratos
   (B.AI, OpenRouter, DeepSeek) y el resultado vuelve a tu agente o a tu chat.
   Es <strong>DSH</strong> con la cara de RATACODE: ni el motor ni el frontend se tocan.</p>
+  <p class="ficha" style="margin:-12px 0 18px"><strong>DSH = DeepSeek Harness</strong>, el motor
+  de terminal de DeepSeek (MIT). RATACODE le pone la piel y una casa propia.</p>
 
   <div class="card">
     <h2 style="margin-top:0">Instalación <small>· un comando, Windows + Node 24</small></h2>
@@ -148,7 +151,8 @@ footer .marca svg{width:22px;height:22px}
       <h3><span>03</span> MCP</h3>
       <p><code>ratacode mcp</code>: ChatGPT web, Claude Code, Codex, Rowboat u OpenClaw
       le mandan tareas (<code>list_models</code> → <code>run_task</code> →
-      <code>get_task_result</code>).</p>
+      <code>get_task_result</code>). Para ChatGPT web, el túnel:
+      <code>node mcp/tunel.mjs --acepto-lectura-total</code>.</p>
     </div>
   </div>
 
@@ -156,7 +160,9 @@ footer .marca svg{width:22px;height:22px}
   <div class="claves">
     <code>B_AI_API_KEY</code><code>OPENROUTER_API_KEY</code><code>DEEPSEEK_API_KEY</code>
   </div>
-  <p class="frase" style="font-size:15px">Se ponen la primera vez (Ajustes → Models) o como variables de entorno.</p>
+  <p class="frase" style="font-size:15px">Se ponen la primera vez (Ajustes → Models) o como variables de entorno.
+  El MCP mira el entorno de tu cliente y, si no están ahí, deja que el motor use las que hayas
+  guardado aquí: no abre el fichero de claves él mismo.</p>
 
   <h2>Seguridad</h2>
   <ul class="seguridad">
@@ -173,6 +179,10 @@ footer .marca svg{width:22px;height:22px}
     <li><b>Las claves no viajan</b> en el paquete ni se devuelven por MCP: el servidor las usa y hace la
       llamada. Pero están en un fichero de tu PC que una tarea SÍ puede leer (punto anterior): no le
       pidas tareas que vayan a buscar claves.</li>
+    <li><b>Se borra todo de una vez:</b> <code>npm uninstall -g ratacode</code> y luego la carpeta
+      <code>%USERPROFILE%\.ratacode</code> (PowerShell: <code>Remove-Item -Recurse -Force "$env:USERPROFILE\.ratacode"</code>).
+      Ahí dentro van tus claves (<code>.credentials.yaml</code>), la clave del MCP
+      (<code>mcp\http-secret.txt</code>) y la URL con token (<code>url.txt</code>).</li>
   </ul>
 
   <footer>
@@ -201,7 +211,9 @@ var PROMPT = [
 '   Cuando el paquete esté en npm bastará con: npm i -g ratacode',
 '   Último recurso, si esa descarga falla:',
 '     git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.1.0.tgz',
-'3. ratacode   ← déjalo corriendo: imprime una URL con su token y la guarda en %USERPROFILE%\\.ratacode\\url.txt',
+'3. Arranca `ratacode` EN SEGUNDO PLANO (run_in_background en Claude Code/Codex, o `Start-Process`/`&`):',
+'   no termina nunca, así que en primer plano te bloquea el turno. Imprime una URL con su token y la',
+'   guarda en %USERPROFILE%\\.ratacode\\url.txt',
 '4. Abre esa URL y comprueba que carga la cara de RATACODE.',
 '5. Lee el cuaderno de manejo: apreton/README.md del repo github.com/kittcat-lab/ratacode, y sigue el que toque (navegador, headless o MCP).',
 '',

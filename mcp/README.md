@@ -23,11 +23,15 @@ que es su entrada oficial para conductores externos.
 Es un **subcomando del binario principal**, así que no hay que buscar rutas:
 
 ```sh
-ratacode mcp                        # habla MCP por stdio (lo que espera un cliente)
-ratacode mcp --status               # estado y sale, sin arrancar el motor
-ratacode mcp --http --port 3121     # además, Streamable HTTP en 127.0.0.1:<puerto>/mcp/<clave>
-ratacode mcp --help                 # la ayuda del MCP
+ratacode mcp                              # habla MCP por stdio (lo que espera un cliente)
+ratacode mcp --status                     # estado y sale, sin arrancar el motor
+ratacode mcp --http --acepto-lectura-total   # además, Streamable HTTP en 127.0.0.1:<puerto>/mcp/<clave>
+ratacode mcp --help                       # la ayuda del MCP
 ```
+
+El puerto por defecto del HTTP es **3778** (se cambia con `--port`). `--http` exige
+`--acepto-lectura-total` (abajo se explica por qué) y `mcp.workspaces` declarado. Con
+`--nueva-clave` se estrena una clave nueva en vez de reutilizar la guardada.
 
 Si `ratacode` no está en el PATH (o trabajas desde el repositorio), vale la ruta
 directa: `node <ruta>\bin\ratacode.js mcp`.
@@ -70,11 +74,33 @@ están en [`..\apreton\mcp.md`](../apreton/mcp.md).
 >
 > En ningún caso la clave sale por MCP: el servidor la usa, no la cuenta.
 
+## ChatGPT web: el túnel (`mcp/tunel.mjs`)
+
+ChatGPT web (y cualquier app que hable MCP por URL) necesita HTTP. El túnel es **sólo
+transporte**: expone el MCP local con Cloudflare mientras corre y no cambia nada del servidor.
+
+```sh
+ratacode mcp --http --acepto-lectura-total                 # el MCP por HTTP (local)
+node mcp/tunel.mjs --home <casa> --acepto-lectura-total     # el túnel, en otra ventana
+```
+
+`tunel.mjs` imprime la **URL pública completa** (dominio + `/mcp/<clave>`) para pegar en el
+cliente. Al abrirlo estrena clave (`--misma-clave` para reutilizar la que había); el servidor
+**adopta la clave nueva sin reiniciar** (relee `<casa>\mcp\http-secret.txt` cada dos segundos) y
+reescribe la URL en `<casa>\mcp\http-url.txt`. A cloudflared se le pasa sólo el origen: la clave
+no viaja en los argumentos de ningún proceso. Si el túnel nombrado `mcp.mod-rat.com` existe en tu
+Cloudflare, lo usa con hostname fijo mediante un fichero de configuración
+(`<casa>\mcp\cloudflared.yml`); si no, un quick tunnel con URL efímera. Ctrl+C lo cierra.
+
+Y **sí, `--acepto-lectura-total` es obligatorio** aquí y en `--http`: mientras el túnel esté
+abierto, quien tenga esa URL puede pedir una tarea que lea cualquier fichero que pueda leer tu
+usuario (más abajo, «La LECTURA no se puede cerrar»).
+
 ## Las herramientas
 
 | Herramienta | Para qué |
 |---|---|
-| `list_providers` | Proveedores configurados, si tienen credencial y **de dónde sale** (entorno o guardada). Nunca la clave. |
+| `list_providers` | Proveedores configurados, si tienen credencial y **de dónde sale** (el entorno del cliente, o la casa si la guardaste con Ajustes → Models). Nunca la clave. |
 | `list_models` | Modelos con proveedor, id, contexto, capacidades, coste declarado y estado. Se llama **antes** de `run_task`. |
 | `run_task` | Lanza el encargo. Sin `esperar_segundos`, devuelve `task_id` al momento y el trabajo sigue en segundo plano. Con `esperar_segundos` (1-600), la llamada **espera y devuelve el resultado completo** en esa misma respuesta. |
 | `get_task_status` | `queued` · `running` · `completed` · `failed` · `cancelled`. |
@@ -126,16 +152,23 @@ agente deciden el modelo; esta capa no elige por nadie.
   al agente cliente. El servidor las usa y hace la llamada. Además, el propio
   DSH lava el entorno de los shells de sus agentes
   (`dsh-subprocess`: `/KEY|PASSWORD|SECRET|TOKEN/i`), así que la tarea
-  delegada tampoco las ve desde dentro.
+  delegada tampoco las ve desde dentro. **De dónde salen:** del entorno del
+  cliente MCP, y si no están ahí, de la casa —las que guardaste con
+  Ajustes → Models—; de esas se encarga el motor, que es quien sabe leerlas.
+  Este servidor no abre el fichero de claves ni para comprobar que existe.
 
 ## Ajustes (en `<casa>\settings.yaml`)
 
 ```yaml
 mcp:
-  workspaces:
+  workspaces:                     # obligatorio en modo HTTP (--http/túnel)
     - C:\Users\tu-usuario\Projects\mi-app
   workspace_por_defecto: C:\Users\tu-usuario\Projects\mi-app
   permitir_peligroso: false
+  timeout_por_defecto_ms: 1800000   # 30 min: lo que dura una tarea si no dices otra cosa
+  timeout_maximo_ms: 3600000        # 1 h: techo, aunque el cliente pida más
+  tareas_a_la_vez: 3                # cuántas pueden estar en marcha a la vez
+  prompt_max_caracteres: 100000     # tope del encargo
   precios:                        # opcional: el core no trae precios de texto
     b-ai:
       deepseek-v4.1-flash:
@@ -154,11 +187,18 @@ si no está, devuelve `null` y lo dice.
   estado.json       estado del servidor (para el panel y para --status)
   actividad.jsonl   una línea por tarea: hora, cliente, modelo, proveedor,
                     tarea (recortada), duración, tokens, coste, estado
+  marcas.json       las marcas del tope de tareas por hora (sobreviven al reinicio)
+  http-secret.txt   la clave del MCP por HTTP (sólo dueño)
+  http-url.txt      la URL completa con la clave (sólo dueño)
+  cloudflared.yml   la config del túnel nombrado, si se usa (sólo dueño)
   tareas\<id>.json  el registro completo de cada tarea
   tmp\              parches de política de una tarea (se borran al terminar)
 ```
 
 ## Las pruebas
+
+Estas pruebas viven en el **repositorio** (`mcp/prueba/` viaja excluido del `.tgz`,
+así que en una instalación desde el paquete no las encontrarás).
 
 ```sh
 # el camino entero: list_models → run_task → get_task_result, con PONG
@@ -193,9 +233,12 @@ y que `cancel_task` deja la tarea en `cancelled` de verdad.
 
 ## Lo que falta (a propósito)
 
-- **Fase 2:** daemon HTTP en `127.0.0.1` (para clientes que no hablan stdio),
-  arranque/parada desde el lanzador con `MCP: ON/OFF`, panel en Ajustes
-  (puerto, clientes, última actividad), sección **Connections** y el apretón de
-  manos que explique el MCP.
-- **Fase 3:** túnel seguro para ChatGPT web. El túnel es **sólo transporte**: el
-  servidor MCP funciona sin él.
+- **Del MCP:** nada de transporte. El stdio y el Streamable HTTP están hechos, y el túnel
+  (`mcp/tunel.mjs`) también; las siete herramientas y sus topes, en marcha.
+- **Del lanzador:** arranque/parada del MCP desde el panel con `MCP: ON/OFF`, la sección
+  **Connections** en Ajustes (puerto, clientes, última actividad) y el botón que explique el MCP
+  dentro de la web. Hoy eso se hace por línea de órdenes y se mira en `<casa>\mcp\`.
+- **Y una frontera que no es nuestra:** la LECTURA de las tareas. DSH no la sabe acotar
+  (mira «La LECTURA no se puede cerrar»), así que quien quiera encerrarla de verdad tiene que
+  hacerlo por fuera del motor (un usuario de Windows distinto, una máquina virtual, permisos
+  NTFS). Si algún día DSH trae raíces de lectura, esto se aprieta.

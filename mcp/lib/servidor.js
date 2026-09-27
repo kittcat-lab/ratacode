@@ -88,7 +88,7 @@ function instrucciones() {
     '',
     'No cambies de modelo automáticamente si el usuario ha indicado uno.',
     'RATACODE nunca devuelve claves: las guarda él y hace las llamadas.',
-    'RATACODE sólo mira el ENTORNO del proceso para las credenciales: no lee ficheros de claves. Si falta una, lo dirá tal cual («falta B_AI_API_KEY en el entorno del cliente MCP») y no arrancará nada.',
+    'RATACODE mira el ENTORNO del proceso y, si no hay clave ahí, deja que el motor resuelva las que el humano haya guardado en la casa (Ajustes → Models): este servidor NO abre ficheros de claves. Si no hay clave por ningún lado, lo dirá tal cual («falta B_AI_API_KEY en el entorno del cliente MCP») y no arrancará nada.',
     'Las tareas ESCRIBEN sólo dentro del espacio de trabajo autorizado; si necesitas algo fuera, pídelo al humano.',
     'AVISO IMPORTANTE: el motor no sabe encerrar la LECTURA. Una tarea puede leer cualquier fichero que pueda leer el usuario que arrancó este servidor (incluida la casa de RATACODE y su .credentials.yaml), y lo que lea se manda al proveedor del modelo. NO leas ficheros de claves ni nada que el humano no te haya dado; si el encargo lo pide, pregúntale antes.',
   ].join('\n');
@@ -124,7 +124,7 @@ export function registrarHerramientas(servidor, ctx) {
     'list_providers',
     {
       title: 'Proveedores de RATACODE',
-      description: 'Los proveedores configurados en RATACODE, con si tienen credencial disponible y de dónde sale. Nunca devuelve ninguna clave.',
+      description: 'Los proveedores configurados en RATACODE, con si tienen credencial disponible y de dónde sale (el entorno del cliente, o las guardadas en la casa que resuelve el motor). Nunca devuelve ninguna clave.',
       inputSchema: {},
     },
     conRed(async () => {
@@ -136,12 +136,14 @@ export function registrarHerramientas(servidor, ctx) {
           api: p.api,
           base_url: p.base_url,
           tiene_clave: p.tiene_clave,
+          en_la_casa: p.en_la_casa,
           credencial: p.credencial,
           ...(p.falta === null ? {} : { problema: p.falta }),
         })),
         modelo_por_defecto: porDefecto,
         avisos,
-        nota: 'Sólo se mira el ENTORNO del proceso. Este servidor no lee ficheros de credenciales: si falta una clave, se dice y se para.',
+        nota: 'Lo que mira este servidor es el ENTORNO del proceso, y si la casa tiene claves guardadas'
+          + ' (sólo comprueba que el fichero existe: no lo abre). Las de la casa las resuelve el motor.',
       });
     }),
   );
@@ -222,12 +224,18 @@ export function registrarHerramientas(servidor, ctx) {
       }
 
       const ruta = resolverRuta(casa, args.provider, args.model);
-      // Si la ruta declara una credencial y no está en el entorno, se PARA aquí.
-      // Nada de arrancar un motor que va a fallar con un error más oscuro.
+      // La credencial: en el entorno del cliente, o en la casa (Ajustes >
+      // Models), de la que se encarga el motor. Si no hay ni una cosa ni la otra,
+      // se PARA aquí: nada de arrancar un motor que va a fallar peor.
       const credencial = credencialDeProveedor(casa, ruta.provider);
-      if (credencial !== null && !credencial.esta) {
-        return comoError(faltaEnElEntorno(credencial.nombre));
+      if (credencial !== null && !credencial.esta && !credencial.enLaCasa) {
+        return comoError(faltaEnElEntorno(credencial.nombre)
+          + '. Ponla en Ajustes → Models de la web (queda en la casa) o expórtala en el cliente MCP.');
       }
+      const avisoCredencial = credencial !== null && !credencial.esta && credencial.enLaCasa
+        ? ['la credencial ' + credencial.nombre + ' no está en el entorno del cliente; la resolverá el motor'
+          + ' desde las claves guardadas en la casa (Ajustes → Models)']
+        : [];
       const { espacio, raiz, avisos } = resolverEspacio({ casa, pedido: args.working_directory, cwdPorDefecto, http: ctx.http === true });
       const { modo, motivo } = resolverModo({ casa, allowDangerous: args.allow_dangerous });
       const prompt = args.context === undefined || args.context.trim() === ''
@@ -266,7 +274,7 @@ export function registrarHerramientas(servidor, ctx) {
           origen: timeoutPedido === null ? 'por_defecto_de_la_casa' : 'peticion',
           ...(timeoutRecortado ? { recortado_al_maximo_ms: ajustes.timeoutMaximoMs } : {}),
         },
-        avisos,
+        avisos: [...avisos, ...avisoCredencial],
       };
 
       // Sin `esperar_segundos`: recibo y a otra cosa (como siempre).

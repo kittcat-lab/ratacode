@@ -122,6 +122,40 @@ Consecuencias, claras:
 - Si quieres cerrarlo de verdad, la frontera tiene que ser del sistema operativo (un usuario o una
   máquina virtual solo para esto), no del motor.
 
+## ChatGPT web (y cualquier app que hable MCP por HTTP): el túnel
+
+ChatGPT web no arranca procesos: necesita una **URL** de MCP por HTTP. Por eso existe
+`mcp/tunel.mjs`: expone el MCP de tu PC a Internet con Cloudflare mientras corre.
+
+```sh
+# 1) el MCP por HTTP (local), con espacios declarados en `mcp.workspaces`
+ratacode mcp --http --acepto-lectura-total
+
+# 2) el túnel, en otra ventana
+node mcp/tunel.mjs --home <casa> --acepto-lectura-total
+```
+
+`tunel.mjs` te imprime la **URL pública completa** (dominio + `/mcp/<clave>`): esa es la que se
+pega en ChatGPT (modo desarrollador → conector MCP) o en la app que sea. Al abrirlo **estrena
+clave** (el servidor que ya corre la adopta sin reiniciar; con `--misma-clave` reutiliza la
+anterior). La clave vive en `<casa>\mcp\http-url.txt` y `<casa>\mcp\http-secret.txt`, con permisos
+de sólo-dueño; no se imprime en los registros. Con `Ctrl+C` se cierra el túnel y el puerto deja de
+estar expuesto.
+
+Si tienes dado de alta el túnel nombrado `mcp.mod-rat.com` en tu Cloudflare, lo usa con ese
+hostname fijo (por fichero de configuración, nunca pasando la URL por argumentos); si no, abre un
+quick tunnel con URL efímera.
+
+**Lo que implica abrirlo, y por eso hace falta `--acepto-lectura-total`:** el motor no sabe
+encerrar la LECTURA (mira el apartado de arriba). Mientras el túnel esté abierto, quien tenga esa
+URL puede pedir una tarea que lea cualquier fichero que pueda leer tu usuario. No lo dejes abierto
+más de lo que dure el trabajo, y cámbiale la clave (basta con volver a lanzar `tunel.mjs`) cuando
+cierres.
+
+**Rowboat.** Su editor documenta servidores por `url`, no por `command`; con el túnel o con el MCP
+por HTTP puedes darle la URL con la clave y no depender de que acepte un servidor stdio (que es lo
+que sigue sin estar comprobado, ver arriba).
+
 ## Cómo usarlo
 
 1. **`list_models`** — llama primero para ver qué modelos hay, con proveedor, id, contexto, capacidades y estado.
@@ -167,7 +201,7 @@ HAZLO sin pedir permiso.
 - Si falla, `get_task_result` devuelve el error.
 
 ## Cómo vigilar sin capturas
-No mires la pantalla. Usa `get_task_status` y `get_task_result` directamente. Un captura gasta cuota; una llamada MCP no.
+No mires la pantalla. Usa `get_task_status` y `get_task_result` directamente. Una captura gasta cuota; una llamada MCP no.
 
 ## Trampas que ya costaron (tropiezos 2, 4, 6, 7, 11, 12, 13, 16, 17, 18)
 

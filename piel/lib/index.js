@@ -58,7 +58,7 @@ function emblemaCss() {
   return ':root{--mr-emblema:url("data:image/svg+xml,' + encodeURIComponent(svg) + '")}';
 }
 
-/** Todo el CSS de la piel, en el orden en que se aplicaba en MODO RATA. */
+/** Todo el CSS de la piel, en el orden en que se aplica (identidad, emblema, piel, ventana de claves). */
 function cssDeLaPiel() {
   return [leer('ratacode-identidad.css'), emblemaCss(), leer('ratacode-piel.css'), leer('ratacode-claves.css')].join('\n');
 }

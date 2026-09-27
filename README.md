@@ -54,6 +54,13 @@ Cada usuario pone las suyas; **nunca viajan dentro del paquete**:
 Se ponen en la web (**Ajustes → Models**; quedan en `<casa>\.credentials.yaml`) o
 exportándolas como variables de entorno. La primera vez que abres RATACODE te las pide.
 
+**Las claves del MCP.** El servidor MCP las mira en el **entorno del cliente** que lo arranca
+(`B_AI_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`); si no están ahí, deja que lo haga
+**el motor**, que sí resuelve las guardadas con Ajustes → Models en la casa. En resumen: si has
+guardado la clave en la web, `ratacode mcp` funciona sin exportar nada. Lo que este servidor no
+hace nunca es abrir el fichero de claves él mismo. Alta típica con entorno explícito:
+`claude mcp add ratacode -- ratacode mcp`.
+
 ## Las 3 formas de usarlo
 
 1. **Navegador** — `ratacode`: la terminal en tu navegador, sin «Permitir» en cada paso
@@ -61,9 +68,15 @@ exportándolas como variables de entorno. La primera vez que abres RATACODE te l
 2. **Headless** — `ratacode headless "encargo"`: mandas el encargo por terminal, sin
    pantalla, y la entrega queda en un fichero.
 3. **MCP** — `ratacode mcp` (o `node mcp/bin/ratacode-mcp.js --home <casa>`): servidor MCP
-   por stdio para Claude Code, Codex, ChatGPT web, Rowboat u OpenClaw. Herramientas:
-   `list_models` → `run_task` → `get_task_status` → `get_task_result` → `cancel_task`.
-   Alta típica: `claude mcp add ratacode -- ratacode mcp`.
+   por stdio para Claude Code, Codex, ChatGPT web, Rowboat u OpenClaw. Siete herramientas:
+   `list_providers` → `list_models` → `run_task` → `get_task_status` → `get_task_result` →
+   `cancel_task` y `ratacode_status`. Por HTTP (para ChatGPT web) hace falta
+   `ratacode mcp --http --acepto-lectura-total` y `mcp.workspaces` declarado; el túnel es
+   `node mcp/tunel.mjs --home <casa> --acepto-lectura-total` (puerto por defecto del MCP: 3778).
+
+> El panel es DSH con la piel de RATACODE puesta: los rótulos propios y la ventana de las claves
+> están en español, pero Ajustes → Models y los menús del motor siguen en inglés (los pone DSH,
+> y RATACODE no reescribe el frontend a propósito).
 
 Para manejar RATACODE desde otro chat sin ayuda, pega uno de los prompts de la carpeta
 [`apreton`](https://github.com/kittcat-lab/ratacode) del repositorio (navegador, headless o MCP).
@@ -89,6 +102,27 @@ Para manejar RATACODE desde otro chat sin ayuda, pega uno de los prompts de la c
 - **Nada hacia fuera por sí solo:** sin telemetría, sin cuentas; de tu PC solo sale lo que
   tus llamadas a tu proveedor de modelos.
 
+## Desinstalar y borrar datos
+
+Nada de RATACODE queda fuera de estas dos cosas: el paquete y la casa.
+
+```bash
+# 1. El programa (y su comando `ratacode`)
+npm uninstall -g ratacode
+
+# 2. La casa: ajustes, claves, perfiles, sesiones y registros
+#    (en Windows, la carpeta por defecto; si usaste --home, la que le dijeras)
+rmdir /s /q "%USERPROFILE%\.ratacode"
+#   PowerShell:  Remove-Item -Recurse -Force "$env:USERPROFILE\.ratacode"
+#   Mac/Linux:   rm -rf ~/.ratacode
+```
+
+Dentro de esa carpeta van, en claro, **tus claves** (`<casa>\.credentials.yaml`), la clave del
+MCP por HTTP (`<casa>\mcp\http-secret.txt`), la URL del panel con su token (`<casa>\url.txt`),
+los ajustes (`<casa>\settings.yaml`) y los perfiles con la piel copiada. Borrar la carpeta lo
+borra todo; no hay nada más que limpiar (RATACODE nunca escribe en `~/.dsh`, y si algún día
+exportaste `B_AI_API_KEY` en tu shell, eso se quita de tu perfil de shell).
+
 ## Licencia y créditos
 
 MIT © 2026 **Patxi** (ver [`LICENSE`](LICENSE)).
@@ -110,6 +144,8 @@ quien hace el trabajo de verdad. Gracias por dejarla engancharse sin tocar nada.
   (last resort: `git clone` the repo, `npm pack` and `npm i -g ./ratacode-0.1.0.tgz`) — then run `ratacode`.
 - **Bring your own keys:** `B_AI_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY` — set
   them in the web UI (Settings → Models) or as environment variables; they are never bundled.
+  The MCP server reads them from its client's environment, or lets the engine resolve the ones
+  you saved in the web UI.
 - **Three ways to use it:** browser (`ratacode`), headless (`ratacode headless "task"`),
   and MCP (`ratacode mcp`) so ChatGPT web, Claude Code, Codex, Rowboat or OpenClaw can
   delegate tasks (`list_models`, `run_task`, `get_task_status`, `get_task_result`, `cancel_task`).
@@ -118,4 +154,8 @@ quien hace el trabajo de verdad. Gracias por dejarla engancharse sin tocar nada.
   cannot fence reads: `dsh-fs-sandbox`, *"Reads pass through untouched: every mode permits reading"*),
   so the HTTP transport and the tunnel refuse to start without `--acepto-lectura-total`; and the keys
   never travel inside the package.
+- **Uninstall:** `npm uninstall -g ratacode`, then delete the home folder
+  (`%USERPROFILE%\.ratacode`; `rm -rf ~/.ratacode` on Mac/Linux). That folder holds your keys
+  (`.credentials.yaml`), the MCP key (`mcp\http-secret.txt`) and the panel URL with its token
+  (`url.txt`); nothing else is written anywhere (never `~/.dsh`).
 - **License:** MIT © 2026 Patxi. Built on top of DSH (`@deepseek-ai/dsh`, MIT).

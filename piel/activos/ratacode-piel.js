@@ -109,7 +109,7 @@
  }
  function apply(){
   const title=document.title.replace(/DeepSeek Harness/gi,'RATACODE');if(title!==document.title)document.title=title;
-  // Only the native welcome component, never messages, model names or errors.
+  // Sólo el saludo nativo del motor: nunca mensajes, nombres de modelo ni errores.
   const hero=document.querySelector('[data-phase="hero"] [class*="_headline"]');
   if(hero){
    hero.classList.add('mr-welcome');

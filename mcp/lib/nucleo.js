@@ -148,7 +148,7 @@ export function lanzarTarea({
       if (motivo !== null && typeof motivo === 'object') {
         ultimoMotivo = motivo.kind ?? null;
         if (motivo.kind === 'error') {
-          errores.push(motivo.error?.message ?? 'la tarea falló sin mensaje');
+          errores.push(enEspanol(motivo.error?.message ?? 'la tarea falló sin mensaje'));
         }
       }
     }
@@ -177,7 +177,7 @@ export function lanzarTarea({
     }
     if (frame.id === 2) {
       if (frame.error !== undefined) {
-        errores.push('el motor rechazó la tarea: ' + (frame.error.message ?? JSON.stringify(frame.error)));
+        errores.push('el motor rechazó la tarea: ' + enEspanol(frame.error.message ?? JSON.stringify(frame.error)));
         terminar({ ok: false });
         return;
       }
@@ -230,7 +230,7 @@ export function lanzarTarea({
     }
     if (errores.length === 0) {
       errores.push('el motor se cerró antes de terminar (código ' + codigo + ')'
-        + (stderr.trim() === '' ? '' : ': ' + ultimaLinea(stderr)));
+        + (stderr.trim() === '' ? '' : ': ' + enEspanol(ultimaLinea(stderr))));
     }
     terminar({ ok: false, codigoSalida: codigo });
   });
@@ -288,6 +288,21 @@ function textoDeMensaje(mensaje) {
 function ultimaLinea(texto) {
   const lineas = texto.trim().split(/\r?\n/).filter((l) => l.trim() !== '');
   return lineas.length === 0 ? '' : lineas[lineas.length - 1];
+}
+
+/**
+ * Traducir los fallos del motor que el humano va a leer. Sólo los que ya tienen
+ * traducción: el mensaje original del motor se conserva detrás, para poder
+ * buscarlo. Si no hay traducción, se devuelve tal cual (no se inventa nada).
+ */
+function enEspanol(mensaje) {
+  const texto = String(mensaje);
+  if (/MISSING_CREDENTIAL|no credential for provider route/i.test(texto)) {
+    return 'falta la clave del proveedor: el motor no encontró ninguna credencial para esa ruta.'
+      + ' Ponla en Ajustes → Models de la web (queda en la casa) o expórtala como variable de entorno'
+      + ' en el cliente MCP. [motor] ' + texto;
+  }
+  return texto;
 }
 
 /** Esperar, sin más. */

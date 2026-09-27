@@ -34,7 +34,7 @@ HAZLO sin pedir permiso.
 - Si hay error, el código de salida no es 0 y el stderr dice qué pasó.
 
 ## Cómo vigilar sin capturas
-No mires la pantalla. Lee el fichero de entrega directamente. Un captura gasta cuota; un fichero no. En headless no hay pantalla que mirar.
+No mires la pantalla. Lee el fichero de entrega directamente. Una captura gasta cuota; un fichero no. En headless no hay pantalla que mirar.
 
 ## Trampas que ya costaron (tropiezos 2, 4, 6, 7, 11, 13, 16, 17, 18)
 
