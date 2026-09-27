@@ -161,9 +161,18 @@ footer .marca svg{width:22px;height:22px}
   <h2>Seguridad</h2>
   <ul class="seguridad">
     <li><b>Carpeta cerrada:</b> todo vive en <code>%USERPROFILE%\.ratacode</code>, nunca en
-      <code>~/.dsh</code>. Las tareas MCP solo trabajan dentro de su <code>working_directory</code>.</li>
-    <li><b>Las claves no salen:</b> se usan, no se cuentan — ni por el MCP, ni por el cuaderno,
-      ni por los shells de sus agentes.</li>
+      <code>~/.dsh</code>. Las tareas MCP solo <b>ESCRIBEN</b> dentro de su
+      <code>working_directory</code>: lo que intentan escribir fuera, falla.</li>
+    <li><b>Pero pueden LEER todo tu PC.</b> El motor (DSH) no tiene ningún modo que acote la
+      lectura —<code>read-only</code>, <code>workspace-write</code> y <code>danger-full-access</code>
+      son ejes de <i>escritura</i>—, así que una tarea MCP puede leer cualquier fichero que puedas
+      leer tú (incluido <code>%USERPROFILE%\.ratacode\.credentials.yaml</code> y tu <code>.ssh</code>)
+      y lo que lea viaja al proveedor del modelo. Por eso el MCP por HTTP y el túnel no se abren sin
+      <code>--acepto-lectura-total</code>, y por eso no le mandes tareas sobre ficheros que no quieras
+      enseñar.</li>
+    <li><b>Las claves no viajan</b> en el paquete ni se devuelven por MCP: el servidor las usa y hace la
+      llamada. Pero están en un fichero de tu PC que una tarea SÍ puede leer (punto anterior): no le
+      pidas tareas que vayan a buscar claves.</li>
   </ul>
 
   <footer>

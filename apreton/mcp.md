@@ -101,6 +101,27 @@ Añade esto a la configuración MCP de tu app:
 
 **Las claves van por el ENTORNO.** El servidor no lee ficheros de claves. Si falta una, se para y dice: `falta B_AI_API_KEY en el entorno del cliente MCP`. Si tu cliente no pasa el entorno, el servidor no tiene credenciales. Si tu app sabe copiar variables del entorno (como `env_vars` de Codex), úsalo: la clave no queda escrita en la configuración.
 
+## Lo que una tarea puede LEER (y por qué el HTTP pide permiso)
+
+Escríbelo en tu cabeza antes de abrir el túnel: **una tarea MCP escribe solo dentro de su espacio
+autorizado, pero LEE lo que quiera**. No es un descuido de RATACODE: el motor (DSH) no tiene ningún
+modo que acote la lectura —`read-only`, `workspace-write` y `danger-full-access` son ejes de
+ESCRITURA (`dsh-fs-sandbox/lib/types/index.d.ts:7-8`: «Reads pass through untouched: every mode permits
+reading»)—, y su sandbox de Windows restringe el token a la escritura («`WRITE_RESTRICTED` intersects
+only write accesses», `dsh-sandbox-windows-acl/lib/types/index.d.ts:24-25`). Ni las herramientas de
+ficheros ni el shell tienen lista blanca de lectura.
+
+Consecuencias, claras:
+
+- Una tarea puede leer `<casa>\.credentials.yaml`, tu `.ssh` o tus documentos, y lo que lea **viaja al
+  proveedor del modelo** que hayas elegido. No le mandes encargos que vayan a buscar claves.
+- Por eso `ratacode mcp --http` y `node mcp/tunel.mjs` **no arrancan** sin `--acepto-lectura-total`:
+  abrir la URL (o el túnel) es abrir tu disco a quien tenga esa URL.
+- Por stdio la superficie la controlas tú (es tu propio cliente local el que arranca el servidor), y
+  no hace falta aceptar nada.
+- Si quieres cerrarlo de verdad, la frontera tiene que ser del sistema operativo (un usuario o una
+  máquina virtual solo para esto), no del motor.
+
 ## Cómo usarlo
 
 1. **`list_models`** — llama primero para ver qué modelos hay, con proveedor, id, contexto, capacidades y estado.

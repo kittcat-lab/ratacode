@@ -100,10 +100,20 @@ agente deciden el modelo; esta capa no elige por nadie.
 
 ## Seguridad
 
-- **Espacio cerrado.** Una tarea sólo trabaja dentro de las raíces autorizadas.
-  Si la casa no declara `mcp.workspaces`, la única raíz permitida es el espacio
-  por defecto (o la carpeta desde la que arrancó el servidor). Cualquier otra
+- **Espacio cerrado (para ESCRIBIR).** Una tarea sólo **escribe** dentro de las raíces
+  autorizadas. Si la casa no declara `mcp.workspaces`, la única raíz permitida es el
+  espacio por defecto (o la carpeta desde la que arrancó el servidor). Cualquier otra
   ruta se rechaza con un error que dice qué hacer.
+- **La LECTURA no se puede cerrar (por eso el HTTP pide permiso).** El motor no tiene
+  ningún modo que acote lo que se lee: `read-only` deniega toda MUTACIÓN, no toda
+  lectura, y el vocabulario del sandbox es de efectos sobre ficheros
+  (`dsh-fs-sandbox/lib/types/index.d.ts:7-8`: «Reads pass through untouched: every mode
+  permits reading»; `dsh-sandbox/lib/types/roots.d.ts:28-36`: la única lista de raíces
+  que existe es la de ESCRITURA). Una tarea MCP puede leer cualquier fichero que pueda
+  leer tu usuario —incluida `<casa>\.credentials.yaml`— y lo que lea viaja al proveedor
+  del modelo. Por eso `--http` **no arranca** sin `--acepto-lectura-total`, y
+  `tunel.mjs` tampoco. Por stdio no hace falta: la superficie la controla quien arranca
+  su propio cliente local.
 - **El sandbox lo impone el core.** Cada tarea arranca en `workspace-write` con
   su cwd como frontera de escritura, y el MCP le pasa al hijo un parche que
   **fija** el modo, para que ni un `DSH_PERMISSION_MODE` heredado del entorno

@@ -58,7 +58,8 @@ function instrucciones(casa) {
     'No cambies de modelo automáticamente si el usuario ha indicado uno.',
     'RATACODE nunca devuelve claves: las guarda él y hace las llamadas.',
     'RATACODE sólo mira el ENTORNO del proceso para las credenciales: no lee ficheros de claves. Si falta una, lo dirá tal cual («falta B_AI_API_KEY en el entorno del cliente MCP») y no arrancará nada.',
-    'Las tareas escriben sólo dentro del espacio de trabajo autorizado; si necesitas algo fuera, pídelo al humano.',
+    'Las tareas ESCRIBEN sólo dentro del espacio de trabajo autorizado; si necesitas algo fuera, pídelo al humano.',
+    'AVISO IMPORTANTE: el motor no sabe encerrar la LECTURA. Una tarea puede leer cualquier fichero que pueda leer el usuario que arrancó este servidor (incluida la casa de RATACODE y su .credentials.yaml), y lo que lea se manda al proveedor del modelo. NO leas ficheros de claves ni nada que el humano no te haya dado; si el encargo lo pide, pregúntale antes.',
     'Casa de RATACODE: ' + casa,
   ].join('\n');
 }

@@ -71,12 +71,21 @@ Para manejar RATACODE desde otro chat sin ayuda, pega uno de los prompts de la c
 ## Seguridad
 
 - **Casa propia y cerrada.** Todo vive en `%USERPROFILE%\.ratacode` (nunca `~/.dsh` ni el
-  DSH de nadie). Una tarea MCP trabaja SOLO dentro de su `working_directory`: el sandbox
+  DSH de nadie). Una tarea MCP **solo ESCRIBE** dentro de su `working_directory`: el sandbox
   lo impone el core (`workspace-write` fijado) y lo que intenta escribir fuera falla.
+- **Pero puede LEER todo tu PC.** El motor no tiene ningún modo que acote la lectura: el
+  vocabulario del sandbox (`read-only` · `workspace-write` · `danger-full-access`) es de
+  ESCRITURA, y `dsh-fs-sandbox/lib/types/index.d.ts:7-8` lo dice con todas las letras —
+  *«Reads pass through untouched: every mode permits reading»*. Una tarea MCP puede leer
+  cualquier fichero que puedas leer tú (incluido `<casa>\.credentials.yaml` y tu `.ssh`), y
+  lo que lea viaja al proveedor del modelo. Por eso `ratacode mcp --http` y `mcp/tunel.mjs`
+  **no arrancan** sin `--acepto-lectura-total`: abrir esa URL a Internet es abrir tu disco a
+  quien tenga la URL.
 - **Las claves no salen.** Nunca van dentro del paquete. El servidor MCP no lee ficheros
   de credenciales (solo mira el entorno que le entrega su cliente), las usa y no las
   devuelve ni las escribe en el cuaderno. DSH, además, lava el entorno de los shells de
-  sus agentes (`/KEY|PASSWORD|SECRET|TOKEN/i`).
+  sus agentes (`/KEY|PASSWORD|SECRET|TOKEN/i`). Ojo: eso no impide que una tarea LEA el
+  fichero de claves (punto anterior).
 - **Nada hacia fuera por sí solo:** sin telemetría, sin cuentas; de tu PC solo sale lo que
   tus llamadas a tu proveedor de modelos.
 
@@ -104,6 +113,9 @@ quien hace el trabajo de verdad. Gracias por dejarla engancharse sin tocar nada.
 - **Three ways to use it:** browser (`ratacode`), headless (`ratacode headless "task"`),
   and MCP (`ratacode mcp`) so ChatGPT web, Claude Code, Codex, Rowboat or OpenClaw can
   delegate tasks (`list_models`, `run_task`, `get_task_status`, `get_task_result`, `cancel_task`).
-- **Security:** its own locked home (`%USERPROFILE%\.ratacode`, never `~/.dsh`), MCP tasks
-  sandboxed to their `working_directory`, and keys that never leave your machine.
+- **Security:** its own locked home (`%USERPROFILE%\.ratacode`, never `~/.dsh`); MCP tasks can only
+  **WRITE** inside their `working_directory` but can **READ** any file your user can read (the engine
+  cannot fence reads: `dsh-fs-sandbox`, *"Reads pass through untouched: every mode permits reading"*),
+  so the HTTP transport and the tunnel refuse to start without `--acepto-lectura-total`; and the keys
+  never travel inside the package.
 - **License:** MIT © 2026 Patxi. Built on top of DSH (`@deepseek-ai/dsh`, MIT).

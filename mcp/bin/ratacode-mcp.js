@@ -5,18 +5,25 @@
  *   ratacode-mcp                 habla MCP por stdio (lo que espera un cliente)
  *   ratacode-mcp --status        enseña el estado y sale (sin arrancar el motor)
  *   ratacode-mcp --http          también por Streamable HTTP en 127.0.0.1:<puerto>/mcp/<clave>
+ *   ratacode-mcp --acepto-lectura-total  OBLIGATORIO con --http: ver `lib/lectura.js`
  *   ratacode-mcp --home <ruta>   usa otra casa (por defecto %USERPROFILE%\.ratacode)
  *   ratacode-mcp --dsh <ruta>    usa otro binario del motor (para pruebas)
  *
  * Por stdio, stdout es del protocolo: aquí TODO lo que contamos va a stderr.
  * Por HTTP, la clave va en la propia URL y se guarda en la casa (nunca en el
  * repositorio). El puerto por defecto es 3778; el tope de tareas por hora es 30.
+ *
+ * Y por HTTP hace falta `--acepto-lectura-total`: el motor no sabe encerrar la
+ * LECTURA de una tarea (sólo la escritura), así que quien tenga la URL puede
+ * pedir que le lean cualquier fichero del PC. Se dice, se acepta por escrito y
+ * entonces se abre.
  */
 import { randomBytes } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { binDelMotor, resolverCasa } from '../lib/casa.js';
+import { exigirAceptoLecturaTotal } from '../lib/lectura.js';
 import { aviso, fallo } from '../lib/registro.js';
 import { montarServidor } from '../lib/servidor.js';
 import { iniciarServidorHttp } from '../lib/http.js';
@@ -38,6 +45,8 @@ function uso() {
     '  --dsh <ruta>         binario del motor DSH a usar (por defecto, el del paquete instalado)',
     '  --status             enseña el estado del MCP y sale',
     '  --http               también por Streamable HTTP en 127.0.0.1:<puerto>/mcp/<clave>',
+    '  --acepto-lectura-total  OBLIGATORIO con --http. Aceptas que las tareas pueden LEER',
+    '                       cualquier fichero de tu PC (el motor no encierra la lectura)',
     '  --port <n>           puerto HTTP (por defecto ' + PUERTO_HTTP_DEFECTO + ')',
     '  --tareas-por-hora <n> tope de tareas por hora (por defecto ' + TAREAS_POR_HORA_DEFECTO + ')',
     '  -h, --help           esto',
@@ -46,17 +55,22 @@ function uso() {
     'Con --http, habla por los dos a la vez; la clave de la URL se genera y se',
     'guarda en la casa (en <casa>\\mcp\\http-secret.txt), nunca en el repositorio.',
     '',
+    'Las tareas ESCRIBEN sólo dentro de su espacio autorizado, pero PUEDEN LEER',
+    'todo lo que pueda leer tu usuario (incluida <casa>\\.credentials.yaml): por eso',
+    'el HTTP no se abre sin --acepto-lectura-total. El detalle, en lib/lectura.js.',
+    '',
   ].join('\n');
 }
 
 /** Leer la línea de órdenes. */
 function leerOrdenes(argv) {
-  const ordenes = { casa: undefined, motor: undefined, estado: false, ayuda: false, http: false, puerto: PUERTO_HTTP_DEFECTO, tareasPorHora: TAREAS_POR_HORA_DEFECTO };
+  const ordenes = { casa: undefined, motor: undefined, estado: false, ayuda: false, http: false, aceptoLecturaTotal: false, puerto: PUERTO_HTTP_DEFECTO, tareasPorHora: TAREAS_POR_HORA_DEFECTO };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '-h' || a === '--help') ordenes.ayuda = true;
     else if (a === '--status') ordenes.estado = true;
     else if (a === '--http') ordenes.http = true;
+    else if (a === '--acepto-lectura-total') ordenes.aceptoLecturaTotal = true;
     else if (a === '--port' || a.startsWith('--port=')) {
       const valor = a.includes('=') ? a.slice(a.indexOf('=') + 1) : argv[++i];
       const n = Number(valor);
@@ -109,6 +123,17 @@ async function main() {
   if (ordenes.estado) {
     process.stdout.write(JSON.stringify(estadoDeLaCasa(casa), null, 2) + '\n');
     return;
+  }
+
+  // LA PUERTA DE LA LECTURA: sin aceptación explícita no se abre el HTTP. Se
+  // comprueba antes de estrenar la casa y antes de arrancar el motor, para que
+  // negarse no deje ningún efecto detrás. (`--help` y `--status` no abren nada:
+  // esos dos siguen funcionando sin la bandera.)
+  if (ordenes.http && !exigirAceptoLecturaTotal({
+    aceptado: ordenes.aceptoLecturaTotal,
+    mando: 'ratacode mcp --http --acepto-lectura-total',
+  })) {
+    process.exit(1);
   }
 
   const dshBin = binDelMotor(ordenes.motor);

@@ -1,37 +1,44 @@
 #!/usr/bin/env node
 /**
- * tunel.mjs — prepara el túnel de Cloudflare para ChatGPT web (paso 4c).
+ * tunel.mjs — el túnel de Cloudflare para ChatGPT web.
  *
  * ⚠️ NO lo ejecutes tú solo: lo arranca el usuario cuando quiera abrir RATACODE a
  * ChatGPT. Este script SÓLO es transporte: el servidor MCP (con su clave en la
  * URL y su tope de tareas) ya funciona sin esto; el túnel sólo lo expone a
  * Internet mientras corre.
  *
+ * Y exponerlo significa EXPONER LA LECTURA: el motor no sabe encerrar lo que una
+ * tarea LEE, así que quien tenga la URL puede pedir que le lean cualquier
+ * fichero del PC. Por eso este script también exige `--acepto-lectura-total`.
+ *
  * Qué hace al ejecutarlo:
  *   1. Lee la URL local del MCP (http://127.0.0.1:<puerto>/mcp/<clave>) de la
  *      casa (<casa>/mcp/http-url.txt, o la reconstruye desde http-secret.txt).
  *   2. Comprueba que `cloudflared` está instalado.
  *   3. Si existe el túnel nombrado `mcp.mod-rat.com` (lo da de alta el usuario en
- *      su Cloudflare), lo usa con ese hostname fijo.
+ *      su Cloudflare), lo usa con ese hostname fijo (por fichero de config, no
+ *      por argumentos).
  *   4. Si no, usa un quick tunnel sin cuenta (URL efímera).
- *   5. Imprime la URL COMPLETA para pegar en ChatGPT (modo desarrollador).
+ *   5. Imprime la URL pública COMPLETA para pegar en ChatGPT (dominio + /mcp/<clave>).
  *
  * Uso:
- *   node mcp/tunel.mjs --home <casa> [--port <puerto>] [--host 127.0.0.1]
+ *   node mcp/tunel.mjs --home <casa> --acepto-lectura-total [--port <puerto>] [--host 127.0.0.1]
  *
  * Para pararlo: Ctrl+C (mata cloudflared y deja de exponer el puerto).
  */
 import { spawnSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolverCasa } from './lib/casa.js';
+import { exigirAceptoLecturaTotal } from './lib/lectura.js';
 
 const TUNEL_NOMBRADO = 'mcp.mod-rat.com';
 
 function leerOrdenes(argv) {
-  const o = { casa: undefined, port: 3778 };
+  const o = { casa: undefined, port: 3778, aceptoLecturaTotal: false };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
+    if (a === '--acepto-lectura-total') { o.aceptoLecturaTotal = true; continue; }
     const v = a.includes('=') ? a.slice(a.indexOf('=') + 1) : argv[++i];
     if (a === '--home' || a.startsWith('--home=')) o.casa = v;
     else if (a === '--port' || a.startsWith('--port=')) o.port = Number(v);
@@ -42,6 +49,15 @@ function leerOrdenes(argv) {
 }
 
 const o = leerOrdenes(process.argv.slice(2));
+
+// La misma puerta que el MCP por HTTP: aquí también se expone la LECTURA.
+if (!exigirAceptoLecturaTotal({
+  aceptado: o.aceptoLecturaTotal,
+  mando: 'node mcp/tunel.mjs --home <casa> --acepto-lectura-total',
+})) {
+  process.exit(1);
+}
+
 const casa = resolverCasa(o.casa);
 const host = o.host ?? '127.0.0.1';
 const puerto = o.port;
@@ -55,14 +71,17 @@ function urlLocal() {
   }
   const rutaClave = join(casa, 'mcp', 'http-secret.txt');
   if (!existsSync(rutaClave)) {
-    throw new Error('no encuentro la clave del MCP en ' + rutaClave + '. Arranca primero: ratacode-mcp.js --http --port ' + puerto + ' --home ' + casa);
+    throw new Error('no encuentro la clave del MCP en ' + rutaClave + '. Arranca primero: ratacode mcp --http --acepto-lectura-total --port ' + puerto + ' --home ' + casa);
   }
   const clave = readFileSync(rutaClave, 'utf8').trim();
   return 'http://' + host + ':' + puerto + '/mcp/' + clave;
 }
 
 const local = urlLocal();
-console.log('URL local del MCP: ' + local);
+const clave = local.slice(local.lastIndexOf('/mcp/') + '/mcp/'.length);
+/** El origen, SIN la clave: es lo ÚNICO que se le pasa a cloudflared. */
+const origen = local.slice(0, local.indexOf('/mcp/'));
+console.log('URL local del MCP: ' + origen + '/mcp/<oculta> (la clave está en ' + join(casa, 'mcp', 'http-url.txt') + ')');
 
 // 1) ¿Está cloudflared?
 const donde = spawnSync('where', ['cloudflared'], { encoding: 'utf8' });
@@ -81,19 +100,66 @@ let args;
 const lista = spawnSync('cloudflared', ['tunnel', 'list'], { encoding: 'utf8' });
 if (lista.status === 0 && lista.stdout.includes(TUNEL_NOMBRADO)) {
   modo = 'nombrado';
-  args = ['tunnel', 'run', '--url', local, TUNEL_NOMBRADO];
-  console.log('\nUsando túnel nombrado fijo: ' + TUNEL_NOMBRADO);
+  // Un túnel nombrado necesita una regla de entrada (hostname → servicio) y su
+  // credencial; se pasa por FICHERO de configuración, no por argumentos (los
+  // argumentos de cualquier proceso los ve cualquier proceso local).
+  const rutaConfig = join(casa, 'mcp', 'cloudflared.yml');
+  mkdirSync(join(casa, 'mcp'), { recursive: true });
+  writeFileSync(rutaConfig, [
+    '# RATACODE · config del túnel nombrado. Lo escribe mcp/tunel.mjs.',
+    'tunnel: ' + TUNEL_NOMBRADO,
+    'ingress:',
+    '  - hostname: ' + TUNEL_NOMBRADO,
+    '    service: ' + origen,
+    '  - service: http_status:404',
+    '',
+  ].join('\n'), { mode: 0o600 });
+  args = ['tunnel', '--config', rutaConfig, 'run', TUNEL_NOMBRADO];
+  console.log('\nUsando túnel nombrado fijo: ' + TUNEL_NOMBRADO + ' (config: ' + rutaConfig + ')');
 } else {
   modo = 'quick';
-  args = ['tunnel', '--url', local];
+  // A cloudflared se le pasa SÓLO el origen (sin la clave): el prefijo /mcp/<clave>
+  // viaja en la URL pública que se imprime abajo, no en los argumentos.
+  args = ['tunnel', '--url', origen];
   console.log('\nNo hay túnel nombrado configurado; usando quick tunnel (URL efímera).');
 }
 
-console.log('\nArrancando cloudflared ' + (modo === 'nombrado' ? '(hostname fijo mcp.mod-rat.com)' : '(quick tunnel)') + '...');
-console.log('La URL pública aparecerá abajo. Pégala en ChatGPT (modo desarrollador).\n');
+console.log('\nArrancando cloudflared ' + (modo === 'nombrado' ? '(hostname fijo ' + TUNEL_NOMBRADO + ')' : '(quick tunnel)') + '...');
+console.log('En cuanto dé la URL pública, aquí abajo saldrá COMPLETA (dominio + /mcp/<clave>).\n');
+
+/**
+ * De la salida de cloudflared, la URL pública que sirve. El quick tunnel la
+ * escribe como `https://<algo>.trycloudflare.com`; el nombrado es el hostname.
+ */
+function dominioPublico(trozo) {
+  const m = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i.exec(trozo);
+  if (m !== null) return m[0];
+  if (modo === 'nombrado' && trozo.includes(TUNEL_NOMBRADO)) return 'https://' + TUNEL_NOMBRADO;
+  return null;
+}
 
 // 3) Arrancar cloudflared y dejarlo vivo; Ctrl+C para parar.
-const proc = spawn('cloudflared', args, { stdio: 'inherit', windowsHide: false });
+// La salida va por tubería (no heredada) para poder CAZAR el dominio público y
+// enseñar la URL completa; se reenvía tal cual a la consola.
+let visto = '';
+let anunciada = false;
+const proc = spawn('cloudflared', args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: false });
+const mirar = (trozo, destino) => {
+  destino.write(trozo);
+  if (anunciada) return;
+  visto = (visto + trozo).slice(-16384);
+  const dominio = dominioPublico(visto);
+  if (dominio === null) return;
+  anunciada = true;
+  process.stdout.write('\n============================================================\n');
+  process.stdout.write('URL PÚBLICA DEL MCP (pégala en ChatGPT, modo desarrollador):\n');
+  process.stdout.write('  ' + dominio + '/mcp/' + clave + '\n');
+  process.stdout.write('============================================================\n\n');
+};
+proc.stdout.setEncoding('utf8');
+proc.stdout.on('data', (t) => mirar(t, process.stdout));
+proc.stderr.setEncoding('utf8');
+proc.stderr.on('data', (t) => mirar(t, process.stderr));
 proc.on('exit', (code) => {
   console.log('\ncloudflared terminó (código ' + code + '). El túnel está cerrado; el puerto ya no se expone.');
   process.exit(code ?? 0);
