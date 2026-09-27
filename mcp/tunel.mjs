@@ -22,23 +22,36 @@
  *   5. Imprime la URL pública COMPLETA para pegar en ChatGPT (dominio + /mcp/<clave>).
  *
  * Uso:
- *   node mcp/tunel.mjs --home <casa> --acepto-lectura-total [--port <puerto>] [--host 127.0.0.1]
+ *   node mcp/tunel.mjs --home <casa> --acepto-lectura-total [--port <puerto>] [--host 127.0.0.1] [--misma-clave]
+ *
+ * Al abrirlo estrena clave (el servidor que ya corre la adopta sin reiniciar);
+ * con `--misma-clave` reutiliza la que había.
  *
  * Para pararlo: Ctrl+C (mata cloudflared y deja de exponer el puerto).
  */
+import { randomBytes } from 'node:crypto';
 import { spawnSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { resolverCasa } from './lib/casa.js';
 import { exigirAceptoLecturaTotal } from './lib/lectura.js';
 
 const TUNEL_NOMBRADO = 'mcp.mod-rat.com';
 
+/** Escribir un secreto con permisos de sólo-dueño (en POSIX el `mode` no se
+ *  aplica si el fichero ya existía: por eso el `chmod` detrás). */
+function escribirSoloDueno(ruta, texto) {
+  mkdirSync(dirname(ruta), { recursive: true });
+  writeFileSync(ruta, texto, { mode: 0o600 });
+  try { chmodSync(ruta, 0o600); } catch { /* Windows: el modo es decorativo */ }
+}
+
 function leerOrdenes(argv) {
-  const o = { casa: undefined, port: 3778, aceptoLecturaTotal: false };
+  const o = { casa: undefined, port: 3778, aceptoLecturaTotal: false, mismaClave: false };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--acepto-lectura-total') { o.aceptoLecturaTotal = true; continue; }
+    if (a === '--misma-clave') { o.mismaClave = true; continue; }
     const v = a.includes('=') ? a.slice(a.indexOf('=') + 1) : argv[++i];
     if (a === '--home' || a.startsWith('--home=')) o.casa = v;
     else if (a === '--port' || a.startsWith('--port=')) o.port = Number(v);
@@ -62,25 +75,42 @@ const casa = resolverCasa(o.casa);
 const host = o.host ?? '127.0.0.1';
 const puerto = o.port;
 
-// Reconstruir la URL local del MCP (misma clave que guardó ratacode-mcp.js).
+/** El origen y la clave del MCP, tal como los dejó `ratacode mcp --http`. */
 function urlLocal() {
   const rutaUrl = join(casa, 'mcp', 'http-url.txt');
+  let deFichero = null;
   if (existsSync(rutaUrl)) {
     const u = readFileSync(rutaUrl, 'utf8').trim();
-    if (u.startsWith('http')) return u;
+    if (u.startsWith('http') && u.includes('/mcp/')) deFichero = u;
   }
-  const rutaClave = join(casa, 'mcp', 'http-secret.txt');
-  if (!existsSync(rutaClave)) {
-    throw new Error('no encuentro la clave del MCP en ' + rutaClave + '. Arranca primero: ratacode mcp --http --acepto-lectura-total --port ' + puerto + ' --home ' + casa);
+  if (deFichero === null) {
+    const rutaClave = join(casa, 'mcp', 'http-secret.txt');
+    if (!existsSync(rutaClave)) {
+      throw new Error('no encuentro la clave del MCP en ' + rutaClave + '. Arranca primero: ratacode mcp --http --acepto-lectura-total --port ' + puerto + ' --home ' + casa);
+    }
+    const leida = readFileSync(rutaClave, 'utf8').trim();
+    return { origen: 'http://' + host + ':' + puerto, clave: leida };
   }
-  const clave = readFileSync(rutaClave, 'utf8').trim();
-  return 'http://' + host + ':' + puerto + '/mcp/' + clave;
+  const corte = deFichero.indexOf('/mcp/');
+  return { origen: deFichero.slice(0, corte), clave: deFichero.slice(corte + '/mcp/'.length) };
 }
 
-const local = urlLocal();
-const clave = local.slice(local.lastIndexOf('/mcp/') + '/mcp/'.length);
-/** El origen, SIN la clave: es lo ÚNICO que se le pasa a cloudflared. */
-const origen = local.slice(0, local.indexOf('/mcp/'));
+let { origen, clave } = urlLocal();
+
+// CLAVE NUEVA AL ABRIR EL TÚNEL (esto es lo que se expone a Internet). El
+// servidor que ya está en marcha la adopta solo (mira `lib/http.js`): relee
+// `<casa>\mcp\http-secret.txt` cada dos segundos. Con `--misma-clave` se
+// reutiliza la que había (útil si el cliente ya la tiene pegada).
+if (o.mismaClave !== true) {
+  const nueva = randomBytes(32).toString('hex');
+  escribirSoloDueno(join(casa, 'mcp', 'http-secret.txt'), nueva + '\n');
+  clave = nueva;
+  console.log('Clave NUEVA para esta sesión del túnel (la anterior ya no vale).');
+} else {
+  console.log('Reutilizando la clave que ya había (--misma-clave).');
+}
+escribirSoloDueno(join(casa, 'mcp', 'http-url.txt'), origen + '/mcp/' + clave + '\n');
+
 console.log('URL local del MCP: ' + origen + '/mcp/<oculta> (la clave está en ' + join(casa, 'mcp', 'http-url.txt') + ')');
 
 // 1) ¿Está cloudflared?

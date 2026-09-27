@@ -78,7 +78,7 @@ function texto(valor) {
  * Todo lo que limita el daño se lee de aquí, para que el humano lo pueda
  * cambiar sin tocar código.
  * @param {string} casa - la casa de RATACODE.
- * @returns {{workspaces: string[], workspacePorDefecto: string|undefined, permitirPeligroso: boolean, precios: object, avisos: string[]}}
+ * @returns {{workspaces: string[], workspacePorDefecto: string|undefined, permitirPeligroso: boolean, precios: object, timeoutPorDefectoMs: number, timeoutMaximoMs: number, tareasALaVez: number, promptMaxCaracteres: number, avisos: string[]}}
  */
 export function ajustesMcp(casa) {
   const { documento, error } = leerAjustes(casa);
@@ -102,6 +102,25 @@ export function ajustesMcp(casa) {
     workspacePorDefecto: porDefecto === undefined ? undefined : resolve(porDefecto),
     permitirPeligroso: seccion.permitir_peligroso === true,
     precios,
+    timeoutPorDefectoMs: enteroPositivo(seccion.timeout_por_defecto_ms, TIMEOUT_POR_DEFECTO_MS),
+    timeoutMaximoMs: enteroPositivo(seccion.timeout_maximo_ms, TIMEOUT_MAXIMO_MS),
+    tareasALaVez: enteroPositivo(seccion.tareas_a_la_vez, TAREAS_A_LA_VEZ),
+    promptMaxCaracteres: enteroPositivo(seccion.prompt_max_caracteres, PROMPT_MAX_CARACTERES),
     avisos,
   };
+}
+
+/** Los topes de fábrica del MCP. Se pueden cambiar en `mcp:` de settings.yaml. */
+/** Media hora por tarea si el cliente no dice otra cosa. */
+export const TIMEOUT_POR_DEFECTO_MS = 1_800_000;
+/** Y una hora como techo, aunque el cliente pida más. */
+export const TIMEOUT_MAXIMO_MS = 3_600_000;
+/** Cuántas tareas pueden estar en marcha a la vez. */
+export const TAREAS_A_LA_VEZ = 3;
+/** Tope del encargo (caracteres). Un prompt de verdad no llega ni de lejos. */
+export const PROMPT_MAX_CARACTERES = 100_000;
+
+/** Un entero positivo de los ajustes, o el valor de fábrica. */
+function enteroPositivo(valor, porDefecto) {
+  return typeof valor === 'number' && Number.isInteger(valor) && valor > 0 ? valor : porDefecto;
 }

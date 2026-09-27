@@ -19,8 +19,8 @@
  * entonces se abre.
  */
 import { randomBytes } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { binDelMotor, resolverCasa } from '../lib/casa.js';
 import { exigirAceptoLecturaTotal } from '../lib/lectura.js';
@@ -47,6 +47,7 @@ function uso() {
     '  --http               también por Streamable HTTP en 127.0.0.1:<puerto>/mcp/<clave>',
     '  --acepto-lectura-total  OBLIGATORIO con --http. Aceptas que las tareas pueden LEER',
     '                       cualquier fichero de tu PC (el motor no encierra la lectura)',
+    '  --nueva-clave        estrena una clave HTTP nueva (por defecto se reutiliza la guardada)',
     '  --port <n>           puerto HTTP (por defecto ' + PUERTO_HTTP_DEFECTO + ')',
     '  --tareas-por-hora <n> tope de tareas por hora (por defecto ' + TAREAS_POR_HORA_DEFECTO + ')',
     '  -h, --help           esto',
@@ -64,13 +65,14 @@ function uso() {
 
 /** Leer la línea de órdenes. */
 function leerOrdenes(argv) {
-  const ordenes = { casa: undefined, motor: undefined, estado: false, ayuda: false, http: false, aceptoLecturaTotal: false, puerto: PUERTO_HTTP_DEFECTO, tareasPorHora: TAREAS_POR_HORA_DEFECTO };
+  const ordenes = { casa: undefined, motor: undefined, estado: false, ayuda: false, http: false, aceptoLecturaTotal: false, nuevaClave: false, puerto: PUERTO_HTTP_DEFECTO, tareasPorHora: TAREAS_POR_HORA_DEFECTO };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '-h' || a === '--help') ordenes.ayuda = true;
     else if (a === '--status') ordenes.estado = true;
     else if (a === '--http') ordenes.http = true;
     else if (a === '--acepto-lectura-total') ordenes.aceptoLecturaTotal = true;
+    else if (a === '--nueva-clave') ordenes.nuevaClave = true;
     else if (a === '--port' || a.startsWith('--port=')) {
       const valor = a.includes('=') ? a.slice(a.indexOf('=') + 1) : argv[++i];
       const n = Number(valor);
@@ -95,21 +97,35 @@ function leerOrdenes(argv) {
 }
 
 /**
- * La clave larga de la URL HTTP. Se genera una vez y se guarda en la casa; si ya
- * existe, se reutiliza. Nunca va al repositorio.
+ * La clave larga de la URL HTTP. Se guarda en la casa (nunca en el repositorio)
+ * con permisos de sólo-dueño; si ya existe se reutiliza, salvo que se pida una
+ * nueva (`--nueva-clave`, y `tunel.mjs` la estrena al abrir el túnel).
  * @param {string} casa - la casa de RATACODE.
+ * @param {boolean} nueva - true para estrenar clave aunque ya haya una.
  * @returns {string} la clave (hex).
  */
-function claveHttp(casa) {
+function claveHttp(casa, nueva = false) {
   const ruta = join(casa, 'mcp', 'http-secret.txt');
-  try {
-    const leida = readFileSync(ruta, 'utf8').trim();
-    if (/^[0-9a-f]{16,}$/.test(leida)) return leida;
-  } catch { /* la generamos */ }
+  if (nueva !== true) {
+    try {
+      const leida = readFileSync(ruta, 'utf8').trim();
+      if (/^[0-9a-f]{16,}$/.test(leida)) return leida;
+    } catch { /* la generamos */ }
+  }
   const clave = randomBytes(32).toString('hex');
-  mkdirSync(join(casa, 'mcp'), { recursive: true });
-  writeFileSync(ruta, clave + '\n');
+  escribirSecreto(ruta, clave + '\n');
   return clave;
+}
+
+/**
+ * Escribir un fichero de secretos con permisos de sólo-dueño. En POSIX el `mode`
+ * de `writeFileSync` no se aplica si el fichero YA existía, así que después se
+ * fuerza con `chmod` (en Windows el modo es casi decorativo, pero se pone igual).
+ */
+function escribirSecreto(ruta, texto) {
+  mkdirSync(dirname(ruta), { recursive: true });
+  writeFileSync(ruta, texto, { mode: 0o600 });
+  try { chmodSync(ruta, 0o600); } catch { /* Windows, o sin permisos: da igual */ }
 }
 
 async function main() {
@@ -142,6 +158,9 @@ async function main() {
     dshBin,
     cwdPorDefecto: process.cwd(),
     tareasPorHora: ordenes.tareasPorHora,
+    // En modo HTTP el espacio se aprieta: hacen falta `mcp.workspaces` y no vale
+    // ni la raíz del disco ni la carpeta del usuario (mira `resolverEspacio`).
+    http: ordenes.http,
   });
 
   // stdio: siempre (es el transporte de siempre).
@@ -156,15 +175,28 @@ async function main() {
 
   // HTTP: además del stdio, si se pidió.
   if (ordenes.http) {
-    const clave = claveHttp(casa);
-    const server = await iniciarServidorHttp({ fabricaServidor, puerto: ordenes.puerto, clave, host: '127.0.0.1' });
-    const url = 'http://127.0.0.1:' + ordenes.puerto + '/mcp/' + clave;
-    aviso('en marcha · HTTP en ' + url);
-    // La URL completa para pegar en el cliente (ChatGPT/Codex/Claude) y para el túnel.
-    try {
-      writeFileSync(join(casa, 'mcp', 'http-url.txt'), url + '\n');
-    } catch { /* no es crítico */ }
-    server.on('clientError', () => {});
+    const rutaClave = join(casa, 'mcp', 'http-secret.txt');
+    const rutaUrl = join(casa, 'mcp', 'http-url.txt');
+    const clave = claveHttp(casa, ordenes.nuevaClave);
+    /** La URL con la clave, al fichero. Se reescribe si la clave rota. */
+    const guardarUrl = (c) => {
+      try { escribirSecreto(rutaUrl, 'http://127.0.0.1:' + ordenes.puerto + '/mcp/' + c + '\n'); }
+      catch { /* no es crítico */ }
+    };
+    const http = await iniciarServidorHttp({
+      fabricaServidor,
+      puerto: ordenes.puerto,
+      clave,
+      rutaClave,
+      alRotar: guardarUrl,
+      host: '127.0.0.1',
+    });
+    // La clave NO se escribe en stderr: los clientes MCP guardan ese stderr en
+    // sus registros. Se dice dónde está y ya.
+    aviso('en marcha · HTTP en http://127.0.0.1:' + ordenes.puerto + '/mcp/<oculta>');
+    aviso('en marcha · la URL COMPLETA (con la clave) está en ' + rutaUrl);
+    guardarUrl(http.claveActual());
+    http.servidor.on('clientError', () => {});
   }
 
   // Al irnos, no dejamos tareas huérfanas trabajando por detrás.

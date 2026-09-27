@@ -1,5 +1,5 @@
 /**
- * servidor — las seis herramientas MCP de RATACODE.
+ * servidor — las siete herramientas MCP de RATACODE.
  *
  * Esto es una capa FINA: aquí no se decide qué modelo usar (salvo el que la
  * casa ya tiene por defecto, y se dice cuál), no se habla con ningún proveedor
@@ -12,13 +12,18 @@
  * servidor está expuesto (sobre todo por el túnel de Cloudflare).
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { z } from 'zod';
 import { ajustesMcp } from './casa.js';
 import { catalogo, credencialDeProveedor, resolverRuta } from './modelos.js';
 import { faltaEnElEntorno } from './claves.js';
 import { aviso } from './registro.js';
 import { resolverEspacio, resolverModo } from './seguridad.js';
-import { leerActividad, Tareas } from './tareas.js';
+import { Tareas } from './tareas.js';
+
+/** La ventana del tope de tareas. */
+const VENTANA_MS = 3600_000;
 
 /** El envoltorio de toda respuesta: JSON legible para cualquier agente. */
 function comoTexto(dato) {
@@ -41,8 +46,34 @@ function conRed(funcion) {
   };
 }
 
+/**
+ * Las marcas del tope por hora, EN LA CASA (`<casa>\mcp\marcas.json`).
+ * Antes vivían sólo en memoria: dos servidores, o un reinicio, multiplicaban el
+ * tope. Al arrancar se cuentan las de la última hora; al lanzar una tarea se
+ * apunta y se guarda.
+ */
+function cargarMarcas(casa, ahora = Date.now()) {
+  try {
+    const leidas = JSON.parse(readFileSync(join(casa, 'mcp', 'marcas.json'), 'utf8'));
+    if (Array.isArray(leidas)) {
+      return leidas
+        .filter((t) => typeof t === 'number' && Number.isFinite(t) && ahora - t <= VENTANA_MS)
+        .sort((a, b) => a - b);
+    }
+  } catch { /* sin fichero (o roto): no hay marcas */ }
+  return [];
+}
+
+/** Guardar las marcas. Si no se puede escribir, la tarea sigue: no es un requisito. */
+function guardarMarcas(casa, marcas) {
+  try {
+    mkdirSync(join(casa, 'mcp'), { recursive: true });
+    writeFileSync(join(casa, 'mcp', 'marcas.json'), JSON.stringify(marcas) + '\n', { mode: 0o600 });
+  } catch { /* el cuaderno no puede tumbar el servicio */ }
+}
+
 /** El texto que el cliente MCP lee al conectar: cómo se usa esto. */
-function instrucciones(casa) {
+function instrucciones() {
   return [
     'RATACODE está disponible como servidor MCP: úsalo para delegar trabajos a los modelos configurados en esta máquina.',
     '',
@@ -60,20 +91,20 @@ function instrucciones(casa) {
     'RATACODE sólo mira el ENTORNO del proceso para las credenciales: no lee ficheros de claves. Si falta una, lo dirá tal cual («falta B_AI_API_KEY en el entorno del cliente MCP») y no arrancará nada.',
     'Las tareas ESCRIBEN sólo dentro del espacio de trabajo autorizado; si necesitas algo fuera, pídelo al humano.',
     'AVISO IMPORTANTE: el motor no sabe encerrar la LECTURA. Una tarea puede leer cualquier fichero que pueda leer el usuario que arrancó este servidor (incluida la casa de RATACODE y su .credentials.yaml), y lo que lea se manda al proveedor del modelo. NO leas ficheros de claves ni nada que el humano no te haya dado; si el encargo lo pide, pregúntale antes.',
-    'Casa de RATACODE: ' + casa,
   ].join('\n');
 }
 
 /**
- * Registrar las seis herramientas en un `McpServer`. Extraído de
+ * Registrar las siete herramientas en un `McpServer`. Extraído de
  * `montarServidor` para poder crear un servidor por sesión HTTP que COMPARTA
  * el mismo registro de tareas (así `get_task_result` ve las tareas de otras
  * sesiones).
  * @param {McpServer} servidor - el servidor donde registrar.
- * @param {object} ctx - casa, dshBin, cwdPorDefecto, tareas, marcasTarea.
+ * @param {object} ctx - casa, dshBin, cwdPorDefecto, tareas, marcasTarea, tareasPorHora, http.
  */
 export function registrarHerramientas(servidor, ctx) {
   const { casa, dshBin, cwdPorDefecto, tareas, marcasTarea } = ctx;
+  const ajustes = ajustesMcp(casa);
 
   /** El nombre del cliente que está al otro lado, para el cuaderno. */
   const cliente = () => {
@@ -147,21 +178,42 @@ export function registrarHerramientas(servidor, ctx) {
       title: 'Lanzar una tarea en RATACODE',
       description: 'Manda un trabajo a un modelo de RATACODE. Sin `esperar_segundos` devuelve un task_id al momento y el trabajo sigue en segundo plano (consulta get_task_status y recoge con get_task_result). CON `esperar_segundos` (1-600) la llamada ESPERA hasta que la tarea termine o se agote ese tiempo, y si terminó devuelve el resultado completo en la MISMA respuesta, sin más llamadas: úsalo cuando no puedas volver después (una sola vuelta de chat). Por stdio, la tarea vive lo que vive el cliente: si cierras el cliente, se muere. Si no indicas modelo, se usa el de por defecto de la casa y se te dice cuál.',
       inputSchema: {
-        prompt: z.string().min(1).describe('El encargo, en texto.'),
+        prompt: z.string().min(1).describe('El encargo, en texto. Tope: ' + ajustes.promptMaxCaracteres + ' caracteres (configurable en `mcp.prompt_max_caracteres`).'),
         esperar_segundos: z.number().int().min(0).max(600).optional().describe('Si lo das, esta llamada espera hasta ese máximo (segundos, 0-600) a que la tarea termine y devuelve el resultado completo en la misma respuesta. Sin este parámetro, vuelve al momento con el task_id y hay que preguntar con get_task_status.'),
         provider: z.string().optional().describe('Proveedor (por ejemplo "b-ai"). Si lo omites, el de por defecto.'),
         model: z.string().optional().describe('Id del modelo (por ejemplo "deepseek-v4.1-flash").'),
         working_directory: z.string().optional().describe('Carpeta donde trabaja la tarea. Debe estar dentro de los espacios autorizados.'),
         context: z.string().optional().describe('Contexto extra que se pone delante del encargo.'),
         max_tokens: z.number().int().positive().optional().describe('Tope de tokens de salida.'),
-        timeout: z.number().int().positive().optional().describe('Tiempo máximo en milisegundos antes de cancelar la tarea.'),
+        timeout: z.number().int().positive().optional().describe('Tiempo máximo en milisegundos antes de cancelar la tarea. Por defecto ' + ajustes.timeoutPorDefectoMs + ' ms (' + Math.round(ajustes.timeoutPorDefectoMs / 60000) + ' min); máximo ' + ajustes.timeoutMaximoMs + ' ms.'),
         allow_dangerous: z.boolean().optional().describe('Pedir acceso total al disco. Requiere que el humano lo haya permitido en la casa; si no, se deniega.'),
       },
     },
     conRed(async (args) => {
-      // Tope de tareas por hora: falla cerrado antes de lanzar nada.
+      // Tope del encargo: un prompt enorme es un gasto enorme y una espera peor.
+      if (args.prompt.length > ajustes.promptMaxCaracteres) {
+        throw new Error(
+          'el encargo es demasiado largo: ' + args.prompt.length + ' caracteres (máximo '
+          + ajustes.promptMaxCaracteres + ', `mcp.prompt_max_caracteres` en ' + casa + '\\settings.yaml).'
+          + ' Pásame el encargo en un fichero dentro del espacio de trabajo y pídeme que lo lea.',
+        );
+      }
+
+      // Tope de tareas EN MARCHA a la vez: la URL abierta no puede ser una
+      // fábrica de procesos del motor.
+      const enMarcha = tareas.listar().filter((t) => t.estado === 'queued' || t.estado === 'running').length;
+      if (enMarcha >= ajustes.tareasALaVez) {
+        throw new Error(
+          'ya hay ' + enMarcha + ' tareas en marcha (máximo ' + ajustes.tareasALaVez + ' a la vez,'
+          + ' `mcp.tareas_a_la_vez` en ' + casa + '\\settings.yaml). Espera a que termine alguna'
+          + ' (get_task_status) o cancélala (cancel_task).',
+        );
+      }
+
+      // Tope de tareas por hora: falla cerrado antes de lanzar nada. Las marcas
+      // viven en la casa, así que un reinicio no regala cuota.
       const ahora = Date.now();
-      while (marcasTarea.length > 0 && ahora - marcasTarea[0] > 3600_000) marcasTarea.shift();
+      while (marcasTarea.length > 0 && ahora - marcasTarea[0] > VENTANA_MS) marcasTarea.shift();
       if (marcasTarea.length >= ctx.tareasPorHora) {
         throw new Error(
           'tope de tareas alcanzado: ' + marcasTarea.length + ' en la última hora'
@@ -176,15 +228,24 @@ export function registrarHerramientas(servidor, ctx) {
       if (credencial !== null && !credencial.esta) {
         return comoError(faltaEnElEntorno(credencial.nombre));
       }
-      const { espacio, raiz, avisos } = resolverEspacio({ casa, pedido: args.working_directory, cwdPorDefecto });
+      const { espacio, raiz, avisos } = resolverEspacio({ casa, pedido: args.working_directory, cwdPorDefecto, http: ctx.http === true });
       const { modo, motivo } = resolverModo({ casa, allowDangerous: args.allow_dangerous });
       const prompt = args.context === undefined || args.context.trim() === ''
         ? args.prompt
         : 'Contexto:\n' + args.context.trim() + '\n\nTarea:\n' + args.prompt;
 
+      // El tiempo: si el cliente no dice nada, el de la casa (media hora); si
+      // dice, se respeta pero nunca por encima del techo.
+      const timeoutPedido = typeof args.timeout === 'number' && args.timeout > 0 ? args.timeout : null;
+      const timeoutMs = timeoutPedido === null
+        ? ajustes.timeoutPorDefectoMs
+        : Math.min(timeoutPedido, ajustes.timeoutMaximoMs);
+      const timeoutRecortado = timeoutPedido !== null && timeoutPedido > ajustes.timeoutMaximoMs;
+
       // Sólo contabiliza la tarea si de verdad se lanza (no los intentos
       // denegados por falta de clave o espacio no autorizado).
       marcasTarea.push(Date.now());
+      guardarMarcas(casa, marcasTarea);
       const recibo = tareas.crear({
         prompt,
         provider: ruta.provider,
@@ -192,7 +253,7 @@ export function registrarHerramientas(servidor, ctx) {
         espacio,
         modo,
         maxTokens: args.max_tokens,
-        timeoutMs: args.timeout,
+        timeoutMs,
         cliente: cliente(),
       });
       const comun = {
@@ -200,6 +261,11 @@ export function registrarHerramientas(servidor, ctx) {
         ruta_elegida: ruta.origen,
         sandbox: { modo, motivo },
         espacio_autorizado_por: raiz,
+        tiempo: {
+          timeout_ms: timeoutMs,
+          origen: timeoutPedido === null ? 'por_defecto_de_la_casa' : 'peticion',
+          ...(timeoutRecortado ? { recortado_al_maximo_ms: ajustes.timeoutMaximoMs } : {}),
+        },
         avisos,
       };
 
@@ -270,33 +336,46 @@ export function registrarHerramientas(servidor, ctx) {
     'ratacode_status',
     {
       title: 'Estado de RATACODE MCP',
-      description: 'Estado del propio servidor: casa, motor, tareas vivas, clientes conectados y las últimas líneas del cuaderno de actividad.',
-      inputSchema: {
-        ultimas: z.number().int().min(0).max(50).optional().describe('Cuántas líneas del cuaderno devolver (por defecto 10).'),
-      },
+      description: 'Estado del propio servidor: tareas vivas, tope por hora y espacios autorizados. No devuelve la casa ni la actividad de otros clientes.',
+      inputSchema: {},
     },
-    conRed(async ({ ultimas }) => {
+    conRed(async () => {
       const resumen = tareas.resumir();
-      const ajustes = ajustesMcp(casa);
+      // Ni la casa (el dato que sirve en bandeja para ir a leer
+      // `.credentials.yaml`), ni el cuaderno de actividad (lleva los encargos de
+      // TODOS los clientes), ni las últimas tareas de otros: cada cliente ve lo
+      // suyo y el estado del servidor.
       return comoTexto({
-        ...resumen,
+        mcp: resumen.mcp,
+        actualizado: resumen.actualizado,
         espacios_autorizados: ajustes.workspaces.length > 0 ? ajustes.workspaces : ['(sin lista; sólo el espacio por defecto)'],
         permitir_peligroso: ajustes.permitirPeligroso,
-        actividad: leerActividad(casa, ultimas ?? 10),
+        topes: {
+          tareas_por_hora: ctx.tareasPorHora,
+          marcas_ultima_hora: marcasTarea.length,
+          tareas_a_la_vez: ajustes.tareasALaVez,
+          timeout_por_defecto_ms: ajustes.timeoutPorDefectoMs,
+          timeout_maximo_ms: ajustes.timeoutMaximoMs,
+          prompt_max_caracteres: ajustes.promptMaxCaracteres,
+        },
+        nota: 'Para ver el cuaderno de actividad y las tareas de todos los clientes, míralo en la casa (o en el panel), no por MCP.',
       });
     }),
   );
 }
 
 /**
- * Montar el servidor MCP con sus seis herramientas.
- * @param {{casa: string, dshBin: string, cwdPorDefecto: string, tareasPorHora?: number}} opciones - la casa, el motor, el cwd y el tope.
+ * Montar el servidor MCP con sus siete herramientas.
+ * @param {{casa: string, dshBin: string, cwdPorDefecto: string, tareasPorHora?: number, http?: boolean}} opciones - la casa, el motor, el cwd, el tope y si se habla por HTTP.
  * @returns {{servidor: McpServer, tareas: Tareas, fabricaServidor: () => McpServer}}
  */
-export function montarServidor({ casa, dshBin, cwdPorDefecto, tareasPorHora = 30 }) {
+export function montarServidor({ casa, dshBin, cwdPorDefecto, tareasPorHora = 30, http = false }) {
   const tareas = new Tareas({ casa, dshBin });
-  /** Marcas de tiempo de creación de tareas, para el tope por hora. */
-  const marcasTarea = [];
+  /** Marcas de tiempo de creación de tareas, para el tope por hora. Viven en la casa. */
+  const marcasTarea = cargarMarcas(casa);
+  if (marcasTarea.length > 0) {
+    aviso('tope de tareas: ' + marcasTarea.length + ' marca(s) de la última hora, contadas al arrancar');
+  }
 
   /** Crear un servidor MCP nuevo que COMPARTE el registro de tareas. Sirve para
    * atender cada sesión HTTP con su propio servidor (el SDK no permite conectar
@@ -304,9 +383,9 @@ export function montarServidor({ casa, dshBin, cwdPorDefecto, tareasPorHora = 30
   function fabricaServidor() {
     const servidor = new McpServer(
       { name: 'ratacode', version: '0.1.0' },
-      { instructions: instrucciones(casa) },
+      { instructions: instrucciones() },
     );
-    registrarHerramientas(servidor, { casa, dshBin, cwdPorDefecto, tareas, marcasTarea, tareasPorHora });
+    registrarHerramientas(servidor, { casa, dshBin, cwdPorDefecto, tareas, marcasTarea, tareasPorHora, http });
     return servidor;
   }
 

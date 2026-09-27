@@ -22,7 +22,8 @@
  *     aprobación que no existe: en un servidor MCP no hay a quién preguntar.
  */
 import { existsSync, realpathSync, statSync } from 'node:fs';
-import { resolve, sep } from 'node:path';
+import { homedir } from 'node:os';
+import { dirname, resolve, sep } from 'node:path';
 import { ajustesMcp } from './casa.js';
 
 /** ¿Es Windows? (allí las rutas no distinguen mayúsculas) */
@@ -62,18 +63,74 @@ export function estaDentro(hijo, raiz) {
 }
 
 /**
+ * ¿Es la raíz de un disco (`C:\`, `/`)? Un espacio de trabajo así es todo el
+ * disco, y en modo HTTP eso no se admite.
+ * @param {string} ruta - ruta ya normalizada.
+ * @returns {boolean}
+ */
+export function esRaizDeDisco(ruta) {
+  const limpia = ruta.endsWith(sep) && ruta.length > 1 ? ruta.slice(0, -1) : ruta;
+  return /^[a-z]:$/i.test(limpia) || limpia === '' || limpia === '/';
+}
+
+/**
+ * ¿Es la carpeta del usuario (o la que los contiene a todos)? En modo HTTP no se
+ * admite como espacio de trabajo: con la URL en la mano sería el PC entero a un
+ * `working_directory` de distancia.
+ * @param {string} ruta - ruta ya normalizada.
+ * @returns {boolean}
+ */
+export function esCarpetaDeUsuario(ruta) {
+  const a = comparable(ruta);
+  return a === comparable(normalizarRuta(homedir())) || a === comparable(normalizarRuta(dirname(homedir())));
+}
+
+/**
  * Resolver el espacio de una tarea, o negarse con un motivo útil.
- * @param {{casa: string, pedido?: string, cwdPorDefecto: string}} opciones
+ * @param {{casa: string, pedido?: string, cwdPorDefecto: string, http?: boolean}} opciones
  * @returns {{espacio: string, raiz: string, raices: string[], avisos: string[]}}
  */
-export function resolverEspacio({ casa, pedido, cwdPorDefecto }) {
+export function resolverEspacio({ casa, pedido, cwdPorDefecto, http = false }) {
   const ajustes = ajustesMcp(casa);
   const avisos = [...ajustes.avisos];
-  const raices = ajustes.workspaces.length > 0
+
+  // En modo HTTP (el del túnel) el espacio se aprieta: sin `mcp.workspaces`
+  // declarados no se trabaja. Si no, la única raíz sería la carpeta desde la que
+  // arrancó el servidor —que puede ser la carpeta de usuario entera— y con la
+  // URL en la mano eso es el disco ajeno.
+  if (http && ajustes.workspaces.length === 0) {
+    throw new Error(
+      'en modo HTTP hacen falta espacios declarados: pon `mcp.workspaces:` en ' + casa
+      + '\\settings.yaml con las carpetas donde puede trabajar (y `workspace_por_defecto:` si quieres'
+      + ' una por defecto). Sin esa lista, la única raíz sería la carpeta desde la que arrancó el'
+      + ' servidor, y eso, con la URL en la mano de cualquiera, es demasiado.',
+    );
+  }
+
+  let raices = ajustes.workspaces.length > 0
     ? ajustes.workspaces.map(normalizarRuta)
     : [normalizarRuta(ajustes.workspacePorDefecto ?? cwdPorDefecto)];
   if (ajustes.workspaces.length === 0) {
     avisos.push('la casa no tiene `mcp.workspaces`: sólo se permite ' + raices[0]);
+  }
+
+  // Ni la raíz de un disco ni la carpeta del usuario como espacio: se niegan en
+  // modo HTTP, que es el que se expone. (En local el humano arrancó el servidor
+  // en su propia carpeta a propósito, y ahí manda él.)
+  if (http) {
+    const permitidas = raices.filter((r) => !esRaizDeDisco(r) && !esCarpetaDeUsuario(r));
+    for (const fuera of raices.filter((r) => !permitidas.includes(r))) {
+      avisos.push('espacio demasiado ancho, lo ignoro: ' + fuera
+        + ' (ni la raíz de un disco ni tu carpeta de usuario valen como espacio de trabajo en modo HTTP)');
+    }
+    if (permitidas.length === 0) {
+      throw new Error(
+        'no queda ningún espacio de trabajo admisible: ni la raíz de un disco ni tu carpeta de usuario ('
+        + homedir() + ' y ' + dirname(homedir()) + ') valen. Declara `mcp.workspaces` en '
+        + casa + '\\settings.yaml con carpetas de trabajo de verdad.',
+      );
+    }
+    raices = permitidas;
   }
 
   const candidato = pedido === undefined || pedido === null || String(pedido).trim() === ''
@@ -85,6 +142,12 @@ export function resolverEspacio({ casa, pedido, cwdPorDefecto }) {
   }
   if (!statSync(candidato).isDirectory()) {
     throw new Error('el espacio de trabajo no es una carpeta: ' + candidato);
+  }
+  if (http && (esRaizDeDisco(candidato) || esCarpetaDeUsuario(candidato))) {
+    throw new Error(
+      'el espacio de trabajo ' + candidato + ' es demasiado ancho para modo HTTP: ni la raíz de un'
+      + ' disco ni tu carpeta de usuario valen. Usa una carpeta de trabajo de verdad.',
+    );
   }
 
   const raiz = raices.find((r) => estaDentro(candidato, r));
