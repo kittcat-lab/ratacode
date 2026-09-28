@@ -985,8 +985,8 @@ async function main() {
     + (modos.borrados.length > 0 ? ' · fuera los viejos: ' + modos.borrados.join(', ') : '')
     + ' · por defecto: ' + (modos.preset.cambiado ? 'puesto en ' + PRESET_POR_DEFECTO + ' (' + modos.preset.motivo + ')' : modos.preset.motivo) + '\n');
   process.stdout.write('RATACODE · proveedores: ' + (estreno.nueva
-    ? '10 en Ajustes › Models (B.AI, OpenRouter, Groq, Google Gemini, NVIDIA NIM, SambaNova, Cloudflare Workers AI, DeepSeek nativo y los DOS locales sin clave: Ollama y LM Studio)'
-    : 'los que ya tuviera la casa (no se toca settings.yaml): añade a mano los que falten de los 10') + '\n');
+    ? 'Ajustes › Models: las 8 APIs con clave (B.AI, OpenRouter, Groq, Google Gemini, NVIDIA NIM, SambaNova, Cloudflare Workers AI y DeepSeek nativo) · Ajustes › Modelos locales: Ollama y LM Studio, sin clave'
+    : 'los que ya tuviera la casa (no se toca settings.yaml): añade a mano los que falten de las 8 APIs') + '\n');
   process.stdout.write('RATACODE · manos: apretón y MCP en Ajustes › Handshakes\n');
 
   if (ordenes.modo === 'headless') {

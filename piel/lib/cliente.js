@@ -18,6 +18,14 @@
  *      `ratacode mcp --http --acepto-lectura-total` y `node mcp/tunel.mjs`, el
  *      aviso de lectura total, y el texto que se pega en el chat.
  *
+ * R18 · Añade una SEGUNDA sección por la misma vía oficial, «Modelos locales»,
+ * con los dos runtimes que corren en el ordenador (Ollama y LM Studio): si están
+ * encendidos (lo pregunta a `/ratacode/runtimes`, que sondea `/v1/models` sin
+ * bloquear la página), qué modelos tienen y cuáles valen como agente, su
+ * `baseURL` y cómo cambiarla, cómo encenderlos en una línea y la recomendación
+ * por tarjeta del README. Así Ajustes › Models queda SÓLO para las APIs con
+ * clave, que es lo que pidió Patxi.
+ *
  * Este fichero NO es un módulo ES: es un bundle en el formato del cargador de
  * módulos del navegador de DSH (`window.__ModuleLoader__.load({id, factory})`),
  * que sólo REGISTRA una fábrica; el cuerpo se materializa al importarlo.
@@ -57,6 +65,24 @@ window.__ModuleLoader__.load({
       'background:var(--dsw-alias-bg-secondary,#1b1e21);color:inherit;font:inherit;font-size:12px}',
       '.mr-hs-accion:hover{border-color:#e4f226}',
       '.mr-hs-accion[data-copiado="si"]{border-color:#a6e22e;color:#a6e22e}',
+      // R18 · Ajustes › Modelos locales
+      '.mr-ml{display:flex;flex-direction:column;gap:12px;padding:4px 0 18px;max-width:760px}',
+      '.mr-ml-tarjeta{border:1px solid var(--dsw-alias-border-secondary,#3a3f45);border-radius:10px;padding:12px 13px;display:flex;flex-direction:column;gap:8px}',
+      '.mr-ml-cabeza{display:flex;align-items:center;gap:8px;flex-wrap:wrap}',
+      '.mr-ml-nombre{font-weight:600;font-size:14px}',
+      '.mr-ml-pildora{border:1px solid var(--dsw-alias-border-secondary,#3a3f45);border-radius:999px;padding:1px 9px;font-size:12px}',
+      '.mr-ml-encendido{color:#a6e22e;border-color:#a6e22e}',
+      '.mr-ml-apagado{color:#ffb4b4;border-color:#ff6b6b}',
+      '.mr-ml-modelos{display:flex;flex-direction:column;gap:5px;margin:0;padding:0;list-style:none}',
+      '.mr-ml-modelo{display:flex;align-items:baseline;gap:8px;font-size:13px;flex-wrap:wrap}',
+      '.mr-ml-id{font-family:ui-monospace,Consolas,monospace;font-size:12px}',
+      '.mr-ml-clase{border-radius:6px;padding:1px 7px;font-size:11px}',
+      '.mr-ml-si{background:rgba(166,226,46,.14);color:#a6e22e}',
+      '.mr-ml-no{background:rgba(255,107,107,.14);color:#ffb4b4}',
+      '.mr-ml-duda{background:rgba(154,160,166,.16);color:#c9ced3}',
+      '.mr-ml-nota{margin:0;font-size:12px;line-height:17px;color:var(--dsw-alias-text-secondary,#9aa0a6)}',
+      '.mr-ml-enlace{color:#e4f226}',
+      '.mr-ml-tarjetas{margin:0;font-size:13px;line-height:20px}',
     ].join('');
 
     if (typeof document !== 'undefined') {
@@ -246,14 +272,148 @@ window.__ModuleLoader__.load({
       return hijos;
     }
 
+    // ── R18 · Ajustes › Modelos locales ─────────────────────────────────────
+
+    /** El texto de la píldora de estado de un runtime local. */
+    function textoEstado(runtime) {
+      return runtime.encendido ? 'encendido' : 'apagado';
+    }
+
+    /** Una píldora («encendido» / «apagado») del runtime. */
+    function Pildora(props) {
+      return e('span', {
+        className: 'mr-ml-pildora ' + (props.encendido ? 'mr-ml-encendido' : 'mr-ml-apagado'),
+        'data-estado': props.encendido ? 'encendido' : 'apagado',
+      }, props.texto);
+    }
+
+    /**
+     * Una fila de modelo local: su id y si vale como agente (clase + por qué).
+     * @param props - `modelo` con `{id, clase, nota}`.
+     * @returns la fila.
+     */
+    function ModeloLocal(props) {
+      const m = props.modelo;
+      const clase = m.clase === 'agente' ? 'mr-ml-si' : (m.clase === 'no' ? 'mr-ml-no' : 'mr-ml-duda');
+      const etiqueta = m.clase === 'agente' ? 'vale como agente' : (m.clase === 'no' ? 'NO vale como agente' : 'sin datos');
+      return e('li', { className: 'mr-ml-modelo' },
+        e('span', { className: 'mr-ml-id' }, m.id),
+        e('span', { className: 'mr-ml-clase ' + clase, 'data-clase': m.clase }, etiqueta),
+        e('span', { className: 'mr-ml-nota' }, m.nota));
+    }
+
+    /** Una tarjeta de runtime local: estado, modelos, dirección y arranque. */
+    function TarjetaRuntime(props) {
+      const r = props.runtime;
+      const hijos = [];
+      hijos.push(e('div', { className: 'mr-ml-cabeza', key: 'cabeza' },
+        e('span', { className: 'mr-ml-nombre' }, r.nombre),
+        e(Pildora, { key: 'p', encendido: r.encendido, texto: textoEstado(r) }),
+        e('span', { className: 'mr-ml-nota', key: 'dir' }, 'dirección: ', e('code', { key: 'c' }, r.baseURL))));
+      if (r.encendido) {
+        if (r.modelos.length === 0) {
+          hijos.push(e('p', { className: 'mr-ml-nota', key: 'vacio' },
+            'Está encendido, pero no tiene ningún modelo bajado. Baja el que te toque con «'
+            + (r.id === 'ollama' ? 'ollama pull ' + props.recomendado : 'LM Studio → búscalo y descárgalo') + '».'));
+        } else {
+          hijos.push(e('p', { className: 'mr-ml-nota', key: 'tiene' },
+            'Tiene ' + r.modelos.length + ' modelo' + (r.modelos.length === 1 ? '' : 's')
+            + ' (los que valen como agente lo dicen al lado):'));
+          hijos.push(e('ul', { className: 'mr-ml-modelos', key: 'lista' },
+            r.modelos.map((m) => e(ModeloLocal, { key: m.id, modelo: m }))));
+        }
+      } else {
+        hijos.push(e('p', { className: 'mr-ml-nota', key: 'apagado' },
+          'Está apagado, así que ahora mismo no puede trabajar. Enciéndelo con esta línea:'));
+        hijos.push(e('pre', { className: 'mr-hs-pre', key: 'arranque' }, r.arranque));
+        hijos.push(e('div', { className: 'mr-hs-acciones', key: 'copiar' },
+          e(Bloque, { texto: r.arranque, etiqueta: 'Copiar «' + r.arranque + '»' })));
+        hijos.push(e('p', { className: 'mr-ml-nota', key: 'despues' }, r.despues));
+      }
+      hijos.push(e('p', { className: 'mr-ml-nota', key: 'enlace' },
+        '¿No lo tienes? ', e('a', { className: 'mr-ml-enlace', href: r.enlace, target: '_blank', rel: 'noreferrer' },
+          'Descargar ' + r.nombre + ' →')));
+      hijos.push(e('p', { className: 'mr-ml-nota', key: 'cambiar' }, r.cambiar));
+      return e('div', { className: 'mr-ml-tarjeta', key: r.id, 'data-runtime': r.id }, hijos);
+    }
+
+    /**
+     * La sección «Modelos locales» de Ajustes: los dos runtimes que corren en el
+     * ordenador, con su estado, sus modelos y la recomendación por tarjeta.
+     * Pregunta a `/ratacode/runtimes` (el servidor de la piel sondea con tope de
+     * 1,5 s), así que NUNCA bloquea la página: mientras mira, lo dice.
+     * @returns el árbol de la sección.
+     */
+    function SeccionModelosLocales() {
+      const [estado, setEstado] = React.useState({ fase: 'cargando' });
+
+      const mirar = () => {
+        setEstado((previo) => (previo.fase === 'listo' ? { fase: 'remirando', datos: previo.datos } : { fase: 'cargando' }));
+        pedir('/ratacode/runtimes', 'GET').then((r) => {
+          if (!r.ok) { setEstado({ fase: 'error', error: r.error ?? 'error' }); return; }
+          setEstado({ fase: 'listo', datos: r });
+        });
+      };
+      React.useEffect(() => { mirar(); }, []);
+
+      const hijos = [];
+      hijos.push(e('p', { className: 'mr-hs-intro', key: 'intro' },
+        'Estos dos motores corren en TU ordenador: no piden clave y nada de lo que hables con ellos sale de tu PC. '
+        + 'Por eso no están en Ajustes › Models (esa pestaña es para las APIs con clave): aquí se ve si están '
+        + 'encendidos, qué modelos tienes y cuáles valen para trabajar como agente.'));
+
+      if (estado.fase === 'cargando') {
+        hijos.push(e('p', { className: 'mr-hs-linea', key: 'mirando' }, 'Mirando si están encendidos… (no hace falta esperar aquí: la página sigue viva)'));
+        return e('div', { className: 'mr-ml' }, hijos);
+      }
+      if (estado.fase === 'error') {
+        hijos.push(e('p', { className: 'mr-hs-aviso', key: 'error' }, 'No pude mirar los motores locales: ' + estado.error));
+        hijos.push(e('div', { className: 'mr-hs-acciones', key: 'reintentar' },
+          e('button', { type: 'button', className: 'mr-hs-accion', onClick: mirar }, 'Volver a mirar')));
+        return e('div', { className: 'mr-ml' }, hijos);
+      }
+
+      const d = estado.datos;
+      const runtimes = Array.isArray(d.runtimes) ? d.runtimes : [];
+      const primero = runtimes[0] ?? null;
+      for (const r of runtimes) {
+        hijos.push(e(TarjetaRuntime, { key: r.id, runtime: r, recomendado: (d.tarjetas ?? [])[0]?.modelo ?? 'qwen3:8b' }));
+      }
+
+      hijos.push(e('p', { className: 'mr-hs-intro', key: 'proveedor' }, d.aviso ?? ''));
+      hijos.push(e('p', { className: 'mr-ml-tarjetas', key: 'tarjetas-tabla' },
+        'Qué modelo según tu tarjeta (tabla del README): ',
+        (d.tarjetas ?? []).map((t, i) => e('span', { key: t.tarjeta },
+          (i > 0 ? ' · ' : ''),
+          e('b', { key: 'b' }, t.tarjeta), ' → ',
+          e('code', { key: 'm' }, t.modelo), ' (' + t.tamano + ')'))));
+      if (primero !== null) {
+        hijos.push(e('p', { className: 'mr-ml-nota', key: 'recuerda' },
+          'Baja el tuyo con `ollama pull <id>`, enciende el motor y elígelo en el selector de modelos de la caja '
+          + 'de escribir' + (primero.modelos[0]?.id ? ' (ahora mismo tienes «' + primero.modelos[0].id + '» en marcha)' : '') + '.'));
+      }
+      hijos.push(e('div', { className: 'mr-hs-acciones', key: 'acciones' },
+        e('button', { type: 'button', className: 'mr-hs-accion', onClick: mirar },
+          estado.fase === 'remirando' ? 'Mirando otra vez…' : 'Volver a mirar')));
+
+      return e('div', { className: 'mr-ml' }, hijos);
+    }
+
     /** Servicios que necesita el plugin de cliente. */
     const inject = ['slots'];
 
     /**
-     * Monta la sección «Handshakes» en el menú de Ajustes.
+     * Monta las secciones de la piel en el menú de Ajustes: «Modelos locales»
+     * (R18, justo detrás de Models) y «Handshakes» (R12).
      * @param ctx - contexto del plugin de navegador.
      */
     function apply(ctx) {
+      ctx.slots.inject('settings.section', () => ctx.slots.register({
+        name: 'settings.section',
+        id: 'modelos-locales',
+        order: 12,
+        label: () => 'Modelos locales',
+      }, SeccionModelosLocales));
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
         id: 'handshakes',

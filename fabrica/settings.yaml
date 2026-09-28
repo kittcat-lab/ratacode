@@ -6,10 +6,13 @@
 # <casa>\.credentials.yaml (la web Ajustes > Models las escribe) o bien
 # exportando la variable de entorno que declara cada proveedor.
 #
-# Proveedores (10 en Ajustes > Models): B.AI, OpenRouter, DeepSeek, Groq,
-# Google Gemini, NVIDIA NIM, SambaNova, Cloudflare Workers AI y DOS LOCALES sin
-# clave y sin coste: Ollama (http://127.0.0.1:11434/v1) y LM Studio
-# (http://127.0.0.1:1234/v1). Los locales no piden clave: no llevan `apiKeyEnv`.
+# Proveedores: en Ajustes > Models salen las 8 APIs con clave (B.AI, OpenRouter,
+# DeepSeek, Groq, Google Gemini, NVIDIA NIM, SambaNova y Cloudflare Workers AI).
+# Los DOS LOCALES sin clave y sin coste — Ollama (http://127.0.0.1:11434/v1) y
+# LM Studio (http://127.0.0.1:1234/v1) — siguen declarados AQUÍ (para que sus
+# modelos salgan en el selector de modelos de la caja), pero la piel los esconde
+# de esa lista: tienen su propia pestaña, Ajustes > «Modelos locales» (R18).
+# Los locales no piden clave: no llevan `apiKeyEnv`.
 # B.AI y OpenRouter se declaran aquí (llm-pi-ai) y los cinco gratuitos que
 # recomendó el informe R11 también. Cada baseURL y cada id de modelo está
 # comprobado en su documentación oficial (enlaces en los comentarios).

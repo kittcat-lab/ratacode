@@ -19,14 +19,20 @@
  *       prueba la estrena SIN claves en su entorno) le falta la clave, con el
  *       `describe` del servicio de credenciales del motor y sin devolver jamás
  *       el valor de ninguna.
+ *   B8 · R18: `/ratacode/runtimes` devuelve los DOS runtimes locales (Ollama y
+ *       LM Studio) con su baseURL, si están encendidos (sondeo corto, que aquí
+ *       contesta «apagado» sin bloquear) y la tabla del README por tarjeta; y el
+ *       bundle del plugin trae la pestaña «Modelos locales» y la piel esconde
+ *       los dos locales de Ajustes › Models (filtro de la piel).
  *   C · COMPRUEBA QUE LA PIEL ENCAJA: cada selector `[class*='_algo']` de
  *       `piel/activos/ratacode-piel.css` tiene que existir en el CSS del
  *       frontend de DSH INSTALADO.
- *   D · LOS 10 PROVEEDORES de fábrica: `fabrica/settings.yaml` declara los 9 que
- *       se declaran (B.AI, OpenRouter, Groq, Gemini, NVIDIA NIM, SambaNova,
- *       Cloudflare Workers AI y los DOS locales de R16, Ollama y LM Studio, que
- *       van sin apiKeyEnv) con su baseURL y su apiKeyEnv oficiales, y NO
- *       declara «deepseek» (lo sirve el adaptador nativo: 10 en Ajustes > Models).
+ *   D · LOS PROVEEDORES de fábrica: `fabrica/settings.yaml` declara los 7 que
+ *       se declaran (B.AI, OpenRouter, Groq, Gemini, NVIDIA NIM, SambaNova y
+ *       Cloudflare Workers AI) más los DOS locales de R16 (Ollama y LM Studio,
+ *       que van sin apiKeyEnv y desde R18 viven en Ajustes › Modelos locales)
+ *       con su baseURL y su apiKeyEnv oficiales, y NO
+ *       declara «deepseek» (lo sirve el adaptador nativo: 8 en Ajustes › Models).
  *
  * ── QUÉ ES «EL CSS DEL FRONTEND DE DSH INSTALADO» (medido, 24-sep-2026) ─────
  * No es sólo `@deepseek-ai/dsh-web-frontend/dist/assets/*.css`. Los nombres de
@@ -187,6 +193,10 @@ const MARCAS_DEL_INDEX = [
   ['R17: la ruta del aviso dice «Abrir Ajustes › Models»', 'Abrir Ajustes › Models'],
   ['R17: la piel reescribe el error MISSING_CREDENTIAL del motor', 'MISSING_CREDENTIAL'],
   ['R17: el aviso se vuelve a mirar cada 3 s (se va solo)', 'setInterval(mirarClave,3000)'],
+  ['R18: la piel esconde los locales de Ajustes › Models', 'Ollama (local, sin clave)'],
+  ['R18: y deja la nota que lleva a su pestaña', 'mr-locales-nota'],
+  ['R18: el aviso del runtime apagado, en español', ' no está encendido: arráncalo con «'],
+  ['R18: el botón que abre la pestaña de los locales', 'Abrir Ajustes › Modelos locales'],
 ];
 
 // ── C · la piel contra el frontend instalado ────────────────────────────────
@@ -351,6 +361,10 @@ async function main() {
       comprobar(textoBundle.includes('Handshakes'), 'el bundle no lleva el rótulo «Handshakes»');
       comprobar(textoBundle.includes('Agentes con navegador') && textoBundle.includes('Chats web'),
         'el bundle no trae los dos botones de la sección');
+      // R18 · la pestaña nueva, por la MISMA vía oficial (settings.section)
+      comprobar(textoBundle.includes("id: 'modelos-locales'"), 'el bundle no registra la sección «modelos-locales»');
+      comprobar(textoBundle.includes('Modelos locales'), 'el bundle no lleva el rótulo «Modelos locales»');
+      comprobar(textoBundle.includes('/ratacode/runtimes'), 'la sección nueva no pregunta por los runtimes locales');
       di('      ' + (textoBundle.includes('settings.section') ? 'OK   ' : 'MAL  ') + '  la sección se registra por el slot oficial');
     }
 
@@ -373,14 +387,51 @@ async function main() {
     comprobar(cuerpoClave.variable === 'B_AI_API_KEY' && cuerpoClave.tieneClave === false,
       'la credencial que falta tiene que ser B_AI_API_KEY, y no estar puesta');
     comprobar(cuerpoClave.necesitaClave === true, 'una ruta que nombra credencial necesita clave');
+    comprobar(cuerpoClave.local === null, 'R18: B.AI NO es un runtime local, así que `local` tiene que ir a null');
     comprobar(cuerpoClave.proveedores?.['b-ai'] === 'B.AI' && cuerpoClave.proveedores?.ollama === 'Ollama (local, sin clave)',
       'la ruta devuelve el nombre visible de cada proveedor (para el aviso y para el error)');
     const clavesEnLaRespuesta = JSON.stringify(cuerpoClave);
     comprobar(!/"valor"|sk-[A-Za-z0-9]{8}/.test(clavesEnLaRespuesta),
       '/ratacode/clave NUNCA devuelve el valor de una clave, sólo si está puesta');
 
-    // B7 · sin cookie, ni el apretón ni el MCP ni la clave: el cerco del motor
-    for (const ruta of ['/ratacode/handshake', '/ratacode/mcp', '/ratacode/clave']) {
+    // B8 · R18: los DOS runtimes locales, con su dirección y su tabla de tarjetas.
+    // El sondeo es corto (1,5 s por runtime, en paralelo) y NUNCA bloquea: si el
+    // runtime no está encendido, lo dice y sigue.
+    const relojRuntimes = Date.now();
+    const estadoRuntimes = await fetch(new URL('/ratacode/runtimes', destino), conGalleta);
+    const cuerpoRuntimes = await estadoRuntimes.json().catch(() => ({}));
+    const tardo = Date.now() - relojRuntimes;
+    const runtimes = Array.isArray(cuerpoRuntimes.runtimes) ? cuerpoRuntimes.runtimes : [];
+    di('  B8 · GET /ratacode/runtimes → ' + estadoRuntimes.status + ' en ' + tardo + ' ms · '
+      + runtimes.map((r) => r.id + ':' + (r.encendido ? 'encendido(' + r.modelos.length + ' modelos)' : 'apagado')).join(' · '));
+    comprobar(estadoRuntimes.status === 200 && cuerpoRuntimes.ok === true, '/ratacode/runtimes contestó ' + estadoRuntimes.status);
+    comprobar(tardo < 8000, 'el sondeo de los runtimes tardó ' + tardo + ' ms: tiene que ser corto (la página no se bloquea)');
+    comprobar(runtimes.length === 2 && runtimes[0].id === 'ollama' && runtimes[1].id === 'lmstudio',
+      'los dos runtimes locales tienen que salir (ollama y lmstudio): salió ' + JSON.stringify(runtimes.map((r) => r.id)));
+    const porId = Object.fromEntries(runtimes.map((r) => [r.id, r]));
+    comprobar(porId.ollama?.baseURL === 'http://127.0.0.1:11434/v1' && porId.lmstudio?.baseURL === 'http://127.0.0.1:1234/v1',
+      'cada runtime tiene que traer su baseURL de fábrica: ' + JSON.stringify([porId.ollama?.baseURL, porId.lmstudio?.baseURL]));
+    comprobar(porId.ollama?.arranque === 'ollama serve' && porId.lmstudio?.arranque === 'lms server start',
+      'cada runtime tiene que traer su arranque en UNA línea pegable');
+    comprobar(String(porId.ollama?.enlace ?? '').includes('ollama.com/download')
+      && String(porId.lmstudio?.enlace ?? '').includes('lmstudio.ai'),
+      'cada runtime tiene que traer su enlace de descarga');
+    comprobar(typeof porId.ollama?.encendido === 'boolean' && Array.isArray(porId.ollama?.modelos),
+      'el estado de encendido y la lista de modelos tienen que venir siempre (aunque esté apagado)');
+    comprobar(/settings\.yaml/.test(String(porId.ollama?.cambiar ?? '')) && /baseURL/.test(String(porId.ollama?.cambiar ?? '')),
+      'la ruta tiene que decir CÓMO se cambia la dirección (settings.yaml → baseURL)');
+    const tarjetas = Array.isArray(cuerpoRuntimes.tarjetas) ? cuerpoRuntimes.tarjetas : [];
+    comprobar(tarjetas.map((t) => t.tarjeta).join('|') === '8 GB|12 GB|16 GB|24 GB|Solo CPU',
+      'la recomendación por tarjeta tiene que ser la del README: ' + JSON.stringify(tarjetas.map((t) => t.tarjeta)));
+    comprobar(tarjetas[0]?.modelo === 'qwen3:8b' && tarjetas[3]?.modelo === 'muse-glimmer:30b',
+      'los modelos por tarjeta tienen que ser los del README (qwen3:8b … muse-glimmer:30b)');
+    if (porId.ollama?.encendido === true && porId.ollama.modelos.length > 0) {
+      const conClase = porId.ollama.modelos.every((m) => ['agente', 'no', 'sin-datos'].includes(m.clase));
+      comprobar(conClase, 'cada modelo del runtime tiene que venir clasificado (vale como agente sí/no/sin datos)');
+    }
+
+    // B7 · sin cookie, ni el apretón ni el MCP ni la clave ni los runtimes: el cerco del motor
+    for (const ruta of ['/ratacode/handshake', '/ratacode/mcp', '/ratacode/clave', '/ratacode/runtimes']) {
       const sinGalleta = await fetch(new URL(ruta, destino), { redirect: 'manual' });
       comprobar(sinGalleta.status === 401, ruta + ' sin cookie contestó ' + sinGalleta.status + ' (debía ser 401)');
       di('      ' + (sinGalleta.status === 401 ? 'OK   ' : 'MAL  ') + '  ' + ruta + ' sin cookie contesta 401');
@@ -411,8 +462,10 @@ async function main() {
       + 'frontend instalado: ' + muertos.join(', '));
     di('  C · selectores vivos: ' + (selectores.length - muertos.length) + '/' + selectores.length);
 
-    // D · los proveedores de fábrica: 10 en Ajustes > Models (9 declarados + el
-    // DeepSeek nativo de DSH, que no se declara a propósito). Cada baseURL y
+    // D · los proveedores de fábrica: las 8 APIs en Ajustes > Models (los 7
+    // declarados + el DeepSeek nativo de DSH, que no se declara a propósito) y
+    // los DOS locales (Ollama y LM Studio) declarados pero fuera de esa lista
+    // (R18: la piel los esconde y tienen su pestaña). Cada baseURL y
     // cada id de modelo, comprobados en su documentación oficial (R12), y los
     // DOS locales de R16 (Ollama y LM Studio), que van SIN `apiKeyEnv`: una
     // ruta que no nombra credencial queda sin autenticar (`dsh-llm-pi-ai`,
@@ -431,7 +484,7 @@ async function main() {
       ['lmstudio', 'http://127.0.0.1:1234/v1', undefined, []],
     ];
     di('  D · proveedores declarados en fabrica\\settings.yaml: ' + Object.keys(proveedores).length
-      + ' (+ DeepSeek nativo = 10 en Ajustes > Models)');
+      + ' (7 APIs declaradas + DeepSeek nativo = 8 en Ajustes › Models, y los 2 locales en su pestaña)');
     comprobar(Object.keys(proveedores).length === ESPERADOS.length,
       'fabrica/settings.yaml declara ' + Object.keys(proveedores).length + ' proveedores y deberían ser ' + ESPERADOS.length);
     comprobar(proveedores.deepseek === undefined,

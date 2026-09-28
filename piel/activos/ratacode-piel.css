@@ -118,3 +118,10 @@ a{color:#26c6cc}
  background:#222529;color:inherit;font:inherit;font-size:12px}
 .mr-clave-boton:hover{border-color:#e4f226}
 
+/* R18 · LA NOTA DE AJUSTES › MODELS. Ahí ya sólo quedan las APIs con clave: los
+   dos locales se esconden de esa lista (el frontend no tiene gancho para
+   filtrarla) y esta nota lleva a su pestaña. Discreta, con el filo de la casa. */
+.mr-locales-nota{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 0;padding:8px 12px;
+ border-radius:10px;border:1px solid #3a3f45;border-left:3px solid #e4f226;background:#181a1d;
+ color:#f0eee6;font-size:13px;line-height:19px}
+

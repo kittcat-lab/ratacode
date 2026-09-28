@@ -62,32 +62,37 @@
  // DSH saca su propia ventana de primera vez, «Add an API key to get started»,
  // PERO SÓLO PIDE LA CLAVE DE DEEPSEEK («Configure the official DeepSeek
  // provider…», dsh-client-ui-settings-models/lib/client.js:2743-2747) y hay que
- // desmontarla con su «Configure later» (:2745). RATACODE tiene 10 proveedores
- // (los 9 declarados en fabrica/settings.yaml + el DeepSeek nativo), así que esa
+ // desmontarla con su «Configure later» (:2745). RATACODE tiene 8 APIs y 2
+ // motores locales (los locales tienen su pestaña desde R18), así que esa
  // ventana estorba a quien use Groq, Gemini, SambaNova…: en vez de taparla (lo
  // que hacía la ventana de las 3 claves, ya retirada), se le mete una nota en
  // español y un botón que la cierra y abre Ajustes › Models.
  const TITULOS_NATIVOS=['Add an API key to get started','添加一个 API Key 开始使用'];
  const ATRAS_NATIVOS=['Configure later','稍后配置'];
- const PROVEEDORES='B.AI, OpenRouter, DeepSeek, Groq, Google Gemini, NVIDIA NIM, SambaNova, Cloudflare Workers AI y dos locales sin clave: Ollama y LM Studio';
- function contenedorNativo(hijo){
-  const h2s=hijo.querySelectorAll?hijo.querySelectorAll('h2'):[];
-  for(const t of h2s){if(TITULOS_NATIVOS.indexOf((t.textContent||'').trim())!==-1)return true;}
-  return false;
- }
- /** Abre Ajustes y deja seleccionado «Models» (el panel abre en General). */
- function abrirAjustesModels(){
+ const PROVEEDORES='B.AI, OpenRouter, DeepSeek, Groq, Google Gemini, NVIDIA NIM, SambaNova y Cloudflare Workers AI (las APIs, que van con clave)';
+ /** Abre Ajustes y deja seleccionada una sección del menú (el panel abre en General). */
+ function abrirAjustesSeccion(nombre){
   const disparador=Array.from(document.querySelectorAll('button[aria-haspopup="dialog"]'))
    .find(b=>['Ajustes','Settings'].indexOf((b.getAttribute('aria-label')||'').trim())!==-1);
   if(!disparador)return false;
   disparador.click();
   const buscar=()=>{
    const fila=Array.from(document.querySelectorAll('[class*="_navList"] button'))
-    .find(b=>(b.textContent||'').trim()==='Models');
+    .find(b=>(b.textContent||'').trim()===nombre);
    if(fila)fila.click();
   };
   setTimeout(buscar,60);setTimeout(buscar,240);
   return true;
+ }
+ /** Abre Ajustes y deja seleccionado «Models». */
+ function abrirAjustesModels(){return abrirAjustesSeccion('Models');}
+ /** R18 · Abre Ajustes y deja seleccionado «Modelos locales». */
+ function abrirAjustesLocales(){return abrirAjustesSeccion('Modelos locales');}
+ /** ¿Ese nodo es la ventana nativa de DSH que sólo pide la clave de DeepSeek? */
+ function contenedorNativo(hijo){
+  const h2s=hijo.querySelectorAll?hijo.querySelectorAll('h2'):[];
+  for(const t of h2s){if(TITULOS_NATIVOS.indexOf((t.textContent||'').trim())!==-1)return true;}
+  return false;
  }
  function guiarNativa(){
   for(const hijo of Array.from(document.body.children)){
@@ -102,8 +107,8 @@
    nota.className='mr-guia';
    const linea=document.createElement('div');
    linea.append('RATACODE trae ');
-   const fuerte=document.createElement('b');fuerte.textContent='10 proveedores';linea.append(fuerte);
-   linea.append(': '+PROVEEDORES+'. Esta ventana sólo pide la clave de DeepSeek.');
+   const fuerte=document.createElement('b');fuerte.textContent='8 APIs y 2 motores locales';linea.append(fuerte);
+   linea.append(': '+PROVEEDORES+'; Ollama y LM Studio, que no piden clave, tienen su propia pestaña (Ajustes › Modelos locales). Esta ventana sólo pide la clave de DeepSeek.');
    const boton=document.createElement('button');
    boton.type='button';boton.className='mr-guia-boton';
    boton.textContent='Usar otro proveedor: abrir Ajustes › Models';
@@ -147,16 +152,26 @@
  let claveVista=null; // lo último que dijo el motor; null = no hay nada que avisar
  let nombresVistos={}; // ruta del proveedor → nombre visible, aunque no falte clave
  function textoDeLaClave(d){
+  // R18 · un modelo LOCAL no necesita clave: lo que puede pasar es que su motor
+  // esté apagado, y entonces el aviso dice eso, con la línea que lo enciende.
+  if(d.local&&d.local.encendido===false){
+   return (d.local.nombre||d.nombre||d.proveedor)+' no está encendido: arráncalo con «'
+    +(d.local.arranque||'…')+'» y vuelve a intentarlo.';
+  }
   return 'Falta la clave de '+(d.nombre||d.proveedor)+'. Pégala en Ajustes › Models (o elige otro '
    +'modelo, o enciende Ollama si lo tienes).';
  }
- function botonDeAjustes(){
+ /** El botón del aviso: al runtime local apagado se le lleva a SU pestaña. */
+ function botonDeAviso(esLocal){
   const boton=document.createElement('button');
-  boton.type='button';boton.className='mr-clave-boton';
-  boton.textContent='Abrir Ajustes › Models';
-  boton.addEventListener('click',()=>{abrirAjustesModels();});
+  boton.type='button';boton.className='mr-clave-boton';boton.dataset.tipo=esLocal?'local':'clave';
+  boton.textContent=esLocal?'Abrir Ajustes › Modelos locales':'Abrir Ajustes › Models';
+  boton.addEventListener('click',()=>{if(esLocal)abrirAjustesLocales();else abrirAjustesModels();});
   return boton;
  }
+ /** ¿Este aviso es por una clave que falta (no por un runtime local apagado)? */
+ function esAvisoDeClave(d){return !(d&&d.local&&d.local.encendido===false);}
+ function botonDeAjustes(){return botonDeAviso(false);}
  function quitarAvisoClave(){
   document.querySelectorAll('.'+AVISO_CLAVE).forEach(n=>n.remove());
  }
@@ -164,23 +179,32 @@
  function pintarAvisoClave(){
   if(claveVista===null){quitarAvisoClave();return;}
   const texto=textoDeLaClave(claveVista);
+  const esLocal=!esAvisoDeClave(claveVista);
   for(const caja of document.querySelectorAll('[data-composer-card]')){
    const padre=caja.parentElement;if(!padre)continue;
    let aviso=caja.previousElementSibling;
    if(!aviso||!aviso.classList.contains(AVISO_CLAVE)){
     aviso=document.createElement('div');aviso.className=AVISO_CLAVE;
-    aviso.append(Object.assign(document.createElement('span'),{className:'mr-clave-texto'}),botonDeAjustes());
+    aviso.append(Object.assign(document.createElement('span'),{className:'mr-clave-texto'}));
     padre.insertBefore(aviso,caja);
    }
    const suyo=aviso.querySelector('.mr-clave-texto');
    if(suyo&&suyo.textContent!==texto)suyo.textContent=texto;
+   let boton=aviso.querySelector('.mr-clave-boton');
+   if(boton&&boton.dataset.tipo!==(esLocal?'local':'clave')){boton.remove();boton=null;}
+   if(!boton)aviso.append(botonDeAviso(esLocal));
   }
  }
- /** Pregunta a la piel del motor si falta la clave. Si la ruta no está, se calla. */
+ /** Pregunta a la piel del motor si falta la clave (o si el local está apagado). */
  function mirarClave(){
   return fetch('/ratacode/clave',{credentials:'same-origin',cache:'no-store'})
    .then(r=>r.ok?r.json():null)
-   .then(d=>{if(d&&d.proveedores)nombresVistos=d.proveedores;claveVista=d&&d.ok===true&&d.falta===true?d:null;pintarAvisoClave();arreglarErrorDeClave();})
+   .then(d=>{
+    if(d&&d.proveedores)nombresVistos=d.proveedores;
+    const apagadoLocal=d&&d.ok===true&&d.local&&d.local.encendido===false;
+    claveVista=d&&d.ok===true&&(d.falta===true||apagadoLocal)?d:null;
+    pintarAvisoClave();arreglarErrorDeClave();
+   })
    .catch(()=>{/* sin ruta (motor viejo) o sin conexión: ni un aviso de más */});
  }
  // El error del turno (R17 §2): el motor lo pinta con su código en inglés
@@ -207,6 +231,47 @@
    if(cuerpo&&cuerpo.textContent!==suCuerpo)cuerpo.textContent=suCuerpo;
    copia.append(botonDeAjustes());
   });
+ }
+ // ── R18 · LOS LOCALES NO SE MEZCLAN CON LAS APIs ───────────────────────────
+ // Ajustes › Models los pinta el frontend desde `llm/listProviders` +
+ // `llm/listConfigurableProviders` (dsh-client-ui-settings-models/lib/client.js:
+ // 991-995 y 2013, `_rowCard`), y esa lista NO tiene ningún gancho oficial para
+ // filtrar filas (medido: no hay slot ni campo `hidden` en el esquema,
+ // dsh-llm/lib/typert.host.js:17-28). La vía limpia que queda es el filtro de la
+ // PIEL sobre la lista ya pintada: se esconden las DOS filas de los locales
+ // (por su nombre visible, el de fabrica/settings.yaml) y se deja una nota que
+ // lleva a su pestaña. Los locales SIGUEN declarados en la casa, así que el
+ // selector de modelos de la caja los sigue ofreciendo igual.
+ const NOMBRES_LOCALES=['Ollama (local, sin clave)','LM Studio (local, sin clave)'];
+ const NOTA_LOCALES='mr-locales-nota';
+ function ocultarLocalesEnModels(){
+  let seccion=null;
+  document.querySelectorAll('[class*="_rowCard"]').forEach(fila=>{
+   const nombre=fila.querySelector('[class*="_rowName"]');
+   const suyo=nombre?(nombre.textContent||'').trim():'';
+   if(suyo==='')return;
+   // El prefijo vale también para nombres largos («Ollama (local, sin clave)»).
+   const local=NOMBRES_LOCALES.some(n=>suyo===n||suyo.indexOf(n)===0);
+   if(local){
+    if(fila.style.display!=='none')fila.style.display='none';
+    if(seccion===null)seccion=fila.closest('[class*="_section"]');
+    return;
+   }
+   // Si el usuario vuelve a Models tras un cambio, ninguna otra fila se toca.
+   if(fila.style.display==='none')fila.style.display='';
+  });
+  if(seccion===null||seccion.querySelector('.'+NOTA_LOCALES))return;
+  const lista=seccion.querySelector('[class*="_rows"]');
+  const nota=document.createElement('p');
+  nota.className=NOTA_LOCALES;
+  nota.append('Ollama y LM Studio no piden clave, así que no se mezclan con estas APIs: están en ');
+  const boton=document.createElement('button');
+  boton.type='button';boton.className='mr-clave-boton';
+  boton.textContent='Abrir Ajustes › Modelos locales';
+  boton.addEventListener('click',()=>{abrirAjustesLocales();});
+  nota.append(boton);
+  if(lista&&lista.parentElement)lista.parentElement.insertBefore(nota,lista);
+  else seccion.append(nota);
  }
  function apply(){
   const title=document.title.replace(/DeepSeek Harness/gi,'RATACODE');if(title!==document.title)document.title=title;
@@ -254,6 +319,8 @@
   // repintan aquí porque React reescribe el cuadro de la caja al re-renderizar.
   pintarAvisoClave();
   arreglarErrorDeClave();
+  // R18: en Ajustes › Models sólo quedan las APIs con clave.
+  ocultarLocalesEnModels();
   const input=document.querySelector('[data-composer-input]');if(input)input.setAttribute('aria-label','Mensaje para RATACODE');
   const search=document.querySelector('[class*="_searchInput"]');if(search)search.setAttribute('placeholder','Buscar sesiones…');
  }

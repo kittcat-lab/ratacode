@@ -15,8 +15,10 @@ copia el prompt de instalación y lo cuenta en corto.
 - **Los 9 modos de casa** (MODO-RATA, ARQUITECTO, CAPATAZ, HERO, TIRITA, GEPETO, FARO,
   PIX y NEX) en el selector, con MODO-RATA por defecto y **sin los modos de serie del
   motor**: una casa vieja se pone al día sola al arrancar.
-- **Modelos locales de serie, sin clave:** Ollama y LM Studio (10 proveedores en
-  Ajustes → Models, ver la tabla «qué modelo local según tu tarjeta»).
+- **Modelos locales de serie, sin clave:** Ollama y LM Studio tienen **su propia pestaña
+  en Ajustes → «Modelos locales»** (si están encendidos, qué modelos tienes y cuáles valen
+  como agente, su dirección, cómo encenderlos y la tabla «qué modelo local según tu
+  tarjeta»). Ajustes → Models se queda para las **8 APIs con clave**.
 - **Cada tarea MCP se ve en la barra lateral del panel**, con su conversación: el MCP
   deja de ser una caja negra.
 - **La instalación, en un comando:** `npm i -g ratacode`.
@@ -61,12 +63,13 @@ anterior se borra al arrancar y la nueva sólo se escribe **cuando el puerto ya 
 Cada arranque y cada cierre del motor quedan apuntados en `<casa>\ratacode.log`, con su
 código de salida y su señal (para saber por qué se cerró).
 
-## Las claves: Ajustes → Models (diez proveedores de fábrica)
+## Las claves: Ajustes → Models (ocho APIs de fábrica)
 
 Cada usuario pone las suyas; **nunca viajan dentro del paquete**. Se ponen donde el motor
 las pone siempre: en la web, **Ajustes → Models**, con el campo «API key» de cada proveedor
 (quedan en `<casa>\.credentials.yaml`), o exportando su variable de entorno. RATACODE trae
-**diez proveedores** ya declarados:
+**ocho APIs** ya declaradas (los dos motores locales, que no piden clave, están en
+**Ajustes → «Modelos locales»**):
 
 | Proveedor | Variable | Notas |
 |---|---|---|
@@ -82,12 +85,15 @@ las pone siempre: en la web, **Ajustes → Models**, con el campo «API key» de
 | **LM Studio (local)** | *ninguna* | `http://127.0.0.1:1234/v1`, sin clave (`lms server start`); pon el id que devuelva `GET /v1/models` |
 
 Los dos locales **no piden clave**: van declarados sin credencial y el motor deja la ruta
-sin autenticar. Nada sale de tu ordenador cuando trabajas con ellos.
+sin autenticar. Nada sale de tu ordenador cuando trabajas con ellos, y por eso **no salen
+en Ajustes → Models**: tienen su pestaña, **Ajustes → «Modelos locales»**, donde se ve si
+están encendidos, qué modelos tienes, cuáles valen como agente, su dirección (y cómo
+cambiarla si usas otro puerto) y el enlace de descarga.
 
 ### Qué modelo local según tu tarjeta
 
-Bájalo con `ollama pull <id>` y elígelo en Ajustes → Models. Medido en el informe R15
-(tool calling = que el modelo sepa **usar** las herramientas, no sólo hablar):
+Bájalo con `ollama pull <id>` y elígelo en el selector de modelos de la caja. Medido en el
+informe R15 (tool calling = que el modelo sepa **usar** las herramientas, no sólo hablar):
 
 | Tu tarjeta | Modelo (`ollama pull`) | Tamaño | Por qué ése |
 |---|---|---|---|
@@ -105,7 +111,8 @@ Si tienes 8 GB, `lfm2.5:8b` también vale (125K de contexto, hecho para tool cal
 > la misma razón, con `qwen3.5:9b` y el *thinking* activado.)
 
 Para LM Studio el id de modelo lo pone la aplicación: míralo con
-`curl http://127.0.0.1:1234/v1/models` y escríbelo en Ajustes → Models.
+`curl http://127.0.0.1:1234/v1/models` y escríbelo en el selector de modelos de la caja
+(la pestaña **Modelos locales** te dice cuál devuelve tu servidor).
 
 Los dos lados de la mano están en **Ajustes → Handshakes**: el **apretón de manos** para
 agentes con navegador (Claude Code, Codex, OpenClaw, Rowboat…) —lo copia y lo deja en
@@ -224,13 +231,16 @@ and get the result back in your agent or chat.
   from working; alternative: the GitHub release tarball
   `https://github.com/kittcat-lab/ratacode/releases/download/v0.2.0/ratacode-0.2.0.tgz`
   — last resort: `git clone` the repo, `npm pack` and `npm i -g ./ratacode-0.2.0.tgz`) — then run `ratacode`.
-- **Bring your own keys:** ten providers ship declared (`B.AI`, `OpenRouter`, `DeepSeek`,
+- **Bring your own keys:** eight APIs ship declared (`B.AI`, `OpenRouter`, `DeepSeek`,
   `Groq`, `Google Gemini`, `NVIDIA NIM`, `SambaNova`, `Cloudflare Workers AI` — the last one
-  needs your `{account_id}` pasted into *Customized settings → Base URL* — plus **Ollama** and
-  **LM Studio**, local and key-free). Set each key in the
+  needs your `{account_id}` pasted into *Customized settings → Base URL*). Set each key in the
   web UI (Settings → Models) or as its environment variable; keys are never bundled.
   The MCP server reads them from its client's environment, or lets the engine resolve the ones
   you saved in the web UI.
+- **Local models live in their own tab (Settings → "Modelos locales"):** **Ollama** and
+  **LM Studio**, local and key-free — whether they are running, which models you have and
+  which ones work as an agent, their address, the one-line command to start them and the
+  download link. They stay declared in the house, so the box's model picker still offers them.
 - **Nine modes** ship in the picker (MODO-RATA by default) and none of the engine's own.
 - **Handshakes (Settings → Handshakes):** one button writes the short handshake
   (`<casa>\handshake.md`) for browser agents; the other explains the MCP for web chats, with
