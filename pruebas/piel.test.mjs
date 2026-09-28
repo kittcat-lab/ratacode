@@ -2,17 +2,26 @@
 /**
  * PRUEBA DE LA PIEL · `npm test` de RATACODE.
  *
- * Hace tres cosas, en este orden, y sale 0 sólo si las tres están verdes:
+ * Hace estas cosas, en este orden, y sale 0 sólo si todas están verdes:
  *
  *   A · ARRANCA de verdad: levanta `bin/ratacode.js` en el puerto 3140 con una
  *       casa NUEVA (`producto\_pruebaR3-piel`) y una carpeta de trabajo nueva,
  *       y espera a que el motor anuncie su URL.
  *   B · PIDE EL INDEX por HTTP y comprueba que la PIEL ESTÁ puesta: el
  *       `<style id="ratacode-piel">`, las variables de la identidad, los dos
- *       guiones y el emblema en data-URI.
+ *       guiones y el emblema en data-URI. También pide, por sus rutas
+ *       protegidas: el apretón de manos (GET/POST `/ratacode/handshake`, que
+ *       deja `<casa>\handshake.md` en 40 líneas o menos) y el MCP para chats
+ *       web (`/ratacode/mcp`, con los dos comandos y el texto del chat), y
+ *       comprueba que el plugin de CLIENTE —la sección «Handshakes» de
+ *       Ajustes— se sirve de verdad en `/plugins/??ratacode-piel/client.js`.
  *   C · COMPRUEBA QUE LA PIEL ENCAJA: cada selector `[class*='_algo']` de
  *       `piel/activos/ratacode-piel.css` tiene que existir en el CSS del
  *       frontend de DSH INSTALADO.
+ *   D · LOS 8 PROVEEDORES de fábrica: `fabrica/settings.yaml` declara los 7 que
+ *       se declaran (B.AI, OpenRouter, Groq, Gemini, NVIDIA NIM, SambaNova y
+ *       Cloudflare Workers AI) con su baseURL y su apiKeyEnv oficiales, y NO
+ *       declara «deepseek» (lo sirve el adaptador nativo: 8 en Ajustes > Models).
  *
  * ── QUÉ ES «EL CSS DEL FRONTEND DE DSH INSTALADO» (medido, 24-sep-2026) ─────
  * No es sólo `@deepseek-ai/dsh-web-frontend/dist/assets/*.css`. Los nombres de
@@ -34,6 +43,7 @@ import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import yaml from 'js-yaml';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const PRODUCTO = resolve(AQUI, '..');
@@ -152,17 +162,14 @@ const MARCAS_DEL_INDEX = [
   ['el botón de sesión nueva', '_newSession'],
   ['el guion de la piel', 'mr-dsh-word'],
   ['el guion de las chispas', 'mr-vida-salida'],
-  ['el botón «Copiar apretón»', 'mr-apreton'],
   ['la caja del encargo, en español (sesión)', 'Escribe tu encargo… / comandos · @ archivos y sesiones'],
   ['la portada, en español', 'Describe lo que quieres construir…'],
   ['«elige espacio de trabajo», en español', 'Elige un espacio de trabajo para empezar'],
   ['la caja se traduce en TODAS las cajas montadas', "querySelectorAll('[data-composer-placeholder]')"],
   ['la caja también por atributo (data-placeholder y aria-label)', "querySelectorAll('[data-placeholder]')"],
-  ['«Luego» se recuerda por casa', 'ratacode.luego.'],
-  ['«Luego» guarda el recuerdo al pulsarlo', 'recordarLuego(casa); cerrar();'],
-  ['la ventana mira el recuerdo de «Luego»', 'yaDijoLuego(casa)'],
-  ['el enlace «Claves» de la barra lateral', "'Claves'"],
-  ['se puede reabrir la ventana a mano', '__ratacodeAbrirClaves'],
+  ['la nota de la ventana nativa (no la tapa: la lleva a Models)', 'mr-guia'],
+  ['el botón que lleva a Ajustes › Models', 'Ajustes › Models'],
+  ['R12: el plugin de cliente que monta la sección Handshakes', 'ratacode-piel/client.js'],
   ['el observador mira también el texto (React lo reescribe)', 'characterData:true'],
   ['el observador mira los ATRIBUTOS que reescribe React', "attributeFilter:['data-placeholder','aria-label']"],
   ['el rebote no depende de requestAnimationFrame', 'setTimeout(correr,16)'],
@@ -256,40 +263,89 @@ async function main() {
     comprobar(guionOk, 'el guion de la piel no lleva el interceptor de document.title');
     di('      ' + (guionOk ? 'OK   ' : 'MAL  ') + '  el guion intercepta document.title');
 
-    // B2 · el apretón de manos, por su ruta protegida
+    // B2 · el apretón de manos (Ajustes > Handshakes), por su ruta protegida
     const cabeceraGalleta = [...galletas.entries()].map(([n, v]) => n + '=' + v).join('; ');
-    const apreton = await fetch(new URL('/ratacode/apreton', destino), {
-      redirect: 'manual',
-      headers: { cookie: cabeceraGalleta },
-    });
-    const textoApreton = await apreton.text();
-    di('  B2 · GET /ratacode/apreton → ' + apreton.status + ' · ' + Buffer.byteLength(textoApreton, 'utf8') + ' bytes');
+    const conGalleta = { redirect: 'manual', headers: { cookie: cabeceraGalleta } };
+    const apreton = await fetch(new URL('/ratacode/handshake', destino), conGalleta);
+    const cuerpoApreton = await apreton.json().catch(() => ({}));
+    const textoApreton = String(cuerpoApreton.texto ?? '');
+    const lineasApreton = textoApreton === '' ? 0 : textoApreton.split('\n').length;
+    di('  B2 · GET /ratacode/handshake → ' + apreton.status + ' · ' + Buffer.byteLength(textoApreton, 'utf8')
+      + ' bytes · ' + lineasApreton + ' líneas');
     comprobar(apreton.status === 200, 'la ruta del apretón contestó ' + apreton.status);
+    comprobar(cuerpoApreton.ruta === null && cuerpoApreton.ruta !== undefined,
+      'GET /ratacode/handshake no debe escribir el fichero (ruta: ' + JSON.stringify(cuerpoApreton.ruta) + ')');
     comprobar(textoApreton.includes(url), 'el apretón servido no trae la URL real de esta casa');
-    comprobar(/Navegador: cómo manejar RATACODE/.test(textoApreton), 'el apretón servido no es navegador.md');
+    comprobar(lineasApreton > 0 && lineasApreton <= 40, 'el apretón servido tiene ' + lineasApreton + ' líneas (tope: 40)');
+    comprobar(/¿qué porcentaje del trabajo/i.test(textoApreton), 'el apretón no manda preguntar por el porcentaje de trabajo');
+    comprobar(/handshake\.md|Apretón de manos: RATACODE/i.test(textoApreton), 'el apretón servido no es apreton/handshake.md');
     di('      ' + (textoApreton.includes(url) ? 'OK   ' : 'MAL  ') + '  el apretón trae la URL de esta casa');
+    di('      ' + (lineasApreton > 0 && lineasApreton <= 40 ? 'OK   ' : 'MAL  ') + '  el apretón tiene ' + lineasApreton + ' líneas (tope 40)');
     const sinClaves = !/sk-[A-Za-z0-9]|API_KEY\s*[:=]\s*[A-Za-z0-9_-]{8}/.test(textoApreton);
     comprobar(sinClaves, 'el apretón servido parece llevar una clave dentro');
     di('      ' + (sinClaves ? 'OK   ' : 'MAL  ') + '  el apretón no lleva claves');
-    const sinGalleta = await fetch(new URL('/ratacode/apreton', destino), { redirect: 'manual' });
-    comprobar(sinGalleta.status === 401, 'la ruta del apretón sin cookie contestó ' + sinGalleta.status + ' (debía ser 401)');
-    di('      ' + (sinGalleta.status === 401 ? 'OK   ' : 'MAL  ') + '  sin cookie contesta 401');
 
-    // B3 · el estado de las claves: el navegador necesita saber DE QUÉ CASA es
-    // para recordar «Luego» por casa (el localStorage es por origen, y el
-    // puerto no distingue una casa de otra).
-    const estadoClaves = await fetch(new URL('/ratacode/estado', destino), {
-      redirect: 'manual',
-      headers: { cookie: cabeceraGalleta },
-    });
-    const cuerpoEstado = await estadoClaves.json().catch(() => ({}));
-    const casaDicha = String(cuerpoEstado.casa ?? '');
-    const refs = Object.keys(cuerpoEstado.claves ?? {});
-    comprobar(estadoClaves.status === 200, '/ratacode/estado contestó ' + estadoClaves.status);
-    comprobar(casaDicha !== '' && resolve(casaDicha) === resolve(args.casa),
-      '/ratacode/estado no dice la casa de esta prueba: «' + casaDicha + '» (esperaba ' + args.casa + ')');
-    comprobar(refs.length === 3, '/ratacode/estado no trae las 3 claves, sino ' + refs.length);
-    di('  B3 · GET /ratacode/estado → ' + estadoClaves.status + ' · casa «' + casaDicha + '» · claves: ' + refs.join(', '));
+    // B2b · POST: además lo DEJA en <casa>\handshake.md
+    const guardado = await fetch(new URL('/ratacode/handshake', destino), { ...conGalleta, method: 'POST' });
+    const cuerpoGuardado = await guardado.json().catch(() => ({}));
+    const rutaHandshake = join(args.casa, 'handshake.md');
+    const existeHandshake = existsSync(rutaHandshake);
+    const ficheroHandshake = existeHandshake ? readFileSync(rutaHandshake, 'utf8') : '';
+    const lineasFichero = ficheroHandshake === '' ? 0 : ficheroHandshake.split('\n').length;
+    di('  B2b · POST /ratacode/handshake → ' + guardado.status + ' · ' + (cuerpoGuardado.ruta ?? '(sin ruta)'));
+    comprobar(guardado.status === 200 && cuerpoGuardado.ok === true, 'POST /ratacode/handshake contestó ' + guardado.status);
+    comprobar(resolve(String(cuerpoGuardado.ruta ?? '')) === resolve(rutaHandshake),
+      'el POST dejó el apretón en «' + cuerpoGuardado.ruta + '» y no en ' + rutaHandshake);
+    comprobar(existeHandshake, 'no quedó <casa>\\handshake.md');
+    comprobar(ficheroHandshake === String(cuerpoGuardado.texto ?? ''),
+      'el handshake.md de la casa no es el mismo texto que devolvió la ruta');
+    comprobar(lineasFichero > 0 && lineasFichero <= 40, 'el handshake.md de la casa tiene ' + lineasFichero + ' líneas (tope: 40)');
+    di('      ' + (existeHandshake ? 'OK   ' : 'MAL  ') + '  <casa>\\handshake.md escrito (' + lineasFichero + ' líneas)');
+
+    // B3 · el MCP para chats web: estado, los dos comandos y el texto del chat
+    const estadoMcp = await fetch(new URL('/ratacode/mcp', destino), conGalleta);
+    const cuerpoMcp = await estadoMcp.json().catch(() => ({}));
+    di('  B3 · GET /ratacode/mcp → ' + estadoMcp.status + ' · http:' + (cuerpoMcp.http?.abierto === true)
+      + ' · túnel:' + (cuerpoMcp.tunel?.abierto === true));
+    comprobar(estadoMcp.status === 200 && cuerpoMcp.ok === true, '/ratacode/mcp contestó ' + estadoMcp.status);
+    comprobar(cuerpoMcp.http?.abierto === false && cuerpoMcp.tunel?.abierto === false,
+      'en una casa recién estrenada el MCP y el túnel tienen que salir CERRADOS');
+    const comandos = String(cuerpoMcp.comandos ?? '');
+    comprobar(comandos.includes('ratacode mcp --http --acepto-lectura-total'), 'los comandos no arrancan el MCP por HTTP');
+    comprobar(comandos.includes('tunel.mjs') && comandos.includes('--acepto-lectura-total'), 'los comandos no arrancan el túnel con su acepto');
+    comprobar(/^cd .+; /m.test(comandos) && comandos.split('\n').length === 2,
+      'los dos comandos tienen que ir en un bloque pegable «cd <ruta>; comando» (2 líneas)');
+    comprobar(typeof cuerpoMcp.instalacion === 'string' && resolve(cuerpoMcp.instalacion) === resolve(PRODUCTO),
+      'los comandos no llevan la ruta de ESTA instalación: «' + cuerpoMcp.instalacion + '» (esperaba ' + PRODUCTO + ')');
+    const pegar = String(cuerpoMcp.pegar ?? '');
+    comprobar(pegar.includes('list_models') && pegar.includes('run_task') && pegar.includes('esperar_segundos'),
+      'el texto para pegar en el chat no cuenta las herramientas ni esperar_segundos');
+    comprobar(/AVISO/.test(pegar), 'el texto para pegar no lleva el aviso de lectura total');
+    di('      ' + (pegar.includes('esperar_segundos') ? 'OK   ' : 'MAL  ') + '  el texto del chat cuenta herramientas y esperar_segundos');
+    di('      ' + (comandos.split('\n').length === 2 ? 'OK   ' : 'MAL  ') + '  los dos comandos van en un bloque pegable');
+
+    // B4 · el plugin de CLIENTE (la sección «Handshakes» de Ajustes) se sirve
+    const urlBundle = /\/plugins\/\?\?ratacode-piel\/client\.js&rev=([\w-]+)/.exec(html);
+    comprobar(urlBundle !== null, 'el index no trae el plugin de cliente ratacode-piel en el grafo de arranque');
+    if (urlBundle !== null) {
+      const respuestaBundle = await fetch(new URL('/plugins/??ratacode-piel/client.js&rev=' + urlBundle[1], destino), conGalleta);
+      const textoBundle = await respuestaBundle.text();
+      di('  B4 · GET el bundle del plugin → ' + respuestaBundle.status + ' · ' + Buffer.byteLength(textoBundle, 'utf8') + ' bytes');
+      comprobar(respuestaBundle.status === 200, 'el bundle del plugin contestó ' + respuestaBundle.status);
+      comprobar(textoBundle.includes('settings.section'), 'el bundle no registra la sección por el slot settings.section');
+      comprobar(textoBundle.includes("id: 'handshakes'"), 'el bundle no registra la sección «handshakes»');
+      comprobar(textoBundle.includes('Handshakes'), 'el bundle no lleva el rótulo «Handshakes»');
+      comprobar(textoBundle.includes('Agentes con navegador') && textoBundle.includes('Chats web'),
+        'el bundle no trae los dos botones de la sección');
+      di('      ' + (textoBundle.includes('settings.section') ? 'OK   ' : 'MAL  ') + '  la sección se registra por el slot oficial');
+    }
+
+    // B5 · sin cookie, ni el apretón ni el MCP: el cerco del motor
+    for (const ruta of ['/ratacode/handshake', '/ratacode/mcp']) {
+      const sinGalleta = await fetch(new URL(ruta, destino), { redirect: 'manual' });
+      comprobar(sinGalleta.status === 401, ruta + ' sin cookie contestó ' + sinGalleta.status + ' (debía ser 401)');
+      di('      ' + (sinGalleta.status === 401 ? 'OK   ' : 'MAL  ') + '  ' + ruta + ' sin cookie contesta 401');
+    }
 
     // C · la piel contra el frontend instalado
     const ficheros = ficherosDelFrontend();
@@ -315,6 +371,39 @@ async function main() {
     comprobar(muertos.length === 0, 'la piel tiene ' + muertos.length + ' selector(es) que YA NO existen en el '
       + 'frontend instalado: ' + muertos.join(', '));
     di('  C · selectores vivos: ' + (selectores.length - muertos.length) + '/' + selectores.length);
+
+    // D · los proveedores de fábrica: 8 en Ajustes > Models (7 declarados + el
+    // DeepSeek nativo de DSH, que no se declara a propósito). Cada baseURL y
+    // cada id de modelo, comprobados en su documentación oficial (R12).
+    const fabrica = yaml.load(readFileSync(join(PRODUCTO, 'fabrica', 'settings.yaml'), 'utf8')) ?? {};
+    const proveedores = fabrica?.['llm-pi-ai']?.providers ?? {};
+    const ESPERADOS = [
+      ['b-ai', 'https://api.b.ai/v1', 'B_AI_API_KEY', ['deepseek-v4.1-flash']],
+      ['openrouter', 'https://openrouter.ai/api/v1', 'OPENROUTER_API_KEY', ['deepseek/deepseek-v4-flash-vision-exp']],
+      ['groq', 'https://api.groq.com/openai/v1', 'GROQ_API_KEY', ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b']],
+      ['gemini', 'https://generativelanguage.googleapis.com/v1beta/openai/', 'GEMINI_API_KEY', ['gemini-3.8-flash']],
+      ['nvidia-nim', 'https://integrate.api.nvidia.com/v1', 'NVIDIA_API_KEY', ['deepseek-ai/deepseek-v4-flash']],
+      ['sambanova', 'https://api.sambanova.ai/v1', 'SAMBANOVA_API_KEY', ['MiniMax-M2.7']],
+      ['cloudflare-workers-ai', 'https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1', 'CLOUDFLARE_API_KEY', ['@cf/openai/gpt-oss-120b']],
+    ];
+    di('  D · proveedores declarados en fabrica\\settings.yaml: ' + Object.keys(proveedores).length
+      + ' (+ DeepSeek nativo = 8 en Ajustes > Models)');
+    comprobar(Object.keys(proveedores).length === ESPERADOS.length,
+      'fabrica/settings.yaml declara ' + Object.keys(proveedores).length + ' proveedores y deberían ser ' + ESPERADOS.length);
+    comprobar(proveedores.deepseek === undefined,
+      'fabrica/settings.yaml NO debe declarar «deepseek»: lo sirve el adaptador nativo de DSH');
+    for (const [id, baseURL, apiKeyEnv, modelos] of ESPERADOS) {
+      const perfil = proveedores[id];
+      const bien = perfil !== undefined && perfil.baseURL === baseURL && perfil.apiKeyEnv === apiKeyEnv;
+      comprobar(bien, 'el proveedor «' + id + '» no está como toca (baseURL/apiKeyEnv): ' + JSON.stringify(perfil?.baseURL));
+      const ids = (perfil?.models ?? []).map((m) => (typeof m === 'string' ? m : m?.id));
+      for (const modelo of modelos) {
+        comprobar(ids.includes(modelo), 'el proveedor «' + id + '» no declara el modelo «' + modelo + '»');
+      }
+      di('      ' + (bien ? 'OK   ' : 'MAL  ') + '  ' + id + ' → ' + (perfil?.baseURL ?? '(falta)') + ' · ' + apiKeyEnv);
+    }
+    comprobar(String(proveedores['cloudflare-workers-ai']?.displayName ?? '').includes('account_id'),
+      'el nombre visible de Cloudflare tiene que avisar de que {account_id} se cambia a mano');
 
     if (fallos.length > 0) {
       di('');

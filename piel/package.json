@@ -1,7 +1,7 @@
 {
   "name": "ratacode-piel",
   "version": "0.1.0",
-  "description": "RATACODE · la piel: inyecta el CSS y los scripts de RATACODE en el index que sirve DSH web (index transform tap).",
+  "description": "RATACODE · la piel: inyecta el CSS y los guiones de RATACODE en el index que sirve DSH web (index transform tap) y añade la sección «Handshakes» a Ajustes por la vía oficial de slots.",
   "license": "MIT",
   "author": {
     "name": "Patxi"
@@ -10,6 +10,7 @@
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
+    "./client": "./lib/cliente.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
@@ -21,6 +22,12 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
     }
   },
   "peerDependencies": {

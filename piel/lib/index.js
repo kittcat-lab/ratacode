@@ -13,29 +13,36 @@
  * O sea: no se toca ni un fichero del motor ni del frontend. Se engancha una
  * función al index que se sirve, y ahí dentro van el CSS y los guiones.
  *
- * ── LA VENTANA DE LAS 3 CLAVES ──────────────────────────────────────────────
- * La web de Ajustes > Models guarda cada clave con `ctx.remote.credentials.set`
- * (`dsh-client-ui-settings-models/lib/client.js:2592`), que en el Host llega a
- * `credentials.set(branded, value)` sobre `ctx.get("credentials")`
- * (`dsh-api-settings-controller/lib/index.js:171-179,193`); el proveedor local
- * (`@deepseek-ai/dsh-credentials-local`) escribe `$DSH_HOME/.credentials.yaml`
- * (`lib/index.js:513` → `write()` `:604-629`) y con `describe()` responde
- * `{configured, source, writable}` sin ver nunca el valor (`lib/index.js:491`).
- * La piel usa ESE MISMO SERVICIO Y ESOS MISMOS MÉTODOS desde el servidor del
- * plugin: la ventana de navegador habla con dos rutas propias de la piel
- * (`/ratacode/estado` GET y `/ratacode/guardar` POST), registradas en el mismo
- * `webServer`, protegidas con el cerco del motor (`connection.requestRejection`:
- * Host/Origin + cookie de sesión de navegador, `dsh-client-connection`
- * `lib/index.js:552-556`). El valor de la clave sólo viaja en la dirección
- * navegador→servicio de credenciales; nunca se devuelve, nunca se guarda en
- * fichero de la piel y nunca se imprime en el log.
+ * ── LAS CLAVES: DONDE LAS PONE DSH (R12) ────────────────────────────────────
+ * Aquí hubo una ventana propia con las 3 claves. Ya no: las claves se ponen
+ * donde DSH las pone SIEMPRE, en **Ajustes > Models** (cada proveedor con su
+ * campo «API key»), y el valor lo escribe el motor en `<casa>\.credentials.yaml`
+ * con `ctx.remote.credentials.set` → `dsh-api-settings-controller` →
+ * `@deepseek-ai/dsh-credentials-local`. Esta piel ya no lee, no pide ni guarda
+ * ninguna clave: no queda ni una ruta de claves.
+ *
+ * ── LO QUE SÍ SIRVE ESTA PIEL (R12) ────────────────────────────────────────
+ *   · el CSS y los guiones de la cara (identidad, piel, vida), y
+ *   · el APRETÓN DE MANOS de ESTA casa, que vive en Ajustes > Handshakes:
+ *       GET  /ratacode/handshake  → el texto corto, con la URL de esta casa.
+ *       POST /ratacode/handshake  → además lo deja en `<casa>\handshake.md`.
+ *       GET  /ratacode/mcp        → el MCP para chats web: estado del HTTP y
+ *                                   del túnel, aviso de lectura total, los dos
+ *                                   comandos y el texto para pegar en el chat.
+ *     Las tres van con el cerco del motor (`connection.requestRejection`:
+ *     Host/Origin + cookie de sesión de navegador, `dsh-client-connection`
+ *     `lib/index.js:552-556`), igual que los canales del propio DSH.
+ *
+ * La SECCIÓN «Handshakes» del menú de Ajustes NO la pinta este fichero: la
+ * registra el plugin de cliente `lib/cliente.js` por la vía OFICIAL de DSH
+ * (`ctx.slots.register({name:'settings.section', …}, Component)`, la misma que
+ * usa `dsh-client-ui-agent-preset/lib/client.js:1519`). Ver `package.json`
+ * (`exports["./client"]` + `dsh.client.platform = "web"`).
  *
  * Si algún día el motor cambia de nombre el servicio o el tap, esta piel no
- * engancha: se calla y lo dice por consola, en vez de romper el arranque. Si lo
- * que falta son `credentials` o `connection`, la cara se pone igual y la
- * ventana simplemente no sale (el guion de cliente no recibe estado y no actúa).
+ * engancha: se calla y lo dice por consola, en vez de romper el arranque.
  */
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -58,9 +65,9 @@ function emblemaCss() {
   return ':root{--mr-emblema:url("data:image/svg+xml,' + encodeURIComponent(svg) + '")}';
 }
 
-/** Todo el CSS de la piel, en el orden en que se aplica (identidad, emblema, piel, ventana de claves). */
+/** Todo el CSS de la piel, en el orden en que se aplica (identidad, emblema, piel). */
 function cssDeLaPiel() {
-  return [leer('ratacode-identidad.css'), emblemaCss(), leer('ratacode-piel.css'), leer('ratacode-claves.css')].join('\n');
+  return [leer('ratacode-identidad.css'), emblemaCss(), leer('ratacode-piel.css')].join('\n');
 }
 
 /** Un guion dentro de un `<script>`: sólo hay que romper el `</script` literal. */
@@ -88,8 +95,7 @@ export function vestir(html) {
   if (html.includes(MARCA)) return html;
   const estilo = '<style ' + MARCA + '>' + cssDeLaPiel() + '</style>';
   const guiones = '<script>' + dentroDeScript(leer('ratacode-piel.js')) + '</script>'
-    + '<script>' + dentroDeScript(leer('ratacode-vida.js')) + '</script>'
-    + '<script>' + dentroDeScript(leer('ratacode-claves.js')) + '</script>';
+    + '<script>' + dentroDeScript(leer('ratacode-vida.js')) + '</script>';
   let salida = html;
   if (TITULO_AJENO.test(salida)) salida = salida.replace(TITULO_AJENO, '<title>RATACODE</title>');
   const cabeza = /<head(?:\s[^>]*)?>/i.exec(salida);
@@ -99,18 +105,33 @@ export function vestir(html) {
   return salida;
 }
 
-// ── el apretón de manos: el botón «Copiar apretón» de la barra lateral ──────
+// ── el apretón de manos (Ajustes > Handshakes) ─────────────────────────────
 
 /**
- * Dónde está `apreton\navegador.md`. Se busca en dos sitios porque el plugin
+ * Dónde está `apreton\handshake.md`. Se busca en dos sitios porque el plugin
  * viaja COPIADO dentro del perfil de la casa: ahí `bin\ratacode.js` deja una
  * copia del apretón junto al plugin; en el repositorio está dos carpetas más
- * arriba. Si no aparece en ninguno, la ruta simplemente no se monta.
+ * arriba. Si no aparece en ninguno, la ruta lo dice en vez de inventarse nada.
  */
-const APRETON_CANDIDATOS = [
-  join(AQUI, '..', 'apreton', 'navegador.md'),
-  join(AQUI, '..', '..', 'apreton', 'navegador.md'),
+const HANDSHAKE_CANDIDATOS = [
+  join(AQUI, '..', 'apreton', 'handshake.md'),
+  join(AQUI, '..', '..', 'apreton', 'handshake.md'),
 ];
+
+/**
+ * La instalación de RATACODE (la carpeta del paquete, con `mcp\tunel.mjs`
+ * dentro). `bin\ratacode.js` deja la ruta en `instalacion.txt`, junto a este
+ * plugin; así los comandos del MCP llevan la ruta de verdad y no un `<ruta>`
+ * que el usuario tenga que adivinar. Si no está, se dice `cd <ruta de
+ * RATACODE>` y que lo mire en el README.
+ */
+function instalacionDeEstaCasa() {
+  try {
+    const leida = readFileSync(join(AQUI, '..', 'instalacion.txt'), 'utf8').trim();
+    if (leida !== '') return leida;
+  } catch { /* instalación antigua: no hay pista */ }
+  return null;
+}
 
 /** La casa de ESTE motor, la misma que usa `bin/ratacode.js`. */
 function casaDeEstaCasa() {
@@ -132,14 +153,16 @@ function urlDeEstaCasa(req) {
 }
 
 /**
- * El texto del apretón para ESTA casa: el mismo `navegador.md`, con la casa y
+ * El texto del apretón para ESTA casa: el `handshake.md` corto, con la casa y
  * la URL ya puestas arriba, para que quien lo reciba no tenga que buscar nada.
  * No lleva ninguna clave: el token de la URL es el de la sesión del navegador,
- * que sólo se sirve por esta ruta protegida con el mismo cerco que `/ratacode/estado`.
+ * que sólo se sirve por esta ruta protegida con el mismo cerco que el resto.
+ * @param req - el pedido, para poder componer la URL si no hay `url.txt`.
+ * @returns {{texto: string, url: string|null}|null} null si no hay handshake.md.
  */
-function textoDelApreton(req) {
+function textoDelHandshake(req) {
   let crudo = null;
-  for (const candidato of APRETON_CANDIDATOS) {
+  for (const candidato of HANDSHAKE_CANDIDATOS) {
     try {
       crudo = readFileSync(candidato, 'utf8');
       break;
@@ -149,30 +172,107 @@ function textoDelApreton(req) {
   const casa = casaDeEstaCasa();
   const url = urlDeEstaCasa(req);
   const cabecera = [
-    '> **Esta casa, ya puesta.**',
-    '>',
-    '> - Carpeta de la casa: `' + casa + '`',
-    '> - URL del panel: ' + (url === null ? '(mira `' + join(casa, 'url.txt') + '`)' : url),
-    '>',
-    '> Lo de abajo es el apretón de manos: pégalo en tu chat tal cual.',
+    '> **Esta casa, ya puesta.** Carpeta: `' + casa + '` · Panel: '
+      + (url === null ? '(mira `' + join(casa, 'url.txt') + '`)' : url),
+    '> Pégalo en tu chat tal cual: es el apretón de manos de RATACODE.',
     '',
     '',
   ].join('\n');
-  return cabecera + crudo.split('<casa>').join(casa);
+  return { texto: cabecera + crudo.split('<casa>').join(casa), url, casa };
 }
 
-// ── la ventana de las 3 claves: las dos rutas del servidor de la piel ───────
+// ── el MCP para chats web ──────────────────────────────────────────────────
 
-/** Las tres referencias de clave que pregunta y guarda RATACODE (nombres de
- *  variable de entorno que maneja el servicio de credenciales de DSH). */
-const CLAVES = [
-  { ref: 'B_AI_API_KEY' },
-  { ref: 'OPENROUTER_API_KEY' },
-  { ref: 'DEEPSEEK_API_KEY' },
-];
-const BLANCO = new Set(CLAVES.map((c) => c.ref));
-/** Tope del cuerpo de /ratacode/guardar: una clave no ocupa más de 16 KB. */
-const CUERPO_MAXIMO = 16384;
+/** Lee un fichero de la casa sin reventar si no está; '' si no se puede. */
+function leerDeLaCasa(...trozos) {
+  try { return readFileSync(join(casaDeEstaCasa(), ...trozos), 'utf8').trim(); } catch { return ''; }
+}
+
+/** El puerto del MCP por HTTP, tal y como quedó en su URL local. */
+function puertoDeLaUrlMCP(url) {
+  const m = /^https?:\/\/[^/]+:(\d+)\//.exec(url);
+  return m === null ? null : Number(m[1]);
+}
+
+/**
+ * El texto que se pega en un chat web (ChatGPT, Claude…) para que sepa qué es
+ * RATACODE, qué herramientas tiene y cómo se espera a que acabe una tarea.
+ * @param url - la URL del conector MCP que va a usar ese chat.
+ * @returns el texto, en español, listo para pegar.
+ */
+function textoParaPegar(url) {
+  return [
+    'Trabajo con RATACODE por MCP. RATACODE es mi terminal de trabajo: un motor',
+    'DSH (DeepSeek Harness) que corre en MI ordenador, con los modelos que yo',
+    'tengo configurados (baratos) y herramientas de verdad: leer y escribir',
+    'ficheros, shell, búsqueda, subagentes. Tú planificas y revisas; el trabajo',
+    'pesado se descarga en RATACODE.',
+    '',
+    'URL del conector MCP: ' + (url ?? '(el MCP todavía no está arrancado)'),
+    '',
+    'Herramientas:',
+    '- list_models: lista los modelos disponibles (proveedor, id, contexto).',
+    '  Llámala primero para saber con qué cuenta RATACODE.',
+    '- run_task: lanza un encargo. Con esperar_segundos (1-600) la llamada ESPERA',
+    '  y devuelve el resultado completo en esa misma respuesta (usa 300 para un',
+    '  encargo normal). Sin esperar_segundos devuelve un task_id al momento y el',
+    '  trabajo sigue en segundo plano.',
+    '- get_task_status: estado de una tarea (queued, running, completed, failed,',
+    '  cancelled).',
+    '- get_task_result: la respuesta, el modelo, los tokens, el coste y la',
+    '  duración.',
+    '',
+    'Si yo he elegido modelo, no lo cambies. Si no, usa el de por defecto de la',
+    'casa y dime cuál es. Con un encargo largo, usa esperar_segundos y no cierres',
+    'tu turno hasta que get_task_status diga completed o failed.',
+    '',
+    'AVISO: RATACODE no puede acotar lo que una tarea LEE (el motor no tiene modo',
+    'de sólo lectura), así que quien tenga esta URL puede pedir que le lea',
+    'ficheros de mi PC. No la compartas y no la dejes abierta más de lo necesario.',
+  ].join('\n');
+}
+
+/**
+ * El estado del MCP de esta casa y lo que hay que pegar/ejecutar.
+ * - El MCP por HTTP está ARRANCADO si existe `<casa>\mcp\http-url.txt` (lo
+ *   escribe el propio servidor al escuchar, `mcp/bin/ratacode-mcp.js:179-183`).
+ * - El túnel está ABIERTO si existe `<casa>\mcp\tunel-url.txt` (lo escribe
+ *   `mcp/tunel.mjs` cuando cloudflared da la URL pública, y lo borra al cerrar).
+ * @param req - el pedido, para el caso de que falte el `url.txt` del panel.
+ * @returns el estado, los dos comandos y el texto para el chat.
+ */
+function estadoDelMcp(req) {
+  const casa = casaDeEstaCasa();
+  const urlLocal = leerDeLaCasa('mcp', 'http-url.txt');
+  const urlTunel = leerDeLaCasa('mcp', 'tunel-url.txt');
+  const instalacion = instalacionDeEstaCasa();
+  const donde = instalacion === null ? '<ruta de RATACODE>' : instalacion;
+  const conecta = urlTunel !== '' ? urlTunel : (urlLocal !== '' ? urlLocal : null);
+  const comandos = [
+    'cd ' + donde + '; ratacode mcp --http --acepto-lectura-total',
+    'cd ' + donde + '; node mcp/tunel.mjs --home ' + casa + ' --acepto-lectura-total',
+  ].join('\n');
+  return {
+    ok: true,
+    casa,
+    instalacion,
+    http: {
+      abierto: urlLocal !== '',
+      url: urlLocal === '' ? null : urlLocal,
+      puerto: puertoDeLaUrlMCP(urlLocal),
+    },
+    tunel: {
+      abierto: urlTunel !== '',
+      url: urlTunel === '' ? null : urlTunel,
+    },
+    panel: urlDeEstaCasa(req),
+    lecturaTotal: true,
+    comandos,
+    pegar: textoParaPegar(conecta),
+  };
+}
+
+// ── las rutas del servidor de la piel ──────────────────────────────────────
 
 function json(res, codigo, objeto) {
   res.writeHead(codigo, {
@@ -182,34 +282,14 @@ function json(res, codigo, objeto) {
   res.end(JSON.stringify(objeto));
 }
 
-/** Lee un cuerpo JSON con tope de bytes; nunca se registra ni una coma del valor. */
-function leerCuerpo(req) {
-  return new Promise((resuelve) => {
-    let bytes = 0;
-    const partes = [];
-    let corto = false;
-    req.on('data', (trozo) => {
-      bytes += trozo.length;
-      if (bytes > CUERPO_MAXIMO) { corto = true; partes.length = 0; return; }
-      partes.push(trozo);
-    });
-    req.on('end', () => {
-      if (corto) { resuelve({ ok: false, error: 'El pedido es demasiado grande.' }); return; }
-      try { resuelve({ ok: true, cuerpo: JSON.parse(Buffer.concat(partes).toString('utf8')) }); }
-      catch { resuelve({ ok: false, error: 'El pedido no es JSON válido.' }); }
-    });
-    req.on('error', () => resuelve({ ok: false, error: 'El pedido se cortó.' }));
-  });
-}
-
 /**
- * Monta las rutas de la ventana sobre el `webServer`, autenticadas con el mismo
- * cerco que el motor aplica a sus canales (`connection.requestRejection`).
- * @param c - contexto de cordis con `webServer`, `credentials` y `connection`.
+ * Monta las rutas del apretón y del MCP sobre el `webServer`, autenticadas con
+ * el mismo cerco que el motor aplica a sus canales
+ * (`connection.requestRejection`).
+ * @param c - contexto de cordis con `webServer` y `connection`.
  */
-function montarVentana(c) {
+function montarRutas(c) {
   const servidor = c.webServer;
-  const credenciales = c.credentials;
 
   const autorizada = (req, res) => {
     let rechazo;
@@ -221,85 +301,42 @@ function montarVentana(c) {
     return false;
   };
 
-  // GET /ratacode/estado → {casa, claves:{REF:{configurada,origen,editable}}}
-  // Sólo estados del `describe()` de DSH: el valor jamás sale por aquí. La casa
-  // va para que el navegador pueda recordar por casa lo que el usuario decide
-  // (p. ej. «Luego»): el localStorage es por origen, y el puerto no distingue
-  // una casa de otra.
-  const estado = async (req, res) => {
-    if (!autorizada(req, res)) return;
-    if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'Usa GET.' }); return; }
-    const claves = {};
-    for (const { ref } of CLAVES) {
-      let info;
-      try { info = await credenciales.describe(ref); }
-      catch { info = { configured: false, writable: true }; }
-      claves[ref] = {
-        configurada: info.configured === true,
-        origen: typeof info.source === 'string' ? info.source : null,
-        editable: info.writable !== false,
-      };
-    }
-    json(res, 200, { casa: casaDeEstaCasa(), claves });
+  /** Escribe `<casa>\handshake.md` (0600) y devuelve dónde quedó. */
+  const escribirHandshake = (texto) => {
+    const ruta = join(casaDeEstaCasa(), 'handshake.md');
+    mkdirSync(dirname(ruta), { recursive: true });
+    writeFileSync(ruta, texto, { mode: 0o600 });
+    return ruta;
   };
 
-  // POST /ratacode/guardar {ref, valor} → la MISMA llamada que hace el controlador
-  // de Ajustes > Models: ctx.credentials.set(ref, valor) (dsh-credentials-local
-  // escribe <casa>\.credentials.yaml). Refs sólo las tres del blanco.
-  const guardar = async (req, res) => {
+  // GET /ratacode/handshake → el apretón corto de ESTA casa, sin escribir nada.
+  // POST /ratacode/handshake → lo mismo, y además lo deja en `<casa>\handshake.md`.
+  const handshake = (req, res) => {
     if (!autorizada(req, res)) return;
-    if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'Usa POST.' }); return; }
-    if (!String(req.headers['content-type'] || '').toLowerCase().startsWith('application/json')) {
-      json(res, 415, { ok: false, error: 'Falta content-type: application/json.' }); return;
-    }
-    const pedido = await leerCuerpo(req);
-    if (!pedido.ok) { json(res, 400, { ok: false, error: pedido.error }); return; }
-    const { ref, valor } = pedido.cuerpo || {};
-    if (typeof ref !== 'string' || !BLANCO.has(ref)) {
-      json(res, 400, { ok: false, error: 'Esa clave no es de las tres de RATACODE.' }); return;
-    }
-    if (typeof valor !== 'string' || valor.trim().length === 0) {
-      json(res, 400, { ok: false, error: 'La clave está vacía; no se guarda nada vacío.' }); return;
-    }
-    if (valor.length > 4096) { json(res, 400, { ok: false, error: 'Eso no parece una clave (demasiado largo).' }); return; }
-    let info;
-    try { info = await credenciales.describe(ref); } catch { info = void 0; }
-    if (info && info.configured === true && info.source === 'env') {
-      json(res, 400, { ok: false, error: 'ya-entorno' }); return;
-    }
-    try {
-      // La llamada exacta del servicio de credenciales de DSH:
-      await credenciales.set(ref, valor.trim());
-    } catch (e) {
-      const m = e && e.message ? String(e.message) : String(e);
-      // El mensaje del motor nombra la referencia y el entorno, nunca el valor.
-      json(res, 500, { ok: false, error: m.includes('launching environment') ? 'ya-entorno' : 'No se pudo guardar: ' + m });
+    if (req.method !== 'GET' && req.method !== 'POST') { json(res, 405, { ok: false, error: 'Usa GET o POST.' }); return; }
+    const hecha = textoDelHandshake(req);
+    if (hecha === null) {
+      json(res, 404, { ok: false, error: 'no encuentro apreton/handshake.md en esta instalación' });
       return;
     }
-    c.logger?.info?.('ratacode-piel: clave guardada por la ventana (ref ' + ref + ', valor no registrado)');
-    json(res, 200, { ok: true, ref });
+    let ruta = null;
+    if (req.method === 'POST') {
+      try { ruta = escribirHandshake(hecha.texto); }
+      catch (e) { json(res, 500, { ok: false, error: 'no pude escribir handshake.md: ' + (e?.message ?? e) }); return; }
+      c.logger?.info?.('ratacode-piel: apretón de manos dejado en ' + ruta);
+    }
+    json(res, 200, { ok: true, url: hecha.url, casa: hecha.casa, ruta, texto: hecha.texto });
   };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/handshake', handler: handshake }), 'ratacode-piel.handshake');
 
-  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/estado', handler: estado }), 'ratacode-piel.claves.estado');
-  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/guardar', handler: guardar }), 'ratacode-piel.claves.guardar');
-  c.logger?.info?.('ratacode-piel: la ventana de las 3 claves escucha en /ratacode/estado y /ratacode/guardar');
-
-  // GET /ratacode/apreton → el apretón de manos de ESTA casa, en texto plano,
-  // con la URL ya puesta. Mismo cerco que /ratacode/estado: Host/Origin + cookie.
-  const apreton = (req, res) => {
+  // GET /ratacode/mcp → estado del MCP + los dos comandos + el texto del chat.
+  const mcp = (req, res) => {
     if (!autorizada(req, res)) return;
     if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'Usa GET.' }); return; }
-    const texto = textoDelApreton(req);
-    if (texto === null) {
-      res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
-      res.end('no encuentro apreton/navegador.md en esta instalación');
-      return;
-    }
-    res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
-    res.end(texto);
+    json(res, 200, estadoDelMcp(req));
   };
-  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/apreton', handler: apreton }), 'ratacode-piel.apreton');
-  c.logger?.info?.('ratacode-piel: el apretón de manos se sirve en /ratacode/apreton');
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/mcp', handler: mcp }), 'ratacode-piel.mcp');
+  c.logger?.info?.('ratacode-piel: el apretón se sirve en /ratacode/handshake y el MCP en /ratacode/mcp');
 }
 
 /**
@@ -313,9 +350,8 @@ export function apply(ctx) {
     return;
   }
   ctx.effect(() => servidor.tapIndex(vestir), 'ratacode-piel.tapIndex');
-  // La ventana necesita el servicio de credenciales y el cerco del canal del
-  // navegador. Si el día de mañana faltaran, la cara se pone igual y la
-  // ventana no sale: el guion de cliente no recibe estado y no actúa.
-  ctx.inject(['credentials', 'connection'], (c) => montarVentana(c));
+  // Las rutas necesitan el cerco del canal del navegador. Si faltara, la cara se
+  // pone igual y las rutas no salen: la sección de Ajustes lo dirá al pedirlas.
+  ctx.inject(['connection'], (c) => montarRutas(c));
   ctx.logger?.info?.('ratacode-piel: enganchada al index que sirve DSH web');
 }

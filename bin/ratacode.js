@@ -40,10 +40,18 @@
  * modelo cambiado, así NO se toca el que el usuario tenga guardado.
  *
  * Ninguna clave viaja dentro: las pone el usuario (web Ajustes > Models →
- * `<casa>/.credentials.yaml`, o exportando B_AI_API_KEY / OPENROUTER_API_KEY /
- * DEEPSEEK_API_KEY). DeepSeek no se declara: lo sirve el adaptador nativo de DSH
- * (ruta `deepseek-official`, `https://api.deepseek.com`, `DEEPSEEK_API_KEY`).
+ * `<casa>/.credentials.yaml`, o exportando la variable de entorno de cada
+ * proveedor). Los proveedores de fábrica son los 7 declarados en
+ * `fabrica\settings.yaml` (B.AI, OpenRouter, Groq, Google Gemini, NVIDIA NIM,
+ * SambaNova y Cloudflare Workers AI) más DeepSeek, que lo sirve el adaptador
+ * nativo de DSH (ruta `deepseek-official`, `https://api.deepseek.com`,
+ * `DEEPSEEK_API_KEY`): 8 en Ajustes > Models.
  * De las claves SÓLO se mira si la variable existe: nunca su valor.
+ *
+ * El apretón de manos y el MCP para chats web viven en Ajustes > Handshakes
+ * (la piel los sirve en `/ratacode/handshake` y `/ratacode/mcp`); para eso el
+ * plugin se lleva copiado `apreton\` y la ruta de ESTA instalación en
+ * `instalacion.txt` (para que los comandos del MCP lleven la ruta de verdad).
  *
  * Nada de esto toca `~/.dsh` ni el DSH de nadie más.
  */
@@ -821,9 +829,13 @@ async function main() {
 
   const cuenta = copiarArbol(PIEL_ORIGEN, join(perfilWeb, 'node_modules', NOMBRE_PLUGIN), { copiados: 0, iguales: 0 });
   // El apretón de manos viaja CON el plugin: la piel lo sirve en
-  // /ratacode/apreton y, copiada dentro del perfil, no tiene el repositorio al
-  // lado. Se copia en <plugin>\apreton\navegador.md.
+  // /ratacode/handshake (Ajustes > Handshakes) y, copiada dentro del perfil, no
+  // tiene el repositorio al lado. Se copia en <plugin>\apreton\.
   const cuentaApreton = copiarArbol(APRETON_ORIGEN, join(perfilWeb, 'node_modules', NOMBRE_PLUGIN, 'apreton'), { copiados: 0, iguales: 0 });
+  // Y la ruta de ESTA instalación (la carpeta del paquete, con `mcp\tunel.mjs`
+  // dentro), para que los dos comandos del MCP que enseña Ajustes > Handshakes
+  // lleven la ruta de verdad y no un «<ruta>» que el usuario tenga que buscar.
+  writeFileSync(join(perfilWeb, 'node_modules', NOMBRE_PLUGIN, 'instalacion.txt'), PAQUETE + '\n');
   prepararPerfil(perfilWeb, 'dsh-profile-web',
     ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', NOMBRE_PLUGIN], 'live');
   prepararPerfil(perfilHeadless, 'dsh-profile-headless',
@@ -859,8 +871,9 @@ async function main() {
   process.stdout.write('RATACODE · modos: ' + modos.copiados + ' fichero(s) puesto(s), ' + modos.iguales
     + ' ya estaban igual en ' + presets + (estreno.nueva ? '' : ' (casa existente: los 3 de RATACODE se actualizan, los del usuario no se tocan)') + '\n');
   process.stdout.write('RATACODE · proveedores: ' + (estreno.nueva
-    ? 'B.AI y OpenRouter de fábrica + DeepSeek (nativo de DSH); las claves las pones tú'
-    : 'los que ya tuviera la casa (no se toca settings.yaml)') + '\n');
+    ? '8 en Ajustes › Models (B.AI, OpenRouter, Groq, Google Gemini, NVIDIA NIM, SambaNova, Cloudflare Workers AI y DeepSeek nativo); las claves las pones tú ahí'
+    : 'los que ya tuviera la casa (no se toca settings.yaml): añade a mano los que falten de los 8') + '\n');
+  process.stdout.write('RATACODE · manos: apretón y MCP en Ajustes › Handshakes\n');
 
   if (ordenes.modo === 'headless') {
     // Antes de arrancar el motor, mira si hay con qué: si el modelo por defecto

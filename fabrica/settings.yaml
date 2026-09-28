@@ -3,10 +3,15 @@
 # estrena una casa; si la casa ya existe, no se toca lo que haya puesto el usuario.
 #
 # 0 claves dentro. El usuario pone las suyas la primera vez y quedan en
-# $DSH_HOME/.credentials.yaml (la web Ajustes > Models las escribe) o bien
-# exportando B_AI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY.
+# <casa>\.credentials.yaml (la web Ajustes > Models las escribe) o bien
+# exportando la variable de entorno que declara cada proveedor.
 #
-# Proveedores: B.AI y OpenRouter se declaran aquí (llm-pi-ai).
+# Proveedores (8 en Ajustes > Models): B.AI, OpenRouter, DeepSeek, Groq,
+# Google Gemini, NVIDIA NIM, SambaNova y Cloudflare Workers AI.
+# B.AI y OpenRouter se declaran aquí (llm-pi-ai) y los cinco gratuitos que
+# recomendó el informe R11 también. Cada baseURL y cada id de modelo está
+# comprobado en su documentación oficial (enlaces en los comentarios).
+#
 # DeepSeek NO se declara a propósito: DSH ya trae su adaptador nativo
 # (@deepseek-ai/dsh-llm-deepseek), que registra la ruta "deepseek-official"
 # contra https://api.deepseek.com y lee DEEPSEEK_API_KEY. Declarar además un
@@ -92,3 +97,93 @@ llm-pi-ai:
           input:
             - text
             - image
+
+    # ── Groq · gratis 30 RPM / 1.000 RPD / 200K TPD ─────────────────────
+    # baseURL: https://console.groq.com/docs/openai
+    # modelos: https://console.groq.com/docs/models
+    groq:
+      displayName: Groq
+      api: openai-completions
+      baseURL: https://api.groq.com/openai/v1
+      apiKeyEnv: GROQ_API_KEY
+      timeoutMs: 120000
+      models:
+        - id: openai/gpt-oss-120b
+          name: GPT-OSS 120B (Groq)
+          contextWindow: 131072
+          maxTokens: 65536
+        - id: qwen/qwen3.8-27b
+          name: Qwen3.8 27B (Groq, preview)
+          contextWindow: 131072
+          maxTokens: 16384
+
+    # ── Google Gemini (AI Studio) · gratis, pero ENTRENA CON TUS DATOS ──
+    # baseURL: https://ai.google.dev/gemini-api/docs/openai
+    # modelos: https://ai.google.dev/gemini-api/docs/models
+    gemini:
+      displayName: "Google Gemini (gratis: entrena con tus datos)"
+      api: openai-completions
+      baseURL: https://generativelanguage.googleapis.com/v1beta/openai/
+      apiKeyEnv: GEMINI_API_KEY
+      timeoutMs: 120000
+      models:
+        - id: gemini-3.8-flash
+          name: Gemini 3.8 Flash
+          contextWindow: 1048576
+          maxTokens: 65536
+        - id: gemini-3.7-flash
+          name: Gemini 3.7 Flash
+
+    # ── NVIDIA NIM · gratis sólo para prototipar (NO uso comercial) ─────
+    # URL y endpoint: https://docs.api.nvidia.com/nim/docs/models
+    #   («URL: https://integrate.api.nvidia.com · Endpoint: POST /v1/chat/completions»)
+    # ids: https://docs.api.nvidia.com/nim/reference/llm-apis
+    # No publica ventana de contexto: por eso no se declara contextWindow.
+    nvidia-nim:
+      displayName: NVIDIA NIM (gratis para prototipar, no comercial)
+      api: openai-completions
+      baseURL: https://integrate.api.nvidia.com/v1
+      apiKeyEnv: NVIDIA_API_KEY
+      timeoutMs: 120000
+      models:
+        - id: deepseek-ai/deepseek-v4-flash
+          name: DeepSeek V4 Flash (NIM)
+        - id: deepseek-ai/deepseek-v4-pro
+          name: DeepSeek V4 Pro (NIM)
+
+    # ── SambaNova · gratis permanente 20 RPM / 20 RPD / 200K TPD ────────
+    # baseURL: https://docs.sambanova.ai/docs/en/get-started/api-keys-urls
+    # modelos: https://docs.sambanova.ai/docs/en/models/sambacloud-models
+    sambanova:
+      displayName: SambaNova
+      api: openai-completions
+      baseURL: https://api.sambanova.ai/v1
+      apiKeyEnv: SAMBANOVA_API_KEY
+      timeoutMs: 120000
+      models:
+        - id: MiniMax-M2.7
+          name: MiniMax M2.7 (SambaNova)
+          contextWindow: 196608
+        - id: DeepSeek-V3.1
+          name: DeepSeek V3.1 (SambaNova)
+          contextWindow: 131072
+
+    # ── Cloudflare Workers AI · lleva tu account_id EN LA URL ───────────
+    # baseURL: https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/
+    # modelos: https://developers.cloudflare.com/workers-ai/models/
+    # OJO: {account_id} NO es un hueco que rellene RATACODE. Hay que cambiarlo
+    # a mano en Ajustes > Models > este proveedor > «Customized settings > Base URL»,
+    # poniendo el id de cuenta de Cloudflare (el token va en su campo API key).
+    cloudflare-workers-ai:
+      displayName: "Cloudflare Workers AI (cambia {account_id} en «Customized settings > Base URL»)"
+      api: openai-completions
+      baseURL: https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1
+      apiKeyEnv: CLOUDFLARE_API_KEY
+      timeoutMs: 120000
+      models:
+        - id: '@cf/openai/gpt-oss-120b'
+          name: GPT-OSS 120B (Cloudflare)
+          contextWindow: 128000
+        - id: '@cf/qwen/qwen2.5-coder-32b-instruct'
+          name: Qwen2.5 Coder 32B (Cloudflare)
+          contextWindow: 32768

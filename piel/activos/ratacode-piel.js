@@ -58,54 +58,80 @@
   const code=document.createElement('b');code.textContent='CODE';word.append(code);
   return word;
  }
- // ── «Copiar apretón» (paso 4a), discreto al pie de la barra lateral ────────
- // El texto lo sirve la propia piel en /ratacode/apreton, con la URL de ESTA
- // casa ya puesta. Aquí sólo se copia al portapapeles.
- function marcar(boton,texto){
-  const antes=boton.textContent;
-  boton.textContent=texto;boton.dataset.copiado='si';
-  setTimeout(()=>{boton.textContent=antes;delete boton.dataset.copiado},2200);
+ // ── R12 · LA VENTANA NATIVA DE DSH, QUE LLEVE A AJUSTES › MODELS ───────────
+ // DSH saca su propia ventana de primera vez, «Add an API key to get started»,
+ // PERO SÓLO PIDE LA CLAVE DE DEEPSEEK («Configure the official DeepSeek
+ // provider…», dsh-client-ui-settings-models/lib/client.js:2743-2747) y hay que
+ // desmontarla con su «Configure later» (:2745). RATACODE tiene 8 proveedores
+ // (los 7 declarados en fabrica/settings.yaml + el DeepSeek nativo), así que esa
+ // ventana estorba a quien use Groq, Gemini, SambaNova…: en vez de taparla (lo
+ // que hacía la ventana de las 3 claves, ya retirada), se le mete una nota en
+ // español y un botón que la cierra y abre Ajustes › Models.
+ const TITULOS_NATIVOS=['Add an API key to get started','添加一个 API Key 开始使用'];
+ const ATRAS_NATIVOS=['Configure later','稍后配置'];
+ const PROVEEDORES='B.AI, OpenRouter, DeepSeek, Groq, Google Gemini, NVIDIA NIM, SambaNova y Cloudflare Workers AI';
+ function contenedorNativo(hijo){
+  const h2s=hijo.querySelectorAll?hijo.querySelectorAll('h2'):[];
+  for(const t of h2s){if(TITULOS_NATIVOS.indexOf((t.textContent||'').trim())!==-1)return true;}
+  return false;
  }
- function copiarAlPortapapeles(texto){
-  if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(texto);
-  return new Promise((resuelve,rechaza)=>{
-   const caja=document.createElement('textarea');caja.value=texto;caja.setAttribute('readonly','');
-   caja.style.position='fixed';caja.style.left='-9999px';document.body.append(caja);caja.select();
-   const ok=document.execCommand('copy');caja.remove();
-   ok?resuelve():rechaza(new Error('el portapapeles no dejó'));
+ /** Abre Ajustes y deja seleccionado «Models» (el panel abre en General). */
+ function abrirAjustesModels(){
+  const disparador=Array.from(document.querySelectorAll('button[aria-haspopup="dialog"]'))
+   .find(b=>['Ajustes','Settings'].indexOf((b.getAttribute('aria-label')||'').trim())!==-1);
+  if(!disparador)return false;
+  disparador.click();
+  const buscar=()=>{
+   const fila=Array.from(document.querySelectorAll('[class*="_navList"] button'))
+    .find(b=>(b.textContent||'').trim()==='Models');
+   if(fila)fila.click();
+  };
+  setTimeout(buscar,60);setTimeout(buscar,240);
+  return true;
+ }
+ function guiarNativa(){
+  for(const hijo of Array.from(document.body.children)){
+   if(hijo.nodeType!==1||!contenedorNativo(hijo))continue;
+   if(hijo.querySelector('.mr-guia'))continue;
+   // La nota va DENTRO del cuadro del diálogo, no al lado: el contenedor de la
+   // ventana nativa es un flex de pantalla completa con la máscara dentro
+   // (`_root_…` → `_mask_…` + `_dialog_…`), y añadida al lado desplazaba el
+   // cuadro y quedaba a merced de la máscara. Medido el 28-sep-2026.
+   const caja=hijo.querySelector('[role="dialog"]')||hijo;
+   const nota=document.createElement('div');
+   nota.className='mr-guia';
+   const linea=document.createElement('div');
+   linea.append('RATACODE trae ');
+   const fuerte=document.createElement('b');fuerte.textContent='8 proveedores';linea.append(fuerte);
+   linea.append(': '+PROVEEDORES+'. Esta ventana sólo pide la clave de DeepSeek.');
+   const boton=document.createElement('button');
+   boton.type='button';boton.className='mr-guia-boton';
+   boton.textContent='Usar otro proveedor: abrir Ajustes › Models';
+   boton.addEventListener('click',()=>{
+    let atras=null;
+    for(const b of caja.querySelectorAll('button')){
+     if(ATRAS_NATIVOS.indexOf((b.textContent||'').trim())!==-1){atras=b;break;}
+    }
+    if(atras){try{atras.click();}catch(e){/* da igual: el botón de Ajustes abre igual */}}
+    const raiz=document.getElementById('root');
+    if(raiz&&raiz.inert)raiz.inert=false;
+    setTimeout(()=>{abrirAjustesModels();},120);
+   });
+   nota.append(linea,boton);
+   caja.append(nota);
+   return true;
+  }
+  return false;
+ }
+ function vigilarNativa(){
+  guiarNativa();
+  let pendiente=false;
+  const mo=new MutationObserver(()=>{
+   if(pendiente)return;
+   pendiente=true;
+   setTimeout(()=>{pendiente=false;guiarNativa();},60);
   });
- }
- async function copiarApreton(boton){
-  try{
-   const respuesta=await fetch('/ratacode/apreton',{credentials:'same-origin'});
-   if(!respuesta.ok)throw new Error('respuesta '+respuesta.status);
-   await copiarAlPortapapeles(await respuesta.text());
-   marcar(boton,'Copiado ✓');
-  }catch(e){marcar(boton,'No se pudo');}
- }
- function montarApreton(){
-  const sitio=document.querySelector('[class*="_footArea"]')||document.querySelector('[class*="_sidebarCol"]');
-  if(!sitio)return;
-  let pie=sitio.querySelector('.mr-pie');
-  if(!pie){pie=document.createElement('div');pie.className='mr-pie';sitio.append(pie);}
-  if(!pie.querySelector('.mr-apreton')){
-   const boton=document.createElement('button');
-   boton.type='button';boton.className='mr-apreton';boton.textContent='Copiar apretón';
-   boton.title='Copia el apretón de manos de esta casa, con su URL, para pegarlo en un chat';
-   boton.setAttribute('aria-label','Copiar el apretón de manos de RATACODE');
-   boton.addEventListener('click',()=>{copiarApreton(boton)});
-   pie.append(boton);
-  }
-  // Enlace discreto «Claves»: vuelve a abrir la ventana de las 3 claves, que ya
-  // no sale sola si el usuario pulsó «Luego» (ratacode-claves.js).
-  if(!pie.querySelector('.mr-claves')){
-   const boton=document.createElement('button');
-   boton.type='button';boton.className='mr-claves';boton.textContent='Claves';
-   boton.title='Volver a abrir la ventana de las 3 claves de RATACODE';
-   boton.setAttribute('aria-label','Abrir la ventana de las 3 claves de RATACODE');
-   boton.addEventListener('click',()=>{if(typeof window.__ratacodeAbrirClaves==='function')window.__ratacodeAbrirClaves();});
-   pie.append(boton);
-  }
+  mo.observe(document.body,{childList:true,subtree:true});
  }
  function apply(){
   const title=document.title.replace(/DeepSeek Harness/gi,'RATACODE');if(title!==document.title)document.title=title;
@@ -151,7 +177,6 @@
   traducirCajas();
   const input=document.querySelector('[data-composer-input]');if(input)input.setAttribute('aria-label','Mensaje para RATACODE');
   const search=document.querySelector('[class*="_searchInput"]');if(search)search.setAttribute('placeholder','Buscar sesiones…');
-  montarApreton();
  }
  apply();
  // ── volver a aplicar cuando el frontend reescribe ────────────────────────
@@ -172,4 +197,7 @@
  // hueco de lo que pasó mientras no se pintaba.
  document.addEventListener('visibilitychange',programar);
  window.addEventListener('focus',programar);
+ // R12: la ventana nativa de DSH (sólo DeepSeek) lleva una nota y un botón a
+ // Ajustes › Models. Un solo vigilante, montado una sola vez.
+ vigilarNativa();
 })();

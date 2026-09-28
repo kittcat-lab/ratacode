@@ -31,7 +31,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { spawnSync, spawn } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { resolverCasa } from './lib/casa.js';
 import { exigirAceptoLecturaTotal } from './lib/lectura.js';
@@ -74,6 +74,14 @@ if (!exigirAceptoLecturaTotal({
 const casa = resolverCasa(o.casa);
 const host = o.host ?? '127.0.0.1';
 const puerto = o.port;
+
+/** Dónde queda constancia de que el túnel está ABIERTO: `<casa>\mcp\tunel-url.txt`.
+ *  Lo lee Ajustes > Handshakes (la piel, ruta /ratacode/mcp) para decir si el
+ *  túnel está abierto y enseñar la URL pública. Se borra al cerrar el túnel, así
+ *  que su presencia es señal de que hay alguien exponiendo el puerto. */
+const RUTA_TUNEL_ABIERTO = join(casa, 'mcp', 'tunel-url.txt');
+/** La de la vez anterior no vale: hasta que cloudflared no dé la URL, no hay túnel. */
+try { rmSync(RUTA_TUNEL_ABIERTO, { force: true }); } catch { /* no había nada */ }
 
 /** El origen y la clave del MCP, tal como los dejó `ratacode mcp --http`. */
 function urlLocal() {
@@ -181,6 +189,10 @@ const mirar = (trozo, destino) => {
   const dominio = dominioPublico(visto);
   if (dominio === null) return;
   anunciada = true;
+  // La URL pública COMPLETA (dominio + /mcp/<clave>) queda en la casa, para que
+  // Ajustes > Handshakes pueda decir «túnel abierto» y enseñarla sin que nadie
+  // tenga que copiarla de la consola. Sólo-dueño, y se borra al cerrar.
+  try { escribirSoloDueno(RUTA_TUNEL_ABIERTO, dominio + '/mcp/' + clave + '\n'); } catch { /* la casa manda, pero no es imprescindible */ }
   process.stdout.write('\n============================================================\n');
   process.stdout.write('URL PÚBLICA DEL MCP (pégala en ChatGPT, modo desarrollador):\n');
   process.stdout.write('  ' + dominio + '/mcp/' + clave + '\n');
@@ -191,6 +203,7 @@ proc.stdout.on('data', (t) => mirar(t, process.stdout));
 proc.stderr.setEncoding('utf8');
 proc.stderr.on('data', (t) => mirar(t, process.stderr));
 proc.on('exit', (code) => {
+  try { rmSync(RUTA_TUNEL_ABIERTO, { force: true }); } catch { /* da igual */ }
   console.log('\ncloudflared terminó (código ' + code + '). El túnel está cerrado; el puerto ya no se expone.');
   process.exit(code ?? 0);
 });

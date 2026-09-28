@@ -3,8 +3,8 @@
 **Manos baratas para tu agente o tu chat.** RATACODE es la terminal de trabajo bruto:
 un DSH web (`@deepseek-ai/dsh`, MIT) con la cara de RATACODE —las ratas, las chispas,
 los colores— puesta por un plugin que no toca ni el motor ni el frontend. Le mandas el
-trabajo pesado y barato (B.AI, OpenRouter y DeepSeek vienen de fábrica) y el resultado
-vuelve a tu agente o a tu chat.
+trabajo pesado y barato (B.AI, OpenRouter, DeepSeek y cinco gratuitos más vienen de
+fábrica) y el resultado vuelve a tu agente o a tu chat.
 
 **La web:** <https://kittcat.com/ratacode/> — la página del producto, con el botón que
 copia el prompt de instalación y lo cuenta en corto.
@@ -44,18 +44,28 @@ anterior se borra al arrancar y la nueva sólo se escribe **cuando el puerto ya 
 Cada arranque y cada cierre del motor quedan apuntados en `<casa>\ratacode.log`, con su
 código de salida y su señal (para saber por qué se cerró).
 
-## Las 3 claves
+## Las claves: Ajustes → Models (ocho proveedores de fábrica)
 
-Cada usuario pone las suyas; **nunca viajan dentro del paquete**:
+Cada usuario pone las suyas; **nunca viajan dentro del paquete**. Se ponen donde DSH las
+pone siempre: en la web, **Ajustes → Models**, con el campo «API key» de cada proveedor
+(quedan en `<casa>\.credentials.yaml`), o exportando su variable de entorno. RATACODE trae
+**ocho proveedores** ya declarados:
 
-| Variable | Proveedor |
-|---|---|
-| `B_AI_API_KEY` | B.AI (de fábrica, con `deepseek-v4.1-flash` y más modelos baratos) |
-| `OPENROUTER_API_KEY` | OpenRouter |
-| `DEEPSEEK_API_KEY` | DeepSeek (adaptador nativo de DSH) |
+| Proveedor | Variable | Notas |
+|---|---|---|
+| B.AI | `B_AI_API_KEY` | de fábrica, con `deepseek-v4.1-flash` y más modelos baratos |
+| OpenRouter | `OPENROUTER_API_KEY` | |
+| DeepSeek | `DEEPSEEK_API_KEY` | adaptador nativo de DSH (`deepseek-official`) |
+| Groq | `GROQ_API_KEY` | gratis (30 RPM / 1.000 RPD); `openai/gpt-oss-120b`, `qwen/qwen3.8-27b` |
+| Google Gemini | `GEMINI_API_KEY` | gratis, pero **entrena con tus datos**: no lo uses con código confidencial |
+| NVIDIA NIM | `NVIDIA_API_KEY` | gratis sólo para prototipar; uso comercial prohibido sin licencia |
+| SambaNova | `SAMBANOVA_API_KEY` | gratis permanente (20 RPM / 20 RPD / 200K TPD) |
+| Cloudflare Workers AI | `CLOUDFLARE_API_KEY` | **cambia `{account_id}` a mano**: Ajustes → Models → ese proveedor → *Customized settings* → **Base URL** |
 
-Se ponen en la web (**Ajustes → Models**; quedan en `<casa>\.credentials.yaml`) o
-exportándolas como variables de entorno. La primera vez que abres RATACODE te las pide.
+Los dos lados de la mano están en **Ajustes → Handshakes**: el **apretón de manos** para
+agentes con navegador (Claude Code, Codex, OpenClaw, Rowboat…) —lo copia y lo deja en
+`<casa>\handshake.md`— y el **MCP para chats web**, con el aviso de lectura total y el
+texto que se pega en el chat.
 
 **Las claves del MCP.** El servidor MCP las mira en el **entorno del cliente** que lo arranca
 (`B_AI_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`); si no están ahí, deja que lo haga
@@ -77,12 +87,14 @@ hace nunca es abrir el fichero de claves él mismo. Alta típica con entorno exp
    `ratacode mcp --http --acepto-lectura-total` y `mcp.workspaces` declarado; el túnel es
    `node mcp/tunel.mjs --home <casa> --acepto-lectura-total` (puerto por defecto del MCP: 3778).
 
-> El panel es DSH con la piel de RATACODE puesta: los rótulos propios y la ventana de las claves
-> están en español, pero Ajustes → Models y los menús del motor siguen en inglés (los pone DSH,
-> y RATACODE no reescribe el frontend a propósito).
+> El panel es DSH con la piel de RATACODE puesta: los rótulos propios y la sección
+> **Handshakes** están en español, pero Ajustes → Models y los menús del motor siguen en
+> inglés (los pone DSH, y RATACODE no reescribe el frontend a propósito).
 
-Para manejar RATACODE desde otro chat sin ayuda, pega uno de los prompts de la carpeta
-[`apreton`](https://github.com/kittcat-lab/ratacode) del repositorio (navegador, headless o MCP).
+Para manejar RATACODE desde otro chat sin ayuda, abre **Ajustes → Handshakes** y usa sus
+dos botones (el apretón de manos para agentes con navegador y el MCP para chats web); los
+textos largos están en la carpeta [`apreton`](https://github.com/kittcat-lab/ratacode) del
+repositorio (navegador, headless o MCP).
 
 ## Seguridad
 
@@ -146,10 +158,15 @@ quien hace el trabajo de verdad. Gracias por dejarla engancharse sin tocar nada.
 - **Install (one command):** `npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.1.0/ratacode-0.1.0.tgz`
   — the release tarball, no git and no npm account needed; once it is on npm, `npm i -g ratacode`
   (last resort: `git clone` the repo, `npm pack` and `npm i -g ./ratacode-0.1.0.tgz`) — then run `ratacode`.
-- **Bring your own keys:** `B_AI_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY` — set
-  them in the web UI (Settings → Models) or as environment variables; they are never bundled.
+- **Bring your own keys:** eight providers ship declared (`B.AI`, `OpenRouter`, `DeepSeek`,
+  `Groq`, `Google Gemini`, `NVIDIA NIM`, `SambaNova`, `Cloudflare Workers AI` — the last one
+  needs your `{account_id}` pasted into *Customized settings → Base URL*). Set each key in the
+  web UI (Settings → Models) or as its environment variable; keys are never bundled.
   The MCP server reads them from its client's environment, or lets the engine resolve the ones
   you saved in the web UI.
+- **Handshakes (Settings → Handshakes):** one button writes the short handshake
+  (`<casa>\handshake.md`) for browser agents; the other explains the MCP for web chats, with
+  the read-everything warning and the text to paste.
 - **Three ways to use it:** browser (`ratacode`), headless (`ratacode headless "task"`),
   and MCP (`ratacode mcp`) so ChatGPT web, Claude Code, Codex, Rowboat or OpenClaw can
   delegate tasks (`list_models`, `run_task`, `get_task_status`, `get_task_result`, `cancel_task`).
