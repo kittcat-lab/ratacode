@@ -40,7 +40,7 @@ export function binDelMotor(indicada) {
   const manifiesto = requerir.resolve('@deepseek-ai/dsh/package.json');
   const pkg = JSON.parse(readFileSync(manifiesto, 'utf8'));
   const rel = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.dsh;
-  if (rel === undefined || rel === null) throw new Error('el paquete @deepseek-ai/dsh no declara el binario «dsh»');
+  if (rel === undefined || rel === null) throw new Error('el motor no declara su binario (¿instalación a medias?)');
   const bin = join(dirname(manifiesto), rel);
   if (!existsSync(bin)) throw new Error('no encuentro el motor en ' + bin);
   return bin;

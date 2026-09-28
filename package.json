@@ -1,7 +1,7 @@
 {
   "name": "ratacode",
   "version": "0.1.0",
-  "description": "RATACODE · la terminal de trabajo bruto: DSH web (@deepseek-ai/dsh) con la cara de RATACODE (ratas, chispas, colores).",
+  "description": "RATACODE · la terminal de trabajo con IA: le mandas el trabajo pesado a modelos baratos (o a los tuyos, en local) y el resultado vuelve a tu agente o a tu chat.",
   "license": "MIT",
   "author": {
     "name": "Patxi"
@@ -20,7 +20,7 @@
   },
   "scripts": {
     "postinstall": "node bin/instalacion.js",
-    "test": "node pruebas/piel.test.mjs && node pruebas/modos.test.mjs"
+    "test": "node pruebas/piel.test.mjs && node pruebas/modos.test.mjs && node pruebas/mcp-espacios.test.mjs"
   },
   "files": [
     "bin",
@@ -30,13 +30,16 @@
     "mcp",
     "!mcp/prueba",
     "apreton",
+    "CREDITS.md",
     "LICENSE",
     "README.md"
   ],
   "keywords": [
-    "dsh",
-    "deepseek-harness",
     "terminal",
+    "agentes",
+    "modelos-locales",
+    "ollama",
+    "mcp",
     "ratacode"
   ],
   "dependencies": {

@@ -9,7 +9,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>RATACODE · manos baratas para tu agente o tu chat</title>
-<meta name="description" content="RATACODE: la terminal de trabajo bruto. DSH con la cara de RATACODE: le mandas el trabajo pesado a modelos baratos (B.AI, OpenRouter, DeepSeek) y el resultado vuelve a tu agente o a tu chat.">
+<meta name="description" content="RATACODE: la terminal de trabajo con IA. El trabajo pesado va a modelos baratos y el resultado vuelve a tu agente o a tu chat.">
 <meta name="theme-color" content="#101113">
 <link rel="canonical" href="https://kittcat.com/ratacode/">
 <meta property="og:title" content="RATACODE · manos baratas para tu agente o tu chat">
@@ -121,10 +121,7 @@ footer .marca svg{width:22px;height:22px}
   <span class="badge">TRABAJO BRUTO</span>
   <h1>Manos baratas para tu agente o tu chat<span class="chispa">.</span></h1>
   <p class="frase">Le pasas el <strong>trabajo pesado</strong> a modelos baratos
-  (B.AI, OpenRouter, DeepSeek) y el resultado vuelve a tu agente o a tu chat.
-  Es <strong>DSH</strong> con la cara de RATACODE: ni el motor ni el frontend se tocan.</p>
-  <p class="ficha" style="margin:-12px 0 18px"><strong>DSH = DeepSeek Harness</strong>, el motor
-  de terminal de DeepSeek (MIT). RATACODE le pone la piel y una casa propia.</p>
+  (B.AI, OpenRouter, DeepSeek) y el resultado vuelve a tu agente o a tu chat.</p>
 
   <div class="card">
     <h2 style="margin-top:0">Instalación <small>· un comando, Windows + Node 24</small></h2>
@@ -170,10 +167,10 @@ footer .marca svg{width:22px;height:22px}
 
   <h2>Seguridad</h2>
   <ul class="seguridad">
-    <li><b>Carpeta cerrada:</b> todo vive en <code>%USERPROFILE%\.ratacode</code>, nunca en
-      <code>~/.dsh</code>. Las tareas MCP solo <b>ESCRIBEN</b> dentro de su
+    <li><b>Carpeta cerrada:</b> todo vive en <code>%USERPROFILE%\.ratacode</code>, nunca en la
+      carpeta de ajustes de otro programa. Las tareas MCP solo <b>ESCRIBEN</b> dentro de su
       <code>working_directory</code>: lo que intentan escribir fuera, falla.</li>
-    <li><b>Pero pueden LEER todo tu PC.</b> El motor (DSH) no tiene ningún modo que acote la
+    <li><b>Pero pueden LEER todo tu PC.</b> El motor no tiene ningún modo que acote la
       lectura —<code>read-only</code>, <code>workspace-write</code> y <code>danger-full-access</code>
       son ejes de <i>escritura</i>—, así que una tarea MCP puede leer cualquier fichero que puedas
       leer tú (incluido <code>%USERPROFILE%\.ratacode\.credentials.yaml</code> y tu <code>.ssh</code>)
@@ -196,26 +193,22 @@ footer .marca svg{width:22px;height:22px}
     </span>
     <span>MIT © 2026 Patxi</span>
     <a href="https://github.com/kittcat-lab/ratacode">GitHub · kittcat-lab/ratacode</a>
-    <span>hecho sobre DSH (<a href="https://www.npmjs.com/package/@deepseek-ai/dsh">@deepseek-ai/dsh</a>, MIT)</span>
   </footer>
 </main>
 <button id="boton-chispas" type="button" aria-pressed="true">✦ chispas</button>
 
 <script>
 // El prompt que se copia: instalar, arrancar y leer el apreton. En español, sin palabrería.
-// El paso 2 vale HOY: mientras el paquete no esté en npm, se instala desde la release de GitHub
-// (el .tgz que cuelga de ella: sin git y sin cuenta de npm). El día que el paquete esté publicado,
-// la línea de npm vale; el rodeo de git clone + npm pack queda como último recurso en una línea.
+// El paso 2 vale HOY: lo principal es `npm i -g ratacode` (el paquete está publicado) y
+// la release de GitHub queda como alternativa para una versión concreta.
 var PROMPT = [
 'Instala RATACODE (la terminal de trabajo bruto) y déjala corriendo. Sin preguntar, paso a paso:',
 'La web del producto, por si necesitas más contexto: https://kittcat.com/ratacode/',
 '',
 '1. Comprueba Node 24: node -v. Si falta, PARA y dímelo (no la instales por tu cuenta).',
-'2. Instálala desde la release de GitHub (sin git y sin cuenta de npm):',
-'     npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.1.0/ratacode-0.1.0.tgz',
-'   Cuando el paquete esté en npm bastará con: npm i -g ratacode',
-'   Último recurso, si esa descarga falla:',
-'     git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.1.0.tgz',
+'2. Instálala:  npm i -g ratacode',
+'   (los avisos amarillos «allow-scripts» de npm 11 son normales y no impiden que funcione;',
+'    alternativa: el .tgz de la release, npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.2.0/ratacode-0.2.0.tgz )',
 '3. Arranca `ratacode` EN SEGUNDO PLANO (run_in_background en Claude Code/Codex, o `Start-Process`/`&`):',
 '   no termina nunca, así que en primer plano te bloquea el turno. Imprime una URL con su token y la',
 '   guarda en %USERPROFILE%\\.ratacode\\url.txt',

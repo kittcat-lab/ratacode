@@ -1,6 +1,6 @@
 # Headless: cómo manejar RATACODE sin navegador
 
-RATACODE es un DSH con la cara de RATACODE. En modo headless no hay pantalla: mandas el encargo por terminal y el resultado llega a un fichero. Los modelos baratos hacen el trabajo; tú planificas, revisas y cierras.
+RATACODE es una terminal de trabajo con IA con la cara de RATACODE, montada sobre un motor libre que no se toca. En modo headless no hay pantalla: mandas el encargo por terminal y el resultado llega a un fichero. Los modelos baratos —o los tuyos, en local— hacen el trabajo; tú planificas, revisas y cierras.
 
 ## Cómo usarlo
 ```sh

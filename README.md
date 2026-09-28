@@ -1,13 +1,26 @@
 # RATACODE
 
 **Manos baratas para tu agente o tu chat.** RATACODE es la terminal de trabajo bruto:
-un DSH web (`@deepseek-ai/dsh`, MIT) con la cara de RATACODE —las ratas, las chispas,
-los colores— puesta por un plugin que no toca ni el motor ni el frontend. Le mandas el
-trabajo pesado y barato (B.AI, OpenRouter, DeepSeek y cinco gratuitos más vienen de
-fábrica) y el resultado vuelve a tu agente o a tu chat.
+una terminal de trabajo con IA con la cara de RATACODE —las ratas, las chispas,
+los colores— montada sobre un motor libre que no se toca. Le mandas el
+trabajo pesado y barato (B.AI, OpenRouter, DeepSeek, cinco proveedores gratuitos y
+**dos modelos locales sin clave ni coste** vienen de fábrica) y el resultado vuelve a tu
+agente o a tu chat.
 
 **La web:** <https://kittcat.com/ratacode/> — la página del producto, con el botón que
 copia el prompt de instalación y lo cuenta en corto.
+
+## Qué trae la 0.2.0
+
+- **Los 9 modos de casa** (MODO-RATA, ARQUITECTO, CAPATAZ, HERO, TIRITA, GEPETO, FARO,
+  PIX y NEX) en el selector, con MODO-RATA por defecto y **sin los modos de serie del
+  motor**: una casa vieja se pone al día sola al arrancar.
+- **Modelos locales de serie, sin clave:** Ollama y LM Studio (10 proveedores en
+  Ajustes → Models, ver la tabla «qué modelo local según tu tarjeta»).
+- **Cada tarea MCP se ve en la barra lateral del panel**, con su conversación: el MCP
+  deja de ser una caja negra.
+- **La instalación, en un comando:** `npm i -g ratacode`.
+- Fuera el nombre del motor de todo lo que ve el usuario (panel, ayuda y mensajes).
 
 ## Requisitos
 
@@ -17,55 +30,89 @@ copia el prompt de instalación y lo cuenta en corto.
 
 ## Instalación (un comando)
 
-Mientras el paquete no esté publicado en npm, se instala desde la release de GitHub
-(el `.tgz` que cuelga de ella; no hace falta ni git ni cuenta de npm):
-
-```bash
-npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.1.0/ratacode-0.1.0.tgz
-```
-
-Cuando esté en npm, bastará con:
-
 ```bash
 npm i -g ratacode
 ```
 
-Último recurso, si la descarga falla: `git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.1.0.tgz`.
+> **Los avisos amarillos de npm 11 al instalar son normales.** npm 11 frena los scripts
+> de instalación de las dependencias nativas de la terminal y avisa con
+> «allow-scripts» / «Ignored build scripts». Ese aviso **no impide que RATACODE funcione**:
+> el paquete ya declara las que hacen falta (`allowScripts` en su `package.json`) y sus
+> binarios vienen precompilados para Node 24.
 
-Y para abrirla (lo mismo en los dos casos):
+Alternativa, si npm te falla o quieres una versión concreta: la **release de GitHub**
+(el `.tgz` que cuelga de ella; no hace falta ni git ni cuenta de npm):
+
+```bash
+npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.2.0/ratacode-0.2.0.tgz
+```
+
+Último recurso, si la descarga falla: `git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.2.0.tgz`.
+
+Y para abrirla (lo mismo en los tres casos):
 
 ```bash
 ratacode
 ```
 
-Arranca DSH con la cara de RATACODE en el puerto **3777** (fijo y conocido; `--port` lo
+Arranca el panel con la cara de RATACODE en el puerto **3777** (fijo y conocido; `--port` lo
 cambia), imprime la URL **con su token** y la guarda en `<casa>\url.txt` — la de la vez
 anterior se borra al arrancar y la nueva sólo se escribe **cuando el puerto ya escucha**.
 Cada arranque y cada cierre del motor quedan apuntados en `<casa>\ratacode.log`, con su
 código de salida y su señal (para saber por qué se cerró).
 
-## Las claves: Ajustes → Models (ocho proveedores de fábrica)
+## Las claves: Ajustes → Models (diez proveedores de fábrica)
 
-Cada usuario pone las suyas; **nunca viajan dentro del paquete**. Se ponen donde DSH las
-pone siempre: en la web, **Ajustes → Models**, con el campo «API key» de cada proveedor
+Cada usuario pone las suyas; **nunca viajan dentro del paquete**. Se ponen donde el motor
+las pone siempre: en la web, **Ajustes → Models**, con el campo «API key» de cada proveedor
 (quedan en `<casa>\.credentials.yaml`), o exportando su variable de entorno. RATACODE trae
-**ocho proveedores** ya declarados:
+**diez proveedores** ya declarados:
 
 | Proveedor | Variable | Notas |
 |---|---|---|
 | B.AI | `B_AI_API_KEY` | de fábrica, con `deepseek-v4.1-flash` y más modelos baratos |
 | OpenRouter | `OPENROUTER_API_KEY` | |
-| DeepSeek | `DEEPSEEK_API_KEY` | adaptador nativo de DSH (`deepseek-official`) |
+| DeepSeek | `DEEPSEEK_API_KEY` | adaptador nativo del motor (`deepseek-official`) |
 | Groq | `GROQ_API_KEY` | gratis (30 RPM / 1.000 RPD); `openai/gpt-oss-120b`, `qwen/qwen3.8-27b` |
 | Google Gemini | `GEMINI_API_KEY` | gratis, pero **entrena con tus datos**: no lo uses con código confidencial |
 | NVIDIA NIM | `NVIDIA_API_KEY` | gratis sólo para prototipar; uso comercial prohibido sin licencia |
 | SambaNova | `SAMBANOVA_API_KEY` | gratis permanente (20 RPM / 20 RPD / 200K TPD) |
 | Cloudflare Workers AI | `CLOUDFLARE_API_KEY` | **cambia `{account_id}` a mano**: Ajustes → Models → ese proveedor → *Customized settings* → **Base URL** |
+| **Ollama (local)** | *ninguna* | `http://127.0.0.1:11434/v1`, sin clave y sin coste ([ollama.com/download](https://ollama.com/download)) |
+| **LM Studio (local)** | *ninguna* | `http://127.0.0.1:1234/v1`, sin clave (`lms server start`); pon el id que devuelva `GET /v1/models` |
+
+Los dos locales **no piden clave**: van declarados sin credencial y el motor deja la ruta
+sin autenticar. Nada sale de tu ordenador cuando trabajas con ellos.
+
+### Qué modelo local según tu tarjeta
+
+Bájalo con `ollama pull <id>` y elígelo en Ajustes → Models. Medido en el informe R15
+(tool calling = que el modelo sepa **usar** las herramientas, no sólo hablar):
+
+| Tu tarjeta | Modelo (`ollama pull`) | Tamaño | Por qué ése |
+|---|---|---|---|
+| **8 GB** | `qwen3:8b` | 5,2 GB | la mejor evidencia independiente de uso de herramientas (F1 0,919 en el banco de Docker; medido aquí: devuelve `tool_calls` de verdad) |
+| **12 GB** | `gemma4:12b` | 7,6 GB | cifra agéntica publicada (τ² 69,0) y function calling nativo; a ≤16K de contexto |
+| **16 GB** | `gpt-oss:20b` | 14 GB | `tools` nativo y Apache-2.0; **súbele el contexto** (con 4K por defecto las herramientas se rompen) y no hace llamadas en paralelo |
+| **24 GB** | `muse-glimmer:30b` (o `qwen3.6:27b`) | 18 GB | los dos con cifras de trabajo real (SWE-bench Verified 76-77) |
+| **Solo CPU** | `granite4.1:3b` (2,1 GB) o `lfm2.5:8b` (1B activo) | 2-5 GB | caben en RAM sin tarjeta; con 32 GB, `nemotron-3.5-lightning:30b` |
+
+Si tienes 8 GB, `lfm2.5:8b` también vale (125K de contexto, hecho para tool calling).
+
+> **Ojo con `qwen2.5-coder:7b`.** Devuelve las herramientas **como texto** dentro del
+> mensaje en vez de llamarlas: el modelo no llega a ejecutar nada y el agente se queda
+> mirando. Medido en R15 con Ollama; no lo pongas como modo de trabajo. (Lo mismo, por
+> la misma razón, con `qwen3.5:9b` y el *thinking* activado.)
+
+Para LM Studio el id de modelo lo pone la aplicación: míralo con
+`curl http://127.0.0.1:1234/v1/models` y escríbelo en Ajustes → Models.
 
 Los dos lados de la mano están en **Ajustes → Handshakes**: el **apretón de manos** para
 agentes con navegador (Claude Code, Codex, OpenClaw, Rowboat…) —lo copia y lo deja en
 `<casa>\handshake.md`— y el **MCP para chats web**, con el aviso de lectura total y el
-texto que se pega en el chat.
+texto que se pega en el chat. **El MCP es la vía recomendada**: cuesta menos (dos llamadas
+y texto, sin capturas de pantalla), tiene estado explícito y **cada tarea sale en la barra
+lateral del panel** con su conversación, así que no es una caja negra.
 
 **Las claves del MCP.** El servidor MCP las mira en el **entorno del cliente** que lo arranca
 (`B_AI_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`); si no están ahí, deja que lo haga
@@ -73,6 +120,23 @@ texto que se pega en el chat.
 guardado la clave en la web, `ratacode mcp` funciona sin exportar nada. Lo que este servidor no
 hace nunca es abrir el fichero de claves él mismo. Alta típica con entorno explícito:
 `claude mcp add ratacode -- ratacode mcp`.
+
+## Los 9 modos de la casa
+
+El selector del panel trae los **nueve modos de RATACODE y ninguno de los de serie del
+motor**; el de por defecto es **MODO-RATA**:
+
+| Modo | Oficio |
+|---|---|
+| MODO-RATA | generalista: el de por defecto |
+| ARQUITECTO | decidir CÓMO se construye |
+| CAPATAZ | objetivo → plan ejecutable |
+| HERO | las manos: implementar |
+| TIRITA | curar fallos |
+| GEPETO | segunda opinión y pesquisa |
+| FARO | escribir claro |
+| PIX | la vía rápida: varias operaciones en un programa |
+| NEX | hacer y probar modos y plugins |
 
 ## Las 3 formas de usarlo
 
@@ -87,9 +151,9 @@ hace nunca es abrir el fichero de claves él mismo. Alta típica con entorno exp
    `ratacode mcp --http --acepto-lectura-total` y `mcp.workspaces` declarado; el túnel es
    `node mcp/tunel.mjs --home <casa> --acepto-lectura-total` (puerto por defecto del MCP: 3778).
 
-> El panel es DSH con la piel de RATACODE puesta: los rótulos propios y la sección
-> **Handshakes** están en español, pero Ajustes → Models y los menús del motor siguen en
-> inglés (los pone DSH, y RATACODE no reescribe el frontend a propósito).
+> Los rótulos propios y la sección **Handshakes** están en español, pero Ajustes → Models
+> y los menús del motor siguen en inglés (los pone el motor, y RATACODE no reescribe la
+> interfaz a propósito).
 
 Para manejar RATACODE desde otro chat sin ayuda, abre **Ajustes → Handshakes** y usa sus
 dos botones (el apretón de manos para agentes con navegador y el MCP para chats web); los
@@ -98,12 +162,13 @@ repositorio (navegador, headless o MCP).
 
 ## Seguridad
 
-- **Casa propia y cerrada.** Todo vive en `%USERPROFILE%\.ratacode` (nunca `~/.dsh` ni el
-  DSH de nadie). Una tarea MCP **solo ESCRIBE** dentro de su `working_directory`: el sandbox
-  lo impone el core (`workspace-write` fijado) y lo que intenta escribir fuera falla.
+- **Casa propia y cerrada.** Todo vive en `%USERPROFILE%\.ratacode`, **su** carpeta (nunca
+  la de ajustes de ningún otro programa). Una tarea MCP **solo ESCRIBE** dentro de su
+  `working_directory`: el sandbox lo impone el core (`workspace-write` fijado) y lo que
+  intenta escribir fuera falla.
 - **Pero puede LEER todo tu PC.** El motor no tiene ningún modo que acote la lectura: el
   vocabulario del sandbox (`read-only` · `workspace-write` · `danger-full-access`) es de
-  ESCRITURA, y `dsh-fs-sandbox/lib/types/index.d.ts:7-8` lo dice con todas las letras —
+  ESCRITURA, y el propio código del motor lo dice con todas las letras —
   *«Reads pass through untouched: every mode permits reading»*. Una tarea MCP puede leer
   cualquier fichero que puedas leer tú (incluido `<casa>\.credentials.yaml` y tu `.ssh`), y
   lo que lea viaja al proveedor del modelo. Por eso `ratacode mcp --http` y `mcp/tunel.mjs`
@@ -111,8 +176,8 @@ repositorio (navegador, headless o MCP).
   quien tenga la URL.
 - **Las claves no salen.** Nunca van dentro del paquete. El servidor MCP no lee ficheros
   de credenciales (solo mira el entorno que le entrega su cliente), las usa y no las
-  devuelve ni las escribe en el cuaderno. DSH, además, lava el entorno de los shells de
-  sus agentes (`/KEY|PASSWORD|SECRET|TOKEN/i`). Ojo: eso no impide que una tarea LEA el
+  devuelve ni las escribe en el cuaderno. El motor, además, lava el entorno de los shells
+  de sus agentes (`/KEY|PASSWORD|SECRET|TOKEN/i`). Ojo: eso no impide que una tarea LEA el
   fichero de claves (punto anterior).
 - **Nada hacia fuera por sí solo:** sin telemetría, sin cuentas; de tu PC solo sale lo que
   tus llamadas a tu proveedor de modelos.
@@ -135,48 +200,53 @@ rmdir /s /q "%USERPROFILE%\.ratacode"
 Dentro de esa carpeta van, en claro, **tus claves** (`<casa>\.credentials.yaml`), la clave del
 MCP por HTTP (`<casa>\mcp\http-secret.txt`), la URL del panel con su token (`<casa>\url.txt`),
 los ajustes (`<casa>\settings.yaml`) y los perfiles con la piel copiada. Borrar la carpeta lo
-borra todo; no hay nada más que limpiar (RATACODE nunca escribe en `~/.dsh`, y si algún día
-exportaste `B_AI_API_KEY` en tu shell, eso se quita de tu perfil de shell).
+borra todo; no hay nada más que limpiar (RATACODE nunca escribe fuera de su casa, y si algún
+día exportaste `B_AI_API_KEY` en tu shell, eso se quita de tu perfil de shell).
 
 ## Licencia y créditos
 
-MIT © 2026 **Patxi** (ver [`LICENSE`](LICENSE)).
-
-RATACODE es una piel sobre **DSH** — DeepSeek Harness (`@deepseek-ai/dsh`, MIT) — que es
-quien hace el trabajo de verdad. Gracias por dejarla engancharse sin tocar nada.
+MIT © 2026 **Patxi** (ver [`LICENSE`](LICENSE)). Créditos y licencias de terceros, con su
+texto completo, en [`CREDITS.md`](CREDITS.md).
 
 ---
 
 ### English summary
 
-**RATACODE — cheap hands for your agent or your chat.** A web DSH terminal
-(`@deepseek-ai/dsh`, MIT) wearing the RATACODE skin. Send heavy work to cheap models
-(B.AI, OpenRouter, DeepSeek) and get the result back in your agent or chat.
+**RATACODE — cheap hands for your agent or your chat.** A terminal for AI work wearing
+the RATACODE skin, built on a free engine it never modifies. Send heavy work to cheap
+models (B.AI, OpenRouter, DeepSeek, five free providers and **two local, key-free ones**)
+and get the result back in your agent or chat.
 
 - **Requires:** Windows and Node 24.
 - **Web:** <https://kittcat.com/ratacode/> — the product page, with the install prompt ready to copy.
-- **Install (one command):** `npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.1.0/ratacode-0.1.0.tgz`
-  — the release tarball, no git and no npm account needed; once it is on npm, `npm i -g ratacode`
-  (last resort: `git clone` the repo, `npm pack` and `npm i -g ./ratacode-0.1.0.tgz`) — then run `ratacode`.
-- **Bring your own keys:** eight providers ship declared (`B.AI`, `OpenRouter`, `DeepSeek`,
+- **Install (one command):** `npm i -g ratacode`
+  (the yellow npm 11 «allow-scripts» warnings during install are normal and do not stop it
+  from working; alternative: the GitHub release tarball
+  `https://github.com/kittcat-lab/ratacode/releases/download/v0.2.0/ratacode-0.2.0.tgz`
+  — last resort: `git clone` the repo, `npm pack` and `npm i -g ./ratacode-0.2.0.tgz`) — then run `ratacode`.
+- **Bring your own keys:** ten providers ship declared (`B.AI`, `OpenRouter`, `DeepSeek`,
   `Groq`, `Google Gemini`, `NVIDIA NIM`, `SambaNova`, `Cloudflare Workers AI` — the last one
-  needs your `{account_id}` pasted into *Customized settings → Base URL*). Set each key in the
+  needs your `{account_id}` pasted into *Customized settings → Base URL* — plus **Ollama** and
+  **LM Studio**, local and key-free). Set each key in the
   web UI (Settings → Models) or as its environment variable; keys are never bundled.
   The MCP server reads them from its client's environment, or lets the engine resolve the ones
   you saved in the web UI.
+- **Nine modes** ship in the picker (MODO-RATA by default) and none of the engine's own.
 - **Handshakes (Settings → Handshakes):** one button writes the short handshake
   (`<casa>\handshake.md`) for browser agents; the other explains the MCP for web chats, with
-  the read-everything warning and the text to paste.
+  the read-everything warning and the text to paste. **MCP is the recommended route** (cheaper
+  and more reliable), and every MCP task shows up in the panel sidebar with its conversation.
 - **Three ways to use it:** browser (`ratacode`), headless (`ratacode headless "task"`),
   and MCP (`ratacode mcp`) so ChatGPT web, Claude Code, Codex, Rowboat or OpenClaw can
   delegate tasks (`list_models`, `run_task`, `get_task_status`, `get_task_result`, `cancel_task`).
-- **Security:** its own locked home (`%USERPROFILE%\.ratacode`, never `~/.dsh`); MCP tasks can only
+- **Security:** its own locked home (`%USERPROFILE%\.ratacode`, never any other program's settings
+  folder); MCP tasks can only
   **WRITE** inside their `working_directory` but can **READ** any file your user can read (the engine
-  cannot fence reads: `dsh-fs-sandbox`, *"Reads pass through untouched: every mode permits reading"*),
+  cannot fence reads: *"Reads pass through untouched: every mode permits reading"*),
   so the HTTP transport and the tunnel refuse to start without `--acepto-lectura-total`; and the keys
   never travel inside the package.
 - **Uninstall:** `npm uninstall -g ratacode`, then delete the home folder
   (`%USERPROFILE%\.ratacode`; `rm -rf ~/.ratacode` on Mac/Linux). That folder holds your keys
   (`.credentials.yaml`), the MCP key (`mcp\http-secret.txt`) and the panel URL with its token
-  (`url.txt`); nothing else is written anywhere (never `~/.dsh`).
-- **License:** MIT © 2026 Patxi. Built on top of DSH (`@deepseek-ai/dsh`, MIT).
+  (`url.txt`); nothing else is written anywhere.
+- **License:** MIT © 2026 Patxi. Third-party credits and licences: [`CREDITS.md`](CREDITS.md).

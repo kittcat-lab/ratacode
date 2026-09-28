@@ -1,6 +1,8 @@
 # MCP: cómo conectar tu app a RATACODE
 
-RATACODE es un DSH con la cara de RATACODE. El MCP (Model Context Protocol) deja que cualquier app con MCP (Claude Code, Codex, OpenClaw, Rowboat, ChatGPT web con túnel) le mande trabajo a los modelos que ya tienes configurados en RATACODE. Los modelos baratos hacen el trabajo; tú planificas, revisas y cierras.
+RATACODE es una terminal de trabajo con IA con la cara de RATACODE, montada sobre un motor libre que no se toca. El MCP (Model Context Protocol) deja que cualquier app con MCP (Claude Code, Codex, OpenClaw, Rowboat, ChatGPT web con túnel) le mande trabajo a los modelos que ya tienes configurados en RATACODE —incluidos los locales, con Ollama o LM Studio—. Los modelos baratos hacen el trabajo; tú planificas, revisas y cierras.
+
+**Es la vía recomendada** para cualquier app que hable MCP: cuesta menos que mirar la pantalla (dos llamadas y texto, sin capturas), tiene estado explícito (`run_task` con `esperar_segundos` + `get_task_status`) y **cada tarea sale en la barra lateral del panel**, con su conversación.
 
 ## Cómo darlo de alta (por app)
 
@@ -104,11 +106,11 @@ Añade esto a la configuración MCP de tu app:
 ## Lo que una tarea puede LEER (y por qué el HTTP pide permiso)
 
 Escríbelo en tu cabeza antes de abrir el túnel: **una tarea MCP escribe solo dentro de su espacio
-autorizado, pero LEE lo que quiera**. No es un descuido de RATACODE: el motor (DSH) no tiene ningún
+autorizado, pero LEE lo que quiera**. No es un descuido de RATACODE: el motor no tiene ningún
 modo que acote la lectura —`read-only`, `workspace-write` y `danger-full-access` son ejes de
-ESCRITURA (`dsh-fs-sandbox/lib/types/index.d.ts:7-8`: «Reads pass through untouched: every mode permits
-reading»)—, y su sandbox de Windows restringe el token a la escritura («`WRITE_RESTRICTED` intersects
-only write accesses», `dsh-sandbox-windows-acl/lib/types/index.d.ts:24-25`). Ni las herramientas de
+ESCRITURA, y su propio código lo dice: «Reads pass through untouched: every mode permits
+reading»—, y su encierre de Windows restringe el token a la escritura («`WRITE_RESTRICTED`
+intersects only write accesses»). Ni las herramientas de
 ficheros ni el shell tienen lista blanca de lectura.
 
 Consecuencias, claras:

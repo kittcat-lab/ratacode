@@ -2,20 +2,25 @@
 
 | Tu app | Qué usar | Por qué |
 |---|---|---|
-| Claude Code, Codex, OpenClaw, Rowboat | **navegador.md** o **mcp.md** | Si tu app tiene navegador, usa el panel web (navegador.md). Si tiene MCP, usa el servidor MCP (mcp.md). Las dos formas funcionan. |
+| Claude Code, Codex, OpenClaw, Rowboat | **mcp.md** (recomendado) o **navegador.md** | **El MCP es la vía recomendada**: más barata (dos llamadas y texto, sin capturas), con estado explícito y con cada tarea visible en la barra lateral del panel. El navegador sigue valiendo si tu app prefiere mirar la pantalla. |
 | ChatGPT web (el chat) | **mcp.md** con túnel | ChatGPT web habla MCP por HTTP. Necesitas el túnel de Cloudflare: `node mcp/tunel.mjs --home <casa> --acepto-lectura-total` (lo cuenta mcp.md). La clave va en la URL. |
 | Cualquier chat sin MCP ni navegador | **headless.md** | `ratacode headless "encargo"` hace el trabajo sin pantalla y deja el resultado en un fichero. |
 | Cualquier agente que no sea de los anteriores | **mcp.md** (genérico) | Si tu agente habla MCP por stdio, usa la configuración genérica de mcp.md. |
 
 ## Instalación (un comando)
-Mientras el paquete no esté en npm, desde la release de GitHub (sin git ni cuenta de npm):
+```bash
+npm i -g ratacode
+```
+Los avisos amarillos «allow-scripts» de npm 11 al instalar son normales y **no impiden que
+funcione**. Alternativa, si quieres una versión concreta: el `.tgz` de la release de GitHub
+(sin git ni cuenta de npm):
 
 ```bash
-npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.1.0/ratacode-0.1.0.tgz
+npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.2.0/ratacode-0.2.0.tgz
 ```
 
-Cuando esté publicado en npm, bastará con `npm i -g ratacode`. Último recurso, si la descarga falla:
-`git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.1.0.tgz`.
+Último recurso, si la descarga falla:
+`git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.2.0.tgz`.
 Después, `ratacode` (necesita Windows y Node 24).
 
 La web del producto, con el prompt listo para copiar: <https://kittcat.com/ratacode/>.
@@ -26,7 +31,7 @@ La web del producto, con el prompt listo para copiar: <https://kittcat.com/ratac
 - **mcp.md** — para apps con MCP (Claude Code, Codex, OpenClaw, Rowboat, ChatGPT web con túnel, genérico)
 
 ## Qué hace RATACODE
-Un DSH (DeepSeek Harness) con la cara de RATACODE. Los modelos baratos (B.AI: deepseek-v4.1-flash, glm-5.3-flash, qwen3.8-flash, hy3, mimo-v2.5) hacen el trabajo pesado. Tú planificas, revisas y cierras.
+Una terminal de trabajo con IA con la cara de RATACODE, montada sobre un motor libre que no se toca. Los modelos baratos (B.AI: deepseek-v4.1-flash, glm-5.3-flash, qwen3.8-flash, hy3, mimo-v2.5) —o los tuyos, en local con Ollama o LM Studio— hacen el trabajo pesado. Tú planificas, revisas y cierras.
 
 ## Cómo funciona el ciclo
 1. **Diagnóstico** — solo mirar, sin tocar ficheros.

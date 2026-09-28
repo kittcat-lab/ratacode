@@ -203,7 +203,7 @@ function puertoDeLaUrlMCP(url) {
 function textoParaPegar(url) {
   return [
     'Trabajo con RATACODE por MCP. RATACODE es mi terminal de trabajo: un motor',
-    'DSH (DeepSeek Harness) que corre en MI ordenador, con los modelos que yo',
+    'que corre en MI ordenador, con los modelos que yo',
     'tengo configurados (baratos) y herramientas de verdad: leer y escribir',
     'ficheros, shell, búsqueda, subagentes. Tú planificas y revisas; el trabajo',
     'pesado se descarga en RATACODE.',
@@ -353,5 +353,5 @@ export function apply(ctx) {
   // Las rutas necesitan el cerco del canal del navegador. Si faltara, la cara se
   // pone igual y las rutas no salen: la sección de Ajustes lo dirá al pedirlas.
   ctx.inject(['connection'], (c) => montarRutas(c));
-  ctx.logger?.info?.('ratacode-piel: enganchada al index que sirve DSH web');
+  ctx.logger?.info?.('ratacode-piel: enganchada a la web del panel');
 }

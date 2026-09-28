@@ -355,7 +355,7 @@
   function montar() {
     const nueva = document.querySelector('[class*="_scrollBody"]')?.parentElement;
     if (!nueva) {
-      if (!montar.aviso) { console.warn('[ratacode] No encuentro el panel de salida: fondo pausado; revisar selectores DSH.'); montar.aviso = true; }
+      if (!montar.aviso) { console.warn('[ratacode] No encuentro el panel de salida: fondo pausado; revisar selectores del panel.'); montar.aviso = true; }
       caja = null; ctx = null; W = H = 0; return;
     }
     montar.aviso = false;

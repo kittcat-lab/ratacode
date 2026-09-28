@@ -42,7 +42,7 @@ function uso() {
     '  ratacode-mcp [opciones]',
     '',
     '  --home <ruta>        dónde vive la casa de RATACODE (por defecto %USERPROFILE%\\.ratacode)',
-    '  --dsh <ruta>         binario del motor DSH a usar (por defecto, el del paquete instalado)',
+    '  --dsh <ruta>         motor a usar (por defecto, el del paquete instalado)',
     '  --status             enseña el estado del MCP y sale',
     '  --http               también por Streamable HTTP en 127.0.0.1:<puerto>/mcp/<clave>',
     '  --acepto-lectura-total  OBLIGATORIO con --http. Aceptas que las tareas pueden LEER',

@@ -1,6 +1,7 @@
 # Apretón de manos: RATACODE
 
-RATACODE corre en MI ordenador: un DSH (DeepSeek Harness) con modelos baratos y
+RATACODE corre en MI ordenador: una terminal de trabajo con IA montada sobre un motor
+libre, con modelos baratos (o locales) y
 herramientas de verdad (ficheros, shell, búsqueda, subagentes). Yo planifico y
 reviso; RATACODE hace el trabajo pesado. El panel es la URL del recuadro de
 arriba: ábrela en tu navegador.

@@ -1,6 +1,6 @@
 # Navegador: cómo manejar RATACODE desde tu chat
 
-RATACODE es un DSH (DeepSeek Harness) con la cara de RATACODE. Se abre en el navegador (puerto 3777) y recibe encargos de cualquier agente. Los modelos baratos hacen el trabajo; tú planificas, revisas y cierras.
+RATACODE es una terminal de trabajo con IA con la cara de RATACODE, montada sobre un motor libre que no se toca. Se abre en el navegador (puerto 3777) y recibe encargos de cualquier agente. Los modelos baratos —o los tuyos, en local— hacen el trabajo; tú planificas, revisas y cierras.
 
 ## Dónde está la URL
 Lee `<casa>\url.txt` y ábrela en tu navegador. La casa es la carpeta desde la que se arrancó `ratacode` (o `%USERPROFILE%\.ratacode` por defecto).
