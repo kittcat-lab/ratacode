@@ -18,6 +18,8 @@ Cuando esté publicado en npm, bastará con `npm i -g ratacode`. Último recurso
 `git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.1.0.tgz`.
 Después, `ratacode` (necesita Windows y Node 24).
 
+La web del producto, con el prompt listo para copiar: <https://kittcat.com/ratacode/>.
+
 ## Dónde están los prompts
 - **navegador.md** — para agentes con navegador (Claude Code, Codex, OpenClaw, Rowboat…)
 - **headless.md** — para `ratacode headless "encargo"`

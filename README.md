@@ -6,6 +6,9 @@ los colores— puesta por un plugin que no toca ni el motor ni el frontend. Le m
 trabajo pesado y barato (B.AI, OpenRouter y DeepSeek vienen de fábrica) y el resultado
 vuelve a tu agente o a tu chat.
 
+**La web:** <https://kittcat.com/ratacode/> — la página del producto, con el botón que
+copia el prompt de instalación y lo cuenta en corto.
+
 ## Requisitos
 
 - **Windows** (la v1 solo está probada en Windows; Mac y Linux, después).
@@ -139,6 +142,7 @@ quien hace el trabajo de verdad. Gracias por dejarla engancharse sin tocar nada.
 (B.AI, OpenRouter, DeepSeek) and get the result back in your agent or chat.
 
 - **Requires:** Windows and Node 24.
+- **Web:** <https://kittcat.com/ratacode/> — the product page, with the install prompt ready to copy.
 - **Install (one command):** `npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.1.0/ratacode-0.1.0.tgz`
   — the release tarball, no git and no npm account needed; once it is on npm, `npm i -g ratacode`
   (last resort: `git clone` the repo, `npm pack` and `npm i -g ./ratacode-0.1.0.tgz`) — then run `ratacode`.

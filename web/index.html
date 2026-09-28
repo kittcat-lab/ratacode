@@ -1,4 +1,8 @@
 <!doctype html>
+<!-- Copia de referencia de la pagina de RATACODE. La que se publica de verdad vive
+     en el repo kittcat-web (public\ratacode\index.html, en https://kittcat.com/ratacode/)
+     y carga el JS aparte porque la CSP de aquel sitio es `script-src 'self'`. Aqui
+     sigue siendo un solo fichero, que es para lo que se escribio. -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -7,11 +11,11 @@
 <title>RATACODE · manos baratas para tu agente o tu chat</title>
 <meta name="description" content="RATACODE: la terminal de trabajo bruto. DSH con la cara de RATACODE: le mandas el trabajo pesado a modelos baratos (B.AI, OpenRouter, DeepSeek) y el resultado vuelve a tu agente o a tu chat.">
 <meta name="theme-color" content="#101113">
-<link rel="canonical" href="https://mod-rat.com/">
+<link rel="canonical" href="https://kittcat.com/ratacode/">
 <meta property="og:title" content="RATACODE · manos baratas para tu agente o tu chat">
 <meta property="og:description" content="La terminal de trabajo bruto: modelos baratos haciendo el trabajo pesado, con la cara de RATACODE.">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://mod-rat.com/">
+<meta property="og:url" content="https://kittcat.com/ratacode/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect width='96' height='96' rx='18' fill='%23101113'/%3E%3Cpath d='M47 33 26 16 12 13l4 29 11 10 5 20 15 14V33Z' fill='%23151619' stroke='%23ff268e' stroke-width='4'/%3E%3Cpath d='m49 33 21-17 14-3-4 29-11 10-5 20-15 14V33Z' fill='%23151619' stroke='%23e4f226' stroke-width='4'/%3E%3Cpath d='m31 47 12 7-8 3-4-10Zm34 0-12 7 8 3 4-10Z' fill='%23f0eee6'/%3E%3C/svg%3E">
 <style>
 :root{
@@ -204,6 +208,7 @@ footer .marca svg{width:22px;height:22px}
 // la línea de npm vale; el rodeo de git clone + npm pack queda como último recurso en una línea.
 var PROMPT = [
 'Instala RATACODE (la terminal de trabajo bruto) y déjala corriendo. Sin preguntar, paso a paso:',
+'La web del producto, por si necesitas más contexto: https://kittcat.com/ratacode/',
 '',
 '1. Comprueba Node 24: node -v. Si falta, PARA y dímelo (no la instales por tu cuenta).',
 '2. Instálala desde la release de GitHub (sin git y sin cuenta de npm):',
@@ -280,7 +285,10 @@ boton.addEventListener('click', function () {
       ctx.fillRect(c.x, c.y, c.tam, c.tam); // cuadraditos: lo más barato que hay
     }
     ctx.globalAlpha = 1;
-    if (encendidas && !document.hidden && chispas.length) requestAnimationFrame(paso);
+    // El latido se pide SIEMPRE que se pueda: si sólo se pidiera con chispas en el
+    // aire, el primer fotograma (el lienzo está vacío) apagaría el bucle para siempre
+    // y no se dibujaría ni una chispa.
+    if (encendidas && !document.hidden) requestAnimationFrame(paso);
     else latido = 20; // para que al volver reviva pronto
   }
   function revive() { if (encendidas && !document.hidden) requestAnimationFrame(paso); }
