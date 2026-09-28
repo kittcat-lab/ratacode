@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { join } from 'node:path';
 import { anotar } from './actividad.js';
 import { ajustesMcp } from './casa.js';
+import { apuntarSesionEnEspacio } from './espacios.js';
 import { lanzarTarea } from './nucleo.js';
 
 /** Un id corto y ordenable. */
@@ -97,6 +98,7 @@ export class Tareas {
     registro._mando = mando;
     registro.estado = 'running';
     registro.empezada = new Date().toISOString();
+    this.apuntarEnElPanel(registro);
     this.persistir(registro);
     this.resumir();
 
@@ -118,6 +120,9 @@ export class Tareas {
       else if (salida.ok === true) registro.estado = 'completed';
       else registro.estado = 'failed';
       delete registro._mando;
+      // Y otra vez, ya cerrada: el panel puede haber reescrito su copia del
+      // registro mientras la tarea corría, y la sesión tiene que seguir ahí.
+      this.apuntarEnElPanel(registro);
       this.persistir(registro);
       this.resumir();
       anotar(this.casa, {
@@ -140,6 +145,28 @@ export class Tareas {
     return this.recibo(registro);
   }
 
+  /**
+   * Apuntar la sesión de ESTA tarea en el registro de espacios de la casa, que
+   * es de donde el panel saca la barra lateral: así cada tarea del MCP se ve en
+   * el panel, con su conversación, y deja de ser una caja negra (R12 §3, R16 §3).
+   * Nunca puede tumbar una tarea: si el registro no se deja escribir, se apunta
+   * el motivo y se sigue.
+   * @param {object} registro - la tarea.
+   */
+  apuntarEnElPanel(registro) {
+    try {
+      const salida = apuntarSesionEnEspacio(this.casa, registro.espacio, 'mcp-' + registro.task_id);
+      registro.en_panel = salida.apuntada === true;
+      if (salida.apuntada === true) delete registro.aviso_panel;
+      else registro.aviso_panel = salida.motivo ?? 'no se pudo apuntar la sesión en el panel';
+    } catch (e) {
+      registro.en_panel = false;
+      registro.aviso_panel = e instanceof Error ? e.message : String(e);
+    }
+    if (registro.session_id === null) registro.session_id = 'mcp-' + registro.task_id;
+    return registro.en_panel;
+  }
+
   /** El estado de una tarea, o un error claro si no existe. */
   estado(taskId) {
     const registro = this.exigir(taskId);
@@ -160,6 +187,8 @@ export class Tareas {
       motivo: registro.motivo,
       errores: registro.errores,
       coste: registro.coste,
+      sesion_en_el_panel: registro.en_panel === true,
+      aviso_panel: registro.aviso_panel ?? null,
     };
   }
 
@@ -184,6 +213,7 @@ export class Tareas {
       errores: registro.errores,
       cancelada: registro.cancelada,
       session_id: registro.session_id,
+      sesion_en_el_panel: registro.en_panel === true,
     };
   }
 
