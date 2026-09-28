@@ -62,14 +62,14 @@
  // DSH saca su propia ventana de primera vez, «Add an API key to get started»,
  // PERO SÓLO PIDE LA CLAVE DE DEEPSEEK («Configure the official DeepSeek
  // provider…», dsh-client-ui-settings-models/lib/client.js:2743-2747) y hay que
- // desmontarla con su «Configure later» (:2745). RATACODE tiene 8 proveedores
- // (los 7 declarados en fabrica/settings.yaml + el DeepSeek nativo), así que esa
+ // desmontarla con su «Configure later» (:2745). RATACODE tiene 10 proveedores
+ // (los 9 declarados en fabrica/settings.yaml + el DeepSeek nativo), así que esa
  // ventana estorba a quien use Groq, Gemini, SambaNova…: en vez de taparla (lo
  // que hacía la ventana de las 3 claves, ya retirada), se le mete una nota en
  // español y un botón que la cierra y abre Ajustes › Models.
  const TITULOS_NATIVOS=['Add an API key to get started','添加一个 API Key 开始使用'];
  const ATRAS_NATIVOS=['Configure later','稍后配置'];
- const PROVEEDORES='B.AI, OpenRouter, DeepSeek, Groq, Google Gemini, NVIDIA NIM, SambaNova y Cloudflare Workers AI';
+ const PROVEEDORES='B.AI, OpenRouter, DeepSeek, Groq, Google Gemini, NVIDIA NIM, SambaNova, Cloudflare Workers AI y dos locales sin clave: Ollama y LM Studio';
  function contenedorNativo(hijo){
   const h2s=hijo.querySelectorAll?hijo.querySelectorAll('h2'):[];
   for(const t of h2s){if(TITULOS_NATIVOS.indexOf((t.textContent||'').trim())!==-1)return true;}
@@ -102,7 +102,7 @@
    nota.className='mr-guia';
    const linea=document.createElement('div');
    linea.append('RATACODE trae ');
-   const fuerte=document.createElement('b');fuerte.textContent='8 proveedores';linea.append(fuerte);
+   const fuerte=document.createElement('b');fuerte.textContent='10 proveedores';linea.append(fuerte);
    linea.append(': '+PROVEEDORES+'. Esta ventana sólo pide la clave de DeepSeek.');
    const boton=document.createElement('button');
    boton.type='button';boton.className='mr-guia-boton';

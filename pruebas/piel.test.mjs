@@ -18,10 +18,11 @@
  *   C · COMPRUEBA QUE LA PIEL ENCAJA: cada selector `[class*='_algo']` de
  *       `piel/activos/ratacode-piel.css` tiene que existir en el CSS del
  *       frontend de DSH INSTALADO.
- *   D · LOS 8 PROVEEDORES de fábrica: `fabrica/settings.yaml` declara los 7 que
- *       se declaran (B.AI, OpenRouter, Groq, Gemini, NVIDIA NIM, SambaNova y
- *       Cloudflare Workers AI) con su baseURL y su apiKeyEnv oficiales, y NO
- *       declara «deepseek» (lo sirve el adaptador nativo: 8 en Ajustes > Models).
+ *   D · LOS 10 PROVEEDORES de fábrica: `fabrica/settings.yaml` declara los 9 que
+ *       se declaran (B.AI, OpenRouter, Groq, Gemini, NVIDIA NIM, SambaNova,
+ *       Cloudflare Workers AI y los DOS locales de R16, Ollama y LM Studio, que
+ *       van sin apiKeyEnv) con su baseURL y su apiKeyEnv oficiales, y NO
+ *       declara «deepseek» (lo sirve el adaptador nativo: 10 en Ajustes > Models).
  *
  * ── QUÉ ES «EL CSS DEL FRONTEND DE DSH INSTALADO» (medido, 24-sep-2026) ─────
  * No es sólo `@deepseek-ai/dsh-web-frontend/dist/assets/*.css`. Los nombres de
@@ -372,9 +373,12 @@ async function main() {
       + 'frontend instalado: ' + muertos.join(', '));
     di('  C · selectores vivos: ' + (selectores.length - muertos.length) + '/' + selectores.length);
 
-    // D · los proveedores de fábrica: 8 en Ajustes > Models (7 declarados + el
+    // D · los proveedores de fábrica: 10 en Ajustes > Models (9 declarados + el
     // DeepSeek nativo de DSH, que no se declara a propósito). Cada baseURL y
-    // cada id de modelo, comprobados en su documentación oficial (R12).
+    // cada id de modelo, comprobados en su documentación oficial (R12), y los
+    // DOS locales de R16 (Ollama y LM Studio), que van SIN `apiKeyEnv`: una
+    // ruta que no nombra credencial queda sin autenticar (`dsh-llm-pi-ai`,
+    // `namesCredential`), que es justo lo que hacen los dos en localhost.
     const fabrica = yaml.load(readFileSync(join(PRODUCTO, 'fabrica', 'settings.yaml'), 'utf8')) ?? {};
     const proveedores = fabrica?.['llm-pi-ai']?.providers ?? {};
     const ESPERADOS = [
@@ -385,9 +389,11 @@ async function main() {
       ['nvidia-nim', 'https://integrate.api.nvidia.com/v1', 'NVIDIA_API_KEY', ['deepseek-ai/deepseek-v4-flash']],
       ['sambanova', 'https://api.sambanova.ai/v1', 'SAMBANOVA_API_KEY', ['MiniMax-M2.7']],
       ['cloudflare-workers-ai', 'https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1', 'CLOUDFLARE_API_KEY', ['@cf/openai/gpt-oss-120b']],
+      ['ollama', 'http://127.0.0.1:11434/v1', undefined, ['qwen3:8b', 'lfm2.5:8b']],
+      ['lmstudio', 'http://127.0.0.1:1234/v1', undefined, []],
     ];
     di('  D · proveedores declarados en fabrica\\settings.yaml: ' + Object.keys(proveedores).length
-      + ' (+ DeepSeek nativo = 8 en Ajustes > Models)');
+      + ' (+ DeepSeek nativo = 10 en Ajustes > Models)');
     comprobar(Object.keys(proveedores).length === ESPERADOS.length,
       'fabrica/settings.yaml declara ' + Object.keys(proveedores).length + ' proveedores y deberían ser ' + ESPERADOS.length);
     comprobar(proveedores.deepseek === undefined,
@@ -400,7 +406,7 @@ async function main() {
       for (const modelo of modelos) {
         comprobar(ids.includes(modelo), 'el proveedor «' + id + '» no declara el modelo «' + modelo + '»');
       }
-      di('      ' + (bien ? 'OK   ' : 'MAL  ') + '  ' + id + ' → ' + (perfil?.baseURL ?? '(falta)') + ' · ' + apiKeyEnv);
+      di('      ' + (bien ? 'OK   ' : 'MAL  ') + '  ' + id + ' → ' + (perfil?.baseURL ?? '(falta)') + ' · ' + (apiKeyEnv ?? 'SIN CLAVE (local)'));
     }
     comprobar(String(proveedores['cloudflare-workers-ai']?.displayName ?? '').includes('account_id'),
       'el nombre visible de Cloudflare tiene que avisar de que {account_id} se cambia a mano');

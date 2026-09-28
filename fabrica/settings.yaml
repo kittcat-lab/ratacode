@@ -6,8 +6,10 @@
 # <casa>\.credentials.yaml (la web Ajustes > Models las escribe) o bien
 # exportando la variable de entorno que declara cada proveedor.
 #
-# Proveedores (8 en Ajustes > Models): B.AI, OpenRouter, DeepSeek, Groq,
-# Google Gemini, NVIDIA NIM, SambaNova y Cloudflare Workers AI.
+# Proveedores (10 en Ajustes > Models): B.AI, OpenRouter, DeepSeek, Groq,
+# Google Gemini, NVIDIA NIM, SambaNova, Cloudflare Workers AI y DOS LOCALES sin
+# clave y sin coste: Ollama (http://127.0.0.1:11434/v1) y LM Studio
+# (http://127.0.0.1:1234/v1). Los locales no piden clave: no llevan `apiKeyEnv`.
 # B.AI y OpenRouter se declaran aquí (llm-pi-ai) y los cinco gratuitos que
 # recomendó el informe R11 también. Cada baseURL y cada id de modelo está
 # comprobado en su documentación oficial (enlaces en los comentarios).
@@ -20,7 +22,7 @@
 # catálogo real por una lista de modelos escrita a mano. Se usa el nativo.
 
 agent-presets:
-  default: standard
+  default: modo-rata
 
 permission:
   defaultPreset: danger-full-access
@@ -187,3 +189,56 @@ llm-pi-ai:
         - id: '@cf/qwen/qwen2.5-coder-32b-instruct'
           name: Qwen2.5 Coder 32B (Cloudflare)
           contextWindow: 32768
+
+    # ── Ollama · LOCAL, sin clave y sin coste ───────────────────────────
+    # El motor de tu ordenador. No lleva `apiKeyEnv` A PROPÓSITO: sin esa
+    # línea la ruta queda sin autenticar (`dsh-llm-pi-ai`: `namesCredential`
+    # sólo es true si el perfil nombra una credencial), que es justo lo que
+    # hace Ollama por defecto en http://127.0.0.1:11434.
+    # Runtime: https://ollama.com/download  ·  modelo: `ollama pull qwen3:8b`
+    # Los ids de aquí son los que recomienda el informe R15 (tabla del README:
+    # «qué modelo local según tu tarjeta»). Si tu modelo se llama de otra
+    # forma, se cambia aquí o en Ajustes > Models.
+    # OJO: `qwen2.5-coder:7b` devuelve las herramientas como TEXTO dentro del
+    # mensaje y NO funciona como agente (medido en R15): no lo pongas.
+    ollama:
+      displayName: Ollama (local, sin clave)
+      api: openai-completions
+      baseURL: http://127.0.0.1:11434/v1
+      timeoutMs: 600000
+      models:
+        - id: "qwen3:8b"
+          name: Qwen3 8B (local)
+          contextWindow: 40960
+          maxTokens: 8192
+          compat:
+            supportsDeveloperRole: false
+            supportsReasoningEffort: false
+        - id: "lfm2.5:8b"
+          name: LFM2.5 8B (local, 125K)
+          contextWindow: 32768
+          maxTokens: 8192
+          compat:
+            supportsDeveloperRole: false
+            supportsReasoningEffort: false
+
+    # ── LM Studio · LOCAL, sin clave ────────────────────────────────────
+    # Arranca su servidor ANTES de usar este proveedor: `lms server start`
+    # (escucha en 1234). Tampoco lleva `apiKeyEnv`, por lo mismo que Ollama.
+    # El id de modelo lo pone LM Studio: míralo con
+    #   curl http://127.0.0.1:1234/v1/models
+    # y escribe ese id AQUÍ o en Ajustes > Models (el que trae puesto es un
+    # hueco que hay que cambiar: ningún modelo se llama así).
+    lmstudio:
+      displayName: LM Studio (local, sin clave)
+      api: openai-completions
+      baseURL: http://127.0.0.1:1234/v1
+      timeoutMs: 600000
+      models:
+        - id: "<el id que devuelva GET http://127.0.0.1:1234/v1/models>"
+          name: LM Studio (cambia el id por el de tu modelo)
+          contextWindow: 32768
+          maxTokens: 8192
+          compat:
+            supportsDeveloperRole: false
+            supportsReasoningEffort: false

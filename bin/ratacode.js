@@ -15,7 +15,7 @@
  *   2 · ESTRENA la casa (sólo la primera vez, si no hay `settings.yaml`):
  *       copia `fabrica\settings.yaml` — B.AI y OpenRouter de fábrica, el aviso
  *       «Internal Testing» ya aceptado y `permission.defaultPreset:
- *       danger-full-access` (sin «Permitir» en cada paso) — copia los tres
+ *       danger-full-access` (sin «Permitir» en cada paso) — copia los nueve
  *       modos de `modos\` a `<casa>/.agent-presets`, y pone el modelo por
  *       defecto del PRIMER PROVEEDOR CON CLAVE en el entorno (orden: B.AI,
  *       OpenRouter, DeepSeek). Si la casa YA existe, no se pisa nada del
@@ -41,11 +41,12 @@
  *
  * Ninguna clave viaja dentro: las pone el usuario (web Ajustes > Models →
  * `<casa>/.credentials.yaml`, o exportando la variable de entorno de cada
- * proveedor). Los proveedores de fábrica son los 7 declarados en
+ * proveedor). Los proveedores de fábrica son los 9 declarados en
  * `fabrica\settings.yaml` (B.AI, OpenRouter, Groq, Google Gemini, NVIDIA NIM,
- * SambaNova y Cloudflare Workers AI) más DeepSeek, que lo sirve el adaptador
- * nativo de DSH (ruta `deepseek-official`, `https://api.deepseek.com`,
- * `DEEPSEEK_API_KEY`): 8 en Ajustes > Models.
+ * SambaNova, Cloudflare Workers AI y DOS LOCALES sin clave: Ollama y LM Studio)
+ * más DeepSeek, que lo sirve el adaptador nativo de DSH (ruta
+ * `deepseek-official`, `https://api.deepseek.com`, `DEEPSEEK_API_KEY`): 10 en
+ * Ajustes > Models.
  * De las claves SÓLO se mira si la variable existe: nunca su valor.
  *
  * El apretón de manos y el MCP para chats web viven en Ajustes > Handshakes
@@ -73,7 +74,7 @@ const PIEL_ORIGEN = join(PAQUETE, 'piel');
 const NOMBRE_PLUGIN = 'ratacode-piel';
 /** Los ajustes que se copian a una casa nueva (proveedores, aviso, permiso). */
 const FABRICA_ORIGEN = join(PAQUETE, 'fabrica', 'settings.yaml');
-/** Los tres modos de fábrica, que van a `<casa>/.agent-presets`. */
+/** Los nueve modos de fábrica, que van a `<casa>/.agent-presets`. */
 const MODOS_ORIGEN = join(PAQUETE, 'modos');
 /** El apretón de manos, que viaja copiado junto al plugin de la piel. */
 const APRETON_ORIGEN = join(PAQUETE, 'apreton');
@@ -84,10 +85,28 @@ const PUERTO_POR_DEFECTO = 3777;
 const AVISO_ACEPTADO = '2026-08-13.1';
 /** Node mínimo: por debajo, los módulos nativos del motor no son los suyos. */
 const NODE_MINIMO = 24;
-const PLANTILLA_PARCHE = `# Tu capa de parches de este perfil de DSH, aplicada después de cada capa de bundle:
-# una lista YAML de filas del cargador (config por id, desactivaciones, inserts).
-[]
+/**
+ * La capa que deja SÓLO los 9 modos de RATACODE en el selector: apaga la raíz
+ * de fábrica del motor (sus 4 modos de serie no salen) y pone `modo-rata` por
+ * defecto. Va en la COMPOSICIÓN porque el namespace de ajustes del motor sólo
+ * admite `default` (`dsh-agent-presets/lib/index.js:1151`); `includeShippedRoot`
+ * no cabe en `settings.yaml` y su única puerta es esta capa (`:1246`).
+ * Va DESPUÉS de los bundles: la fila `agent-presets` la inserta `dsh-web-app`,
+ * así que un `config` por id sólo la alcanza si se aplica por encima.
+ */
+const CAPA_PRESETS = `# RATACODE · los 9 modos de la casa, y NINGUNO de los que trae el motor de serie.
+- id: agent-presets
+  config:
+    default: modo-rata
+    includeShippedRoot: false
 `;
+/** El preset de RATACODE que una casa usa si no dice otra cosa. */
+const PRESET_POR_DEFECTO = 'modo-rata';
+/** Los presets que salieron en versiones anteriores de RATACODE y ya no existen. */
+const PRESETS_VIEJOS = ['enlazador', 'promptista', 'escritor'];
+const PLANTILLA_PARCHE = `# Tu capa de parches de este perfil, aplicada después de cada capa de bundle:
+# una lista YAML de filas del cargador (config por id, desactivaciones, inserts).
+${CAPA_PRESETS}`;
 /** Los ajustes que DSH espera en un perfil para resolver plugins de fuera del árbol. */
 const PLANTILLA_PNPM = `packages:
   - .
@@ -125,8 +144,8 @@ function exigirNode() {
     'RATACODE · PARA.',
     '',
     '  Hace falta Node ' + NODE_MINIMO + ' o más nuevo, y aquí hay Node ' + version + '.',
-    '  El motor (@deepseek-ai/dsh) y sus módulos nativos (node-pty, koffi,',
-    '  dsh-subprocess-local) están compilados y probados para Node ' + NODE_MINIMO + ': con menos,',
+    '  El motor de RATACODE y sus módulos nativos (node-pty, koffi,',
+    '  subprocess-local) están compilados y probados para Node ' + NODE_MINIMO + ': con menos,',
     '  el panel puede arrancar pero la terminal y los subprocesos fallan.',
     '',
     '  Qué hacer:',
@@ -239,6 +258,30 @@ function escribirSiFalta(ruta, texto) {
   return true;
 }
 
+/**
+ * Deja la capa de presets en el `cordis.patch.yml` de un perfil que YA existía.
+ * La plantilla sólo se escribe cuando el fichero falta (`escribirSiFalta`), así
+ * que sin esto una casa estrenada con una versión anterior seguiría enseñando
+ * los modos de serie del motor. Es ADITIVO: si el usuario ya tiene sus filas,
+ * se respetan y la capa se añade al final (que es donde manda).
+ */
+function asegurarCapaPresets(perfil) {
+  const ruta = join(perfil, 'cordis.patch.yml');
+  let texto = '';
+  try {
+    texto = readFileSync(ruta, 'utf8');
+  } catch {
+    return { puesto: false, motivo: 'sin cordis.patch.yml' };
+  }
+  if (/^[ \t]*-[ \t]*id:[ \t]*['"]?agent-presets['"]?[ \t]*$/m.test(texto)) {
+    return { puesto: false, motivo: 'ya estaba' };
+  }
+  const vacio = texto.trim() === '' || texto.trim() === '[]';
+  const base = vacio ? '' : (texto.endsWith('\n') ? texto + '\n' : texto + '\n\n');
+  escribir(ruta, base + CAPA_PRESETS);
+  return { puesto: true, motivo: vacio ? 'estaba vacío' : 'añadida al final' };
+}
+
 /** El perfil: sus bundles, en orden. Si ya existe, NO se pisa: se completa. */
 function prepararPerfil(perfil, nombre, bundles, patchReload) {
   const manifest = join(perfil, 'package.json');
@@ -259,6 +302,8 @@ function prepararPerfil(perfil, nombre, bundles, patchReload) {
   writeFileSync(manifest, JSON.stringify(pkg, null, 2) + '\n');
   escribirSiFalta(join(perfil, 'cordis.patch.yml'), PLANTILLA_PARCHE);
   escribirSiFalta(join(perfil, 'pnpm-workspace.yaml'), PLANTILLA_PNPM);
+  const capa = asegurarCapaPresets(perfil);
+  return capa;
 }
 
 /**
@@ -373,6 +418,54 @@ function estrenarCasa(casa, entorno) {
   return { nueva: true, aviso: 'puesto (fábrica)', modelo: null };
 }
 
+/**
+ * Deja el `settings.yaml` de una casa con `agent-presets.default: modo-rata`.
+ * Se hace sobre el TEXTO (como `ponerModeloEnTexto`) para no llevarse por
+ * delante comentarios ni el orden del documento. Si el bloque no está, se
+ * añade; si está con otro valor, se cambia SÓLO ese bloque.
+ */
+function ponerPresetPorDefecto(casa, preset = PRESET_POR_DEFECTO) {
+  const ruta = join(casa, 'settings.yaml');
+  if (!existsSync(ruta)) return { cambiado: false, motivo: 'la casa no tiene settings.yaml' };
+  const texto = readFileSync(ruta, 'utf8');
+  let actual;
+  try {
+    actual = (yaml.load(texto) ?? {})?.['agent-presets']?.default;
+  } catch {
+    return { cambiado: false, motivo: 'el settings.yaml de la casa no se puede leer como YAML: no lo toco' };
+  }
+  if (actual === preset) return { cambiado: false, motivo: 'ya estaba en ' + preset };
+  const bloque = 'agent-presets:\n  default: ' + preset + '\n';
+  const bloqueActual = /^agent-presets:[ \t]*\n(?:[ \t]+[^\n]*\n)*/m;
+  let nuevo;
+  if (bloqueActual.test(texto)) nuevo = texto.replace(bloqueActual, bloque);
+  else if (/^agent-presets:[ \t]*\S.*$/m.test(texto)) nuevo = texto.replace(/^agent-presets:[ \t]*\S.*$/m, bloque.trimEnd());
+  else nuevo = (texto.trim() === '' ? '' : texto.replace(/\s*$/, '\n')) + '\n' + bloque;
+  writeFileSync(ruta, nuevo, { mode: 0o600 });
+  return { cambiado: true, antes: actual ?? '(no estaba)', motivo: (actual ?? '(no estaba)') + ' → ' + preset };
+}
+
+/**
+ * Los modos, EN TODA CASA (no sólo al estrenar): copia los 9 de RATACODE,
+ * borra los presets que salieron en versiones anteriores (el enlazador, el
+ * promptista y el escritor: `copiarArbol` sólo escribe, nunca borra) y deja
+ * `agent-presets.default` en `modo-rata`. Los presets del USUARIO no se rozan.
+ */
+function asegurarModos(casa) {
+  const presets = join(casa, '.agent-presets');
+  const cuenta = copiarArbol(MODOS_ORIGEN, presets, { copiados: 0, iguales: 0 });
+  const borrados = [];
+  for (const viejo of PRESETS_VIEJOS) {
+    const ruta = join(presets, viejo);
+    if (!existsSync(ruta)) continue;
+    try {
+      rmSync(ruta, { recursive: true, force: true });
+      borrados.push(viejo);
+    } catch { /* si no se deja borrar, el aviso de abajo lo dice */ }
+  }
+  return { cuenta, borrados, preset: ponerPresetPorDefecto(casa), presets };
+}
+
 // ── 3 · el espacio de trabajo ───────────────────────────────────────────────
 /**
  * Registra una carpeta en el registro de espacios de DSH
@@ -444,7 +537,7 @@ function binDelMotor() {
   const manifiesto = require.resolve('@deepseek-ai/dsh/package.json');
   const pkg = JSON.parse(readFileSync(manifiesto, 'utf8'));
   const rel = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.dsh;
-  if (!rel) throw new Error('el paquete @deepseek-ai/dsh no declara el binario «dsh»');
+  if (!rel) throw new Error('el motor no declara su binario (¿instalación a medias?)');
   const bin = join(dirname(manifiesto), rel);
   if (!existsSync(bin)) throw new Error('no encuentro el motor en ' + bin);
   return { bin, version: pkg.version };
@@ -592,7 +685,7 @@ function correrHeadless({ motor, casa, carpeta, perfilHeadless, encargo, modelo 
     process.stdout.write('RATACODE · headless · modelo de este encargo: ' + eleccion.modelo
       + ' (proveedor ' + eleccion.proveedor + ')\n');
   }
-  process.stdout.write('RATACODE · headless · DSH ' + motor.version + ' · casa: ' + casa + '\n');
+  process.stdout.write('RATACODE · headless · ' + motor.version + ' · casa: ' + casa + '\n');
   process.stdout.write('RATACODE · headless · carpeta de trabajo: ' + carpeta + '\n');
   process.stdout.write('RATACODE · headless · perfil: ' + perfilHeadless + '\n');
 
@@ -794,10 +887,12 @@ function correrMcp({ casa, argv }) {
   const soloMira = argv.some((a) => a === '-h' || a === '--help' || a === '--status');
   if (!soloMira) {
     const estreno = estrenarCasa(casa, process.env);
-    if (estreno.nueva) {
-      copiarArbol(MODOS_ORIGEN, join(casa, '.agent-presets'), { copiados: 0, iguales: 0 });
-      process.stderr.write('RATACODE · casa NUEVA estrenada: ' + casa + '\n');
-    }
+    // Los 9 modos, también en una casa que ya existía: el MCP compone sesiones
+    // por el mismo camino que el panel y necesita el mismo roster.
+    const modos = asegurarModos(casa);
+    process.stderr.write('RATACODE · casa ' + (estreno.nueva ? 'NUEVA estrenada: ' : 'ya existía: ') + casa
+      + ' · modos por defecto: ' + PRESET_POR_DEFECTO
+      + (modos.borrados.length > 0 ? ' · fuera los viejos: ' + modos.borrados.join(', ') : '') + '\n');
   }
   const hijo = spawn(process.execPath, [bin, ...argv], { stdio: 'inherit', windowsHide: true });
   hijo.on('error', (e) => {
@@ -841,18 +936,18 @@ async function main() {
   prepararPerfil(perfilHeadless, 'dsh-profile-headless',
     ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'], 'startup');
   const estreno = estrenarCasa(casa, process.env);
-  const presets = join(casa, '.agent-presets');
-  // Los tres modos se copian SIEMPRE, también en una casa que ya existía: los de
+  // Los 9 modos se copian SIEMPRE, también en una casa que ya existía: los de
   // versiones anteriores salieron con dos campos obligatorios sin poner y NO
-  // cargaban («invalid config: - $.x missing required value»). `copiarArbol` sólo
-  // escribe lo que cambia y sólo toca las tres carpetas de RATACODE
-  // (enlazador, promptista, escritor): los presets del usuario no se rozan.
-  const modos = copiarArbol(MODOS_ORIGEN, presets, { copiados: 0, iguales: 0 });
+  // cargaban («invalid config: - $.x missing required value»). `asegurarModos`
+  // sólo escribe lo que cambia, borra los presets de RATACODE que ya no existen
+  // (enlazador, promptista, escritor) y deja `agent-presets.default` en
+  // modo-rata; los presets del USUARIO no se rozan.
+  const modos = asegurarModos(casa);
 
   const carpeta = exigirCarpeta(ordenes.carpeta ?? process.cwd());
   const espacio = registrarEspacio(casa, carpeta);
 
-  process.stdout.write('RATACODE · ' + (motor.version ? 'DSH ' + motor.version : 'DSH')
+  process.stdout.write('RATACODE · ' + (motor.version ? 'v' + motor.version : '')
     + (ordenes.modo === 'headless' ? ' · headless' : ' · puerto ' + ordenes.puerto) + '\n');
   process.stdout.write('RATACODE · casa: ' + casa + (estreno.nueva ? ' (NUEVA)' : ' (ya existía)')
     + ' · aviso Internal Testing: ' + estreno.aviso + '\n');
@@ -868,11 +963,13 @@ async function main() {
       : 'el que ya tuviera la casa (no se toca settings.yaml)')) + '\n');
   process.stdout.write('RATACODE · piel: ' + cuenta.copiados + ' fichero(s) puesto(s), ' + cuenta.iguales + ' ya estaban igual'
     + ' · apretón: ' + cuentaApreton.copiados + ' puesto(s), ' + cuentaApreton.iguales + ' igual\n');
-  process.stdout.write('RATACODE · modos: ' + modos.copiados + ' fichero(s) puesto(s), ' + modos.iguales
-    + ' ya estaban igual en ' + presets + (estreno.nueva ? '' : ' (casa existente: los 3 de RATACODE se actualizan, los del usuario no se tocan)') + '\n');
+  process.stdout.write('RATACODE · modos: ' + modos.cuenta.copiados + ' fichero(s) puesto(s), ' + modos.cuenta.iguales
+    + ' ya estaban igual en ' + modos.presets
+    + (modos.borrados.length > 0 ? ' · fuera los viejos: ' + modos.borrados.join(', ') : '')
+    + ' · por defecto: ' + (modos.preset.cambiado ? 'puesto en ' + PRESET_POR_DEFECTO + ' (' + modos.preset.motivo + ')' : modos.preset.motivo) + '\n');
   process.stdout.write('RATACODE · proveedores: ' + (estreno.nueva
-    ? '8 en Ajustes › Models (B.AI, OpenRouter, Groq, Google Gemini, NVIDIA NIM, SambaNova, Cloudflare Workers AI y DeepSeek nativo); las claves las pones tú ahí'
-    : 'los que ya tuviera la casa (no se toca settings.yaml): añade a mano los que falten de los 8') + '\n');
+    ? '10 en Ajustes › Models (B.AI, OpenRouter, Groq, Google Gemini, NVIDIA NIM, SambaNova, Cloudflare Workers AI, DeepSeek nativo y los DOS locales sin clave: Ollama y LM Studio)'
+    : 'los que ya tuviera la casa (no se toca settings.yaml): añade a mano los que falten de los 10') + '\n');
   process.stdout.write('RATACODE · manos: apretón y MCP en Ajustes › Handshakes\n');
 
   if (ordenes.modo === 'headless') {
