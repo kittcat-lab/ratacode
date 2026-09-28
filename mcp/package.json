@@ -1,6 +1,6 @@
 {
   "name": "ratacode-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Servidor MCP de RATACODE: deja que ChatGPT, Codex, Claude Code, Rowboat u OpenClaw manden trabajo a los modelos que ya tienes configurados en RATACODE.",
   "license": "MIT",
   "author": {
