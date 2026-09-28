@@ -1,3 +1,0 @@
-name: "ENLAZADOR"
-description: "Recibe encargos de otros agentes (Claude, Codex, OpenClaw), los ordena y los reparte en subagentes si conviene; entrega cada resultado en un fichero con un resumen de 5 líneas."
-order: 10

@@ -1,0 +1,3 @@
+name: "NEX"
+description: "Hace y prueba los modos y los plugins de la casa: lee y escribe la composición en la que corre."
+order: 9
