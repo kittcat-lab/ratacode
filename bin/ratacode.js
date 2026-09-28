@@ -682,10 +682,28 @@ function credencialDe(casa, ajustes, proveedor) {
   return { nombre, esta: hayVariable(nombre), enLaCasa };
 }
 
-/** ¿Está esa variable en el entorno, con algo dentro? (Nunca se mira QUÉ.) */
-function hayVariable(nombre) {
-  const valor = process.env[nombre];
-  return typeof valor === 'string' && valor.trim() !== '';
+/** Las claves ya NO vienen del entorno: el motor arranca sin ellas (ver `entornoSinClaves`). */
+function hayVariable() {
+  return false;
+}
+
+/**
+ * El entorno del motor SIN las variables de claves de proveedores. Si llegan del
+ * entorno, el motor las da por puestas y NO deja editarlas en Ajustes › Models.
+ * La única fuente de claves es la casa (lo que se pega en Ajustes › Models).
+ */
+function entornoSinClaves(casa) {
+  const fuera = new Set(['B_AI_API_KEY', 'BAI_API_KEY', 'OPENROUTER_API_KEY', 'DEEPSEEK_API_KEY', 'GROQ_API_KEY',
+    'GEMINI_API_KEY', 'NVIDIA_API_KEY', 'SAMBANOVA_API_KEY', 'CLOUDFLARE_API_KEY', 'CLOUDFLARE_API_TOKEN']);
+  const ajustes = leerAjustes(casa) ?? {};
+  const nativa = ajustes?.['llm-deepseek']?.apiKeyEnv;
+  if (typeof nativa === 'string') fuera.add(nativa);
+  for (const perfil of Object.values(ajustes?.['llm-pi-ai']?.providers ?? {})) {
+    if (perfil && typeof perfil.apiKeyEnv === 'string') fuera.add(perfil.apiKeyEnv);
+  }
+  const env = { ...process.env, DSH_HOME: casa };
+  for (const k of Object.keys(env)) if (fuera.has(k.toUpperCase())) delete env[k];
+  return env;
 }
 
 // ── el encargo sin pantalla ─────────────────────────────────────────────────
@@ -713,7 +731,7 @@ function correrHeadless({ motor, casa, carpeta, perfilHeadless, encargo, modelo 
   anotar(casa, 'RATACODE headless arranca · carpeta ' + carpeta);
   const hijo = spawn(process.execPath, args, {
     cwd: carpeta,
-    env: { ...process.env, DSH_HOME: casa },
+    env: entornoSinClaves(casa),
     stdio: ['ignore', 'inherit', 'inherit'],
     windowsHide: true,
   });
@@ -810,7 +828,7 @@ function correrPanel({ motor, casa, carpeta, ordenes }) {
   anotar(casa, 'RATACODE arranca · puerto ' + ordenes.puerto + ' · carpeta ' + carpeta);
   const hijo = spawn(process.execPath, args, {
     cwd: carpeta,
-    env: { ...process.env, DSH_HOME: casa },
+    env: entornoSinClaves(casa),
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   });
@@ -911,7 +929,7 @@ function correrMcp({ casa, argv }) {
       + ' · modos por defecto: ' + PRESET_POR_DEFECTO
       + (modos.borrados.length > 0 ? ' · fuera los viejos: ' + modos.borrados.join(', ') : '') + '\n');
   }
-  const hijo = spawn(process.execPath, [bin, ...argv], { stdio: 'inherit', windowsHide: true });
+  const hijo = spawn(process.execPath, [bin, ...argv], { env: entornoSinClaves(casa), stdio: 'inherit', windowsHide: true });
   hijo.on('error', (e) => {
     process.stderr.write('RATACODE · el MCP no arrancó: ' + e.message + '\n');
     process.exitCode = 1;
