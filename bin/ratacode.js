@@ -104,6 +104,15 @@ const CAPA_PRESETS = `# RATACODE · los 9 modos de la casa, y NINGUNO de los que
 const PRESET_POR_DEFECTO = 'modo-rata';
 /** Los presets que salieron en versiones anteriores de RATACODE y ya no existen. */
 const PRESETS_VIEJOS = ['enlazador', 'promptista', 'escritor'];
+/**
+ * Los valores de `agent-presets.default` que hay que MIGRAR a modo-rata, y sólo
+ * éstos: los que traía RATACODE de fábrica (`standard`), los que ya no existen
+ * (los tres de arriba) y los de serie del motor (`minimal`, `ptc`, `cordis`),
+ * que con `includeShippedRoot: false` no resuelven y dejan la sesión sin
+ * componer (`preset "standard" not found`, medido en R14). Cualquier otro valor
+ * —uno de los 9 modos, o un preset del usuario— NO se toca: es su elección.
+ */
+const PRESETS_A_MIGRAR = ['standard', 'minimal', 'ptc', 'cordis', ...PRESETS_VIEJOS];
 const PLANTILLA_PARCHE = `# Tu capa de parches de este perfil, aplicada después de cada capa de bundle:
 # una lista YAML de filas del cargador (config por id, desactivaciones, inserts).
 ${CAPA_PRESETS}`;
@@ -419,10 +428,14 @@ function estrenarCasa(casa, entorno) {
 }
 
 /**
- * Deja el `settings.yaml` de una casa con `agent-presets.default: modo-rata`.
+ * Deja el `settings.yaml` de una casa con `agent-presets.default: modo-rata`
+ * cuando el valor que hay es uno de los que HAY QUE migrar
+ * ({@link PRESETS_A_MIGRAR}: el `standard` de fábrica, los tres modos que ya no
+ * existen y los de serie del motor, que no resuelven con la raíz de serie
+ * apagada). Un valor elegido por el usuario —uno de los 9 modos de la casa, o su
+ * propio preset— se respeta: no se pelea con quien manda en su casa.
  * Se hace sobre el TEXTO (como `ponerModeloEnTexto`) para no llevarse por
- * delante comentarios ni el orden del documento. Si el bloque no está, se
- * añade; si está con otro valor, se cambia SÓLO ese bloque.
+ * delante comentarios ni el orden del documento.
  */
 function ponerPresetPorDefecto(casa, preset = PRESET_POR_DEFECTO) {
   const ruta = join(casa, 'settings.yaml');
@@ -435,6 +448,9 @@ function ponerPresetPorDefecto(casa, preset = PRESET_POR_DEFECTO) {
     return { cambiado: false, motivo: 'el settings.yaml de la casa no se puede leer como YAML: no lo toco' };
   }
   if (actual === preset) return { cambiado: false, motivo: 'ya estaba en ' + preset };
+  if (typeof actual === 'string' && actual.trim() !== '' && !PRESETS_A_MIGRAR.includes(actual)) {
+    return { cambiado: false, motivo: 'la casa tiene «' + actual + '» puesto a mano: se respeta' };
+  }
   const bloque = 'agent-presets:\n  default: ' + preset + '\n';
   const bloqueActual = /^agent-presets:[ \t]*\n(?:[ \t]+[^\n]*\n)*/m;
   let nuevo;
@@ -448,8 +464,9 @@ function ponerPresetPorDefecto(casa, preset = PRESET_POR_DEFECTO) {
 /**
  * Los modos, EN TODA CASA (no sólo al estrenar): copia los 9 de RATACODE,
  * borra los presets que salieron en versiones anteriores (el enlazador, el
- * promptista y el escritor: `copiarArbol` sólo escribe, nunca borra) y deja
- * `agent-presets.default` en `modo-rata`. Los presets del USUARIO no se rozan.
+ * promptista y el escritor: `copiarArbol` sólo escribe, nunca borra) y pasa
+ * `agent-presets.default` a `modo-rata` si apunta a algo que ya no resuelve
+ * (ver {@link ponerPresetPorDefecto}). La elección del usuario se respeta.
  */
 function asegurarModos(casa) {
   const presets = join(casa, '.agent-presets');
