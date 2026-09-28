@@ -20,6 +20,7 @@
 import { spawn } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { entornoDelMotorSinClaves } from './claves.js';
 import { parcheDePolitica } from './seguridad.js';
 
 /** Cuánto se espera a que un hijo termine de irse antes de matarlo. */
@@ -53,7 +54,11 @@ export function lanzarTarea({
   const rutaParche = join(carpetaTemporal, 'politica-' + id + '.yml');
   writeFileSync(rutaParche, parcheDePolitica({ modo, espacio }));
 
-  const entorno = { ...process.env, DSH_HOME: casa, DSH_PERMISSION_MODE: modo };
+  // El hijo arranca SIN las variables de claves (ni las del cliente MCP ni las
+  // de Windows): la única fuente de claves es el almacén de la casa, que es lo
+  // que escribe Ajustes › Models. Si las heredara, el motor las daría por
+  // puestas y una clave vieja del entorno ganaría a la buena.
+  const entorno = entornoDelMotorSinClaves(casa, { ...process.env, DSH_HOME: casa, DSH_PERMISSION_MODE: modo });
   for (const nombre of NO_HEREDAR) delete entorno[nombre];
 
   const hijo = spawn(process.execPath, [dshBin, '--profile', 'sdk', '--patch', rutaParche], {
@@ -298,9 +303,8 @@ function ultimaLinea(texto) {
 function enEspanol(mensaje) {
   const texto = String(mensaje);
   if (/MISSING_CREDENTIAL|no credential for provider route/i.test(texto)) {
-    return 'falta la clave del proveedor: el motor no encontró ninguna credencial para esa ruta.'
-      + ' Ponla en Ajustes → Models de la web (queda en la casa) o expórtala como variable de entorno'
-      + ' en el cliente MCP. [motor] ' + texto;
+    return 'el motor no encontró la clave de ese proveedor en la casa.'
+      + ' Pégala en RATACODE › Ajustes › Models (queda en ' + '<casa>/.credentials.yaml' + '). [motor] ' + texto;
   }
   return texto;
 }

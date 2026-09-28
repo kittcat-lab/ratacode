@@ -118,6 +118,17 @@ a{color:#26c6cc}
  background:#222529;color:inherit;font:inherit;font-size:12px}
 .mr-clave-boton:hover{border-color:#e4f226}
 
+/* R22 §4 · EL AVISO DE MIGRACIÓN DE CLAVES: también encima de la caja, en UNA
+   línea, con su botón de cerrar. Filo rosa (es un «haz esto», no un fallo). */
+.mr-migracion{box-sizing:border-box;display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;
+ max-width:var(--dsh-composer-card-max-width,780px);margin:0 0 6px;padding:7px 12px;border-radius:10px;
+ border:1px solid #3a3f45;border-left:3px solid #ff268e;background:#181a1d;color:#f0eee6;
+ font-size:13px;line-height:19px}
+.mr-migracion-texto{flex:1 1 260px;min-width:0}
+.mr-migracion-cerrar{cursor:pointer;white-space:nowrap;padding:4px 11px;border-radius:8px;border:1px solid #464d52;
+ background:#222529;color:inherit;font:inherit;font-size:12px}
+.mr-migracion-cerrar:hover{border-color:#ff268e}
+
 /* R18 · LA NOTA DE AJUSTES › MODELS. Ahí ya sólo quedan las APIs con clave: los
    dos locales se esconden de esa lista (el frontend no tiene gancho para
    filtrarla) y esta nota lleva a su pestaña. Discreta, con el filo de la casa. */

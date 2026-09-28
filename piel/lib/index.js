@@ -56,7 +56,7 @@
  * Si algún día el motor cambia de nombre el servicio o el tap, esta piel no
  * engancha: se calla y lo dice por consola, en vez de romper el arranque.
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -568,6 +568,49 @@ async function estadoDeLosRuntimes(c) {
   };
 }
 
+// ── R22 · el aviso de migración de claves (una línea, y no vuelve) ─────────
+
+/**
+ * El aviso de migración: la PRIMERA vez que una casa arranca con la versión que
+ * ya no lee claves del entorno, `bin\ratacode.js` deja los NOMBRES de las
+ * variables de claves que hay en Windows en `<casa>\aviso-claves.txt` (nunca sus
+ * valores). Aquí se mira si esa clave **no** está ya puesta en la casa —con el
+ * `describe` del servicio de credenciales del motor, sin leer ningún fichero— y,
+ * si no lo está, se devuelve el aviso en una línea. Cuando el usuario lo cierra,
+ * se deja `<casa>\aviso-claves-visto` y no vuelve más.
+ * @param c - contexto de cordis, ya con `credentials`.
+ * @returns `{ok, aviso: {variable, texto}|null}`.
+ */
+async function estadoDeLaMigracion(c) {
+  const casa = casaDeEstaCasa();
+  let nombres = [];
+  try {
+    nombres = readFileSync(join(casa, 'aviso-claves.txt'), 'utf8').split('\n').map((l) => l.trim()).filter((l) => l !== '');
+  } catch {
+    return { ok: true, aviso: null };
+  }
+  if (nombres.length === 0) return { ok: true, aviso: null };
+  if (existsSync(join(casa, 'aviso-claves-visto'))) return { ok: true, aviso: null };
+  const credentials = c.get('credentials');
+  for (const nombre of nombres) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(nombre)) continue;
+    let puesta = null;
+    if (credentials !== undefined) {
+      try { puesta = (await credentials.describe(nombre)).configured === true; } catch { puesta = null; }
+    }
+    // Si la clave YA está en la casa, no hay nada que avisar: el usuario ya la pegó.
+    if (puesta !== false) continue;
+    return {
+      ok: true,
+      aviso: {
+        variable: nombre,
+        texto: 'Tienes ' + nombre + ' en Windows. RATACODE ya no la usa: pega tu clave en Ajustes › Models.',
+      },
+    };
+  }
+  return { ok: true, aviso: null };
+}
+
 // ── las rutas del servidor de la piel ──────────────────────────────────────
 
 function json(res, codigo, objeto) {
@@ -651,9 +694,28 @@ function montarRutas(c) {
     estadoDeLosRuntimes(c).then((estado) => json(res, 200, estado),
       (e) => json(res, 500, { ok: false, error: String(e?.message ?? e) }));
   };
+  // GET /ratacode/migracion → (R22 §4) el aviso de migración de claves, una vez.
+  // POST /ratacode/migracion → el usuario lo ha cerrado: no vuelve.
+  const migracion = (req, res) => {
+    if (!autorizada(req, res)) return;
+    if (req.method === 'POST') {
+      try {
+        writeFileSync(join(casaDeEstaCasa(), 'aviso-claves-visto'), new Date().toISOString() + '\n', { mode: 0o600 });
+      } catch (e) {
+        json(res, 500, { ok: false, error: 'no pude apuntar que el aviso está visto: ' + (e?.message ?? e) });
+        return;
+      }
+      json(res, 200, { ok: true, aviso: null });
+      return;
+    }
+    if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'Usa GET o POST.' }); return; }
+    estadoDeLaMigracion(c).then((estado) => json(res, 200, estado),
+      (e) => json(res, 500, { ok: false, aviso: null, error: String(e?.message ?? e) }));
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/migracion', handler: migracion }), 'ratacode-piel.migracion');
+
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/runtimes', handler: runtimes }), 'ratacode-piel.runtimes');
-  c.logger?.info?.('ratacode-piel: el apretón se sirve en /ratacode/handshake, el MCP en /ratacode/mcp, la clave que falta en /ratacode/clave y los runtimes locales en /ratacode/runtimes');
-}
+  c.logger?.info?.('ratacode-piel: el apretón se sirve en /ratacode/handshake, el MCP en /ratacode/mcp, la clave que falta en /ratacode/clave y los runtimes locales en /ratacode/runtimes');}
 
 /**
  * Monta la piel sobre el servidor web del motor.

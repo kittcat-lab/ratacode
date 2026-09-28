@@ -267,12 +267,49 @@ function escribirSiFalta(ruta, texto) {
   return true;
 }
 
+/** Una lista YAML vacía en formato FLUJO, sola en su línea: `[]` (o `[ ]`). */
+const LINEA_VACIA_FLUJO = /^[ \t]*\[[ \t]*\][ \t]*$/;
+
 /**
- * Deja la capa de presets en el `cordis.patch.yml` de un perfil que YA existía.
- * La plantilla sólo se escribe cuando el fichero falta (`escribirSiFalta`), así
- * que sin esto una casa estrenada con una versión anterior seguiría enseñando
- * los modos de serie del motor. Es ADITIVO: si el usuario ya tiene sus filas,
- * se respetan y la capa se añade al final (que es donde manda).
+ * Las filas de un `cordis.patch.yml`, o `null` si ese texto NO es una lista
+ * YAML válida (que es el caso roto de la 0.2.0). Un fichero vacío es la lista
+ * vacía; un documento que no sea una lista tampoco vale.
+ * @param texto - el contenido del fichero.
+ * @returns las filas, o null.
+ */
+function filasDelParche(texto) {
+  let cargado;
+  try {
+    cargado = yaml.load(texto);
+  } catch {
+    return null;
+  }
+  if (cargado === null || cargado === undefined) return [];
+  return Array.isArray(cargado) ? cargado : null;
+}
+
+/** ¿Estas filas ya traen la capa de presets? */
+function tieneLaCapa(filas) {
+  return filas.some((fila) => fila !== null && typeof fila === 'object' && !Array.isArray(fila) && fila.id === 'agent-presets');
+}
+
+/**
+ * Deja la capa de presets en el `cordis.patch.yml` de un perfil, SIEMPRE como
+ * lista YAML válida. La plantilla sólo se escribe cuando el fichero falta
+ * (`escribirSiFalta`), así que sin esto una casa estrenada con una versión
+ * anterior seguiría enseñando los modos de serie del motor.
+ *
+ * Tres casos, los tres medidos:
+ *   · el fichero trae `[]` o va vacío → se escribe la capa sola;
+ *   · el fichero trae filas del usuario → se respetan y la capa se añade al
+ *     final (que es donde manda);
+ *   · el fichero se quedó ROTO por la 0.2.0 —un `[]` pegado delante de las
+ *     filas, que no es YAML— → se quita esa línea suelta y se reescribe válido,
+ *     sin perder ni una fila del usuario. Pasaba al actualizar una casa de la
+ *     0.1 y el motor moría: «YAMLException: end of the stream or a document
+ *     separator is expected».
+ * @param perfil - la carpeta del perfil (`<casa>/profiles/web`).
+ * @returns `{puesto, reparado, motivo}`.
  */
 function asegurarCapaPresets(perfil) {
   const ruta = join(perfil, 'cordis.patch.yml');
@@ -280,15 +317,27 @@ function asegurarCapaPresets(perfil) {
   try {
     texto = readFileSync(ruta, 'utf8');
   } catch {
-    return { puesto: false, motivo: 'sin cordis.patch.yml' };
+    return { puesto: false, reparado: false, motivo: 'sin cordis.patch.yml' };
   }
-  if (/^[ \t]*-[ \t]*id:[ \t]*['"]?agent-presets['"]?[ \t]*$/m.test(texto)) {
-    return { puesto: false, motivo: 'ya estaba' };
+  let filas = filasDelParche(texto);
+  let reparado = false;
+  if (filas === null) {
+    const limpio = texto.split('\n').filter((linea) => !LINEA_VACIA_FLUJO.test(linea)).join('\n');
+    filas = filasDelParche(limpio);
+    if (filas === null) return { puesto: false, reparado: false, motivo: 'el cordis.patch.yml del perfil no se puede leer como YAML: no lo toco' };
+    reparado = true;
+    texto = limpio;
   }
-  const vacio = texto.trim() === '' || texto.trim() === '[]';
-  const base = vacio ? '' : (texto.endsWith('\n') ? texto + '\n' : texto + '\n\n');
-  escribir(ruta, base + CAPA_PRESETS);
-  return { puesto: true, motivo: vacio ? 'estaba vacío' : 'añadida al final' };
+  if (tieneLaCapa(filas)) {
+    if (reparado) escribir(ruta, texto);
+    return { puesto: false, reparado, motivo: reparado ? 'ya tenía la capa' : 'ya estaba' };
+  }
+  if (filas.length === 0) {
+    escribir(ruta, PLANTILLA_PARCHE);
+    return { puesto: true, reparado, motivo: reparado ? 'estaba vacío' : 'estaba vacío' };
+  }
+  escribir(ruta, (texto.endsWith('\n') ? texto + '\n' : texto + '\n\n') + CAPA_PRESETS);
+  return { puesto: true, reparado, motivo: reparado ? 'capa añadida al final' : 'añadida al final' };
 }
 
 /** El perfil: sus bundles, en orden. Si ya existe, NO se pisa: se completa. */
@@ -687,6 +736,55 @@ function hayVariable() {
   return false;
 }
 
+/** Dónde el panel deja dicho que el usuario ya vio el aviso de migración. */
+function rutaAvisoVisto(casa) {
+  return join(casa, 'aviso-claves-visto');
+}
+
+/** Dónde se dejan los NOMBRES de las variables de claves que hay en Windows. */
+function rutaAvisoClaves(casa) {
+  return join(casa, 'aviso-claves.txt');
+}
+
+/**
+ * R22 §4 · La migración, dicha UNA vez. La primera vez que una casa arranca con
+ * esta versión, si en Windows hay variables de claves de proveedores (de las que
+ * RATACODE ya NO hace caso), se dejan sus NOMBRES —nunca sus valores— en
+ * `<casa>\aviso-claves.txt`, y el panel lo enseña en una línea. El panel
+ * comprueba además que esa clave no esté ya puesta en la casa: si está, no hay
+ * nada que avisar. Cuando el usuario lo cierra, queda `<casa>\aviso-claves-visto`
+ * y no vuelve.
+ * @param {string} casa - la casa de RATACODE.
+ * @returns {string[]} los nombres encontrados (para el registro).
+ */
+function anotarVariablesDeClaves(casa) {
+  const ruta = rutaAvisoClaves(casa);
+  if (existsSync(rutaAvisoVisto(casa))) {
+    try { rmSync(ruta, { force: true }); } catch { /* da igual */ }
+    return [];
+  }
+  const nombres = new Set([
+    'B_AI_API_KEY', 'BAI_API_KEY', 'OPENROUTER_API_KEY', 'DEEPSEEK_API_KEY', 'GROQ_API_KEY',
+    'GEMINI_API_KEY', 'NVIDIA_API_KEY', 'SAMBANOVA_API_KEY', 'CLOUDFLARE_API_KEY', 'CLOUDFLARE_API_TOKEN',
+  ]);
+  const ajustes = leerAjustes(casa) ?? {};
+  const nativa = ajustes?.['llm-deepseek']?.apiKeyEnv;
+  if (typeof nativa === 'string' && nativa.trim() !== '') nombres.add(nativa.trim());
+  for (const perfil of Object.values(ajustes?.['llm-pi-ai']?.providers ?? {})) {
+    if (perfil && typeof perfil.apiKeyEnv === 'string' && perfil.apiKeyEnv.trim() !== '') nombres.add(perfil.apiKeyEnv.trim());
+  }
+  // SÓLO se mira si la variable existe: su valor no se lee ni se copia a ningún sitio.
+  const puestas = [...nombres].filter((nombre) => {
+    const valor = process.env[nombre];
+    return typeof valor === 'string' && valor.trim() !== '';
+  });
+  try {
+    if (puestas.length === 0) rmSync(ruta, { force: true });
+    else writeFileSync(ruta, puestas.join('\n') + '\n', { mode: 0o600 });
+  } catch { /* el aviso es una ayuda, no un requisito para arrancar */ }
+  return puestas;
+}
+
 /**
  * El entorno del motor SIN las variables de claves de proveedores. Si llegan del
  * entorno, el motor las da por puestas y NO deja editarlas en Ajustes › Models.
@@ -821,11 +919,17 @@ function esperarPuerto(url, plazoMs = 20000) {
 
 function correrPanel({ motor, casa, carpeta, ordenes }) {
   const parche = parcheSelectorCarpeta(casa);
+  const conClavesEnWindows = anotarVariablesDeClaves(casa);
   const args = [motor.bin, '--profile', 'web', '--patch', parche, '--port', String(ordenes.puerto)];
   if (!ordenes.abrir) args.push('--no-open');
   const rutaUrl = join(casa, 'url.txt');
   const empezo = Date.now();
-  anotar(casa, 'RATACODE arranca · puerto ' + ordenes.puerto + ' · carpeta ' + carpeta);
+  anotar(casa, 'RATACODE arranca · puerto ' + ordenes.puerto + ' · carpeta ' + carpeta
+    + (conClavesEnWindows.length > 0 ? ' · variables de claves en Windows: ' + conClavesEnWindows.join(', ') : ''));
+  if (conClavesEnWindows.length > 0) {
+    process.stdout.write('RATACODE · en Windows tienes ' + conClavesEnWindows.join(', ')
+      + ': RATACODE ya no las usa (las claves se ponen en Ajustes › Models). El panel te lo recuerda una vez.\n');
+  }
   const hijo = spawn(process.execPath, args, {
     cwd: carpeta,
     env: entornoSinClaves(casa),
@@ -966,7 +1070,7 @@ async function main() {
   // dentro), para que los dos comandos del MCP que enseña Ajustes > Handshakes
   // lleven la ruta de verdad y no un «<ruta>» que el usuario tenga que buscar.
   writeFileSync(join(perfilWeb, 'node_modules', NOMBRE_PLUGIN, 'instalacion.txt'), PAQUETE + '\n');
-  prepararPerfil(perfilWeb, 'dsh-profile-web',
+  const capaWeb = prepararPerfil(perfilWeb, 'dsh-profile-web',
     ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', NOMBRE_PLUGIN], 'live');
   prepararPerfil(perfilHeadless, 'dsh-profile-headless',
     ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'], 'startup');
@@ -1002,6 +1106,10 @@ async function main() {
     + ' ya estaban igual en ' + modos.presets
     + (modos.borrados.length > 0 ? ' · fuera los viejos: ' + modos.borrados.join(', ') : '')
     + ' · por defecto: ' + (modos.preset.cambiado ? 'puesto en ' + PRESET_POR_DEFECTO + ' (' + modos.preset.motivo + ')' : modos.preset.motivo) + '\n');
+  if (capaWeb.reparado) {
+    process.stdout.write('RATACODE · tu perfil tenía el parche roto (un `[]` pegado delante de las filas, de la 0.2.0):'
+      + ' reparado · ' + capaWeb.motivo + '\n');
+  }
   process.stdout.write('RATACODE · proveedores: ' + (estreno.nueva
     ? 'Ajustes › Models: las 8 APIs con clave (B.AI, OpenRouter, Groq, Google Gemini, NVIDIA NIM, SambaNova, Cloudflare Workers AI y DeepSeek nativo) · Ajustes › Modelos locales: Ollama y LM Studio, sin clave'
     : 'los que ya tuviera la casa (no se toca settings.yaml): añade a mano los que falten de las 8 APIs') + '\n');

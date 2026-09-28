@@ -11,7 +11,7 @@
  * precios. Si un dato no está, se devuelve `null` y se dice.
  */
 import { ajustesMcp, leerAjustes } from './casa.js';
-import { estaEnElEntorno, faltaEnElEntorno, hayCredencialesEnLaCasa } from './claves.js';
+import { describeEnLaCasa, faltaLaClave } from './claves.js';
 
 /** El id de la ruta nativa de DeepSeek en el core (medido en `dsh-sdk-jsonrpc-server/lib/index.js:118`). */
 export const PROVEEDOR_NATIVO = 'deepseek-official';
@@ -34,17 +34,26 @@ function texto(valor) {
 }
 
 /**
- * El catálogo completo de la casa.
+ * El catálogo completo de la casa. Las claves NO se miran en el entorno: se le
+ * pregunta al almacén de la casa (Ajustes › Models) por la vía del motor, que
+ * contesta configurada sí/no y nunca un valor.
  * @param {string} casa - la casa de RATACODE.
- * @returns {{proveedores: object[], modelos: object[], porDefecto: {provider: string|null, model: string|null}, avisos: string[]}}
+ * @returns {Promise<{proveedores: object[], modelos: object[], porDefecto: {provider: string|null, model: string|null}, avisos: string[]}>}
  */
-export function catalogo(casa) {
+export async function catalogo(casa) {
   const { documento, error } = leerAjustes(casa);
   const ajustes = ajustesMcp(casa);
-  const enLaCasa = hayCredencialesEnLaCasa(casa);
   const avisos = [];
   if (error !== null) avisos.push(error);
   avisos.push(...ajustes.avisos);
+
+  // Una sola pregunta por variable, aunque la nombren varias rutas.
+  const preguntas = new Map();
+  const describe = async (nombre) => {
+    if (nombre === null) return null;
+    if (!preguntas.has(nombre)) preguntas.set(nombre, await describeEnLaCasa(casa, nombre));
+    return preguntas.get(nombre);
+  };
 
   const proveedores = [];
   const modelos = [];
@@ -55,16 +64,17 @@ export function catalogo(casa) {
   for (const [id, perfilBruto] of Object.entries(declarados)) {
     const perfil = mapa(perfilBruto);
     const apiKeyEnv = texto(perfil.apiKeyEnv);
-    const esta = apiKeyEnv === null ? null : estaEnElEntorno(apiKeyEnv);
+    const nombre = texto(perfil.displayName) ?? id;
+    const cred = await describe(apiKeyEnv);
+    const tiene = cred !== null && cred.configurada === true;
     proveedores.push({
       id,
-      nombre: texto(perfil.displayName) ?? id,
+      nombre,
       api: texto(perfil.api),
       base_url: texto(perfil.baseURL),
       credencial: apiKeyEnv,
-      tiene_clave: esta === true,
-      en_la_casa: apiKeyEnv === null ? false : enLaCasa,
-      falta: esta === false && !enLaCasa ? faltaEnElEntorno(apiKeyEnv) : null,
+      tiene_clave: tiene,
+      falta: apiKeyEnv === null || cred === null || cred.motivo !== null || tiene ? null : faltaLaClave(nombre),
       declarado_por_el_usuario: true,
     });
     const lista = Array.isArray(perfil.models) ? perfil.models : [];
@@ -75,23 +85,24 @@ export function catalogo(casa) {
         avisos.push('el proveedor «' + id + '» tiene un modelo sin id; lo salto');
         continue;
       }
-      modelos.push(fichaModelo({ casa, ajustes, provider: id, modelo, modelId, tieneClave: esta === true, enLaCasa }));
+      modelos.push(fichaModelo({ casa, ajustes, provider: id, modelo, modelId, tieneClave: tiene }));
     }
   }
 
   // ── la ruta nativa de DeepSeek (siempre montada en el core) ───────────────
   const nativo = mapa(documento['llm-deepseek']);
   const claveNativa = texto(nativo.apiKeyEnv) ?? CLAVE_NATIVA_POR_DEFECTO;
-  const estaNativa = estaEnElEntorno(claveNativa);
+  const credNativa = await describe(claveNativa);
+  const estaNativa = credNativa !== null && credNativa.configurada === true;
+  const nombreNativo = texto(nativo.displayName) ?? 'DeepSeek (nativo)';
   proveedores.push({
     id: PROVEEDOR_NATIVO,
-    nombre: texto(nativo.displayName) ?? 'DeepSeek (nativo)',
+    nombre: nombreNativo,
     api: texto(nativo.api),
     base_url: texto(nativo.baseURL),
     credencial: claveNativa,
     tiene_clave: estaNativa,
-    en_la_casa: enLaCasa,
-    falta: estaNativa || enLaCasa ? null : faltaEnElEntorno(claveNativa),
+    falta: estaNativa || credNativa === null || credNativa.motivo !== null ? null : faltaLaClave(nombreNativo),
     declarado_por_el_usuario: Object.keys(nativo).length > 0,
   });
   const modelosNativos = Array.isArray(nativo.models) ? nativo.models : [];
@@ -99,31 +110,36 @@ export function catalogo(casa) {
     const modelo = mapa(modeloBruto);
     const modelId = texto(modelo.id);
     if (modelId === null) continue;
-    modelos.push(fichaModelo({ casa, ajustes, provider: PROVEEDOR_NATIVO, modelo, modelId, tieneClave: estaNativa, enLaCasa }));
+    modelos.push(fichaModelo({ casa, ajustes, provider: PROVEEDOR_NATIVO, modelo, modelId, tieneClave: estaNativa }));
   }
 
   // ── el modelo por defecto de la casa ─────────────────────────────────────
-  const porDefectoBruto = mapa(documento['agent-default-model']);
-  const providerDefecto = texto(porDefectoBruto.provider);
-  const modelDefecto = texto(porDefectoBruto.model);
-  if (providerDefecto !== null && modelDefecto !== null) {
+  const porDefecto = modeloPorDefecto(casa);
+  if (porDefecto.provider !== null && porDefecto.model !== null) {
     for (const ficha of modelos) {
-      ficha.es_por_defecto = ficha.provider === providerDefecto && ficha.model_id === modelDefecto;
+      ficha.es_por_defecto = ficha.provider === porDefecto.provider && ficha.model_id === porDefecto.model;
     }
   } else {
     avisos.push('la casa no tiene `agent-default-model`: habrá que decir proveedor y modelo en cada tarea');
   }
 
-  return {
-    proveedores,
-    modelos,
-    porDefecto: { provider: providerDefecto, model: modelDefecto },
-    avisos,
-  };
+  return { proveedores, modelos, porDefecto, avisos };
+}
+
+/**
+ * El modelo por defecto de la casa (`agent-default-model`). Sólo lee los
+ * ajustes: aquí no hay ninguna credencial de por medio.
+ * @param {string} casa - la casa de RATACODE.
+ * @returns {{provider: string|null, model: string|null}}
+ */
+export function modeloPorDefecto(casa) {
+  const { documento } = leerAjustes(casa);
+  const bruto = mapa(documento['agent-default-model']);
+  return { provider: texto(bruto.provider), model: texto(bruto.model) };
 }
 
 /** Una ficha de modelo, con lo que se sabe y con null en lo que no. */
-function fichaModelo({ casa, ajustes, provider, modelo, modelId, tieneClave, enLaCasa = false }) {
+function fichaModelo({ casa, ajustes, provider, modelo, modelId, tieneClave }) {
   const capacidades = Array.isArray(modelo.input) ? modelo.input.filter((m) => typeof m === 'string') : null;
   return {
     name: texto(modelo.name) ?? modelId,
@@ -133,9 +149,9 @@ function fichaModelo({ casa, ajustes, provider, modelo, modelId, tieneClave, enL
     max_tokens: numero(modelo.maxTokens),
     capacidades,
     coste: precioDe(ajustes.precios, provider, modelId),
-    // `disponible` = la clave está en el entorno; si no, el motor puede sacarla
-    // de las guardadas en la casa (Ajustes > Models); si tampoco, sin clave.
-    estado: tieneClave ? 'disponible' : (enLaCasa ? 'disponible_si_esta_guardada_en_la_casa' : 'sin_clave'),
+    // `disponible` = la clave está guardada en la casa (Ajustes › Models); si
+    // no, el motor no tendrá con qué y la tarea no llega a salir.
+    estado: tieneClave ? 'disponible' : 'sin_clave',
     es_por_defecto: false,
     descripcion: texto(modelo.description),
   };
@@ -159,28 +175,30 @@ function precioDe(precios, provider, modelId) {
 }
 
 /**
- * La credencial que necesita una ruta, y si está disponible.
- * Sirve para PARAR ANTES de arrancar nada cuando no hay clave por ningún lado,
- * en vez de dejar que el motor falle nueve segundos después con un error más
- * oscuro. Y sirve para lo contrario: si la casa tiene credenciales guardadas
- * (Ajustes > Models), NO se para — el motor las resuelve él.
+ * La credencial que necesita una ruta, y si la casa la tiene guardada. Sirve
+ * para PARAR ANTES de arrancar nada cuando no hay clave por ningún lado, en vez
+ * de dejar que el motor falle nueve segundos después con un error más oscuro.
+ * La respuesta la da el almacén de la casa (Ajustes › Models) por la vía del
+ * motor: aquí no se lee ningún fichero de claves ni se mira el entorno.
  * @param {string} casa - la casa de RATACODE.
  * @param {string} provider - la ruta del proveedor.
- * @returns {{nombre: string, esta: boolean, enLaCasa: boolean}|null} null si la ruta no declara credencial (entonces no se bloquea: no podemos saberlo).
+ * @returns {Promise<{nombre: string, nombreVisible: string, configurada: boolean, motivo: string|null}|null>}
+ *   null si la ruta no declara credencial (Ollama y LM Studio: no piden clave).
  */
-export function credencialDeProveedor(casa, provider) {
+export async function credencialDeProveedor(casa, provider) {
   const { documento } = leerAjustes(casa);
-  const enLaCasa = hayCredencialesEnLaCasa(casa);
   if (provider === PROVEEDOR_NATIVO) {
     const nativo = mapa(documento['llm-deepseek']);
     const nombre = texto(nativo.apiKeyEnv) ?? CLAVE_NATIVA_POR_DEFECTO;
-    return { nombre, esta: estaEnElEntorno(nombre), enLaCasa };
+    const dicho = await describeEnLaCasa(casa, nombre);
+    return { nombre, nombreVisible: texto(nativo.displayName) ?? 'DeepSeek', ...dicho };
   }
   const perfil = mapa(mapa(documento['llm-pi-ai']).providers)[provider];
   if (perfil === null || typeof perfil !== 'object') return null;
   const nombre = texto(mapa(perfil).apiKeyEnv);
   if (nombre === null) return null;
-  return { nombre, esta: estaEnElEntorno(nombre), enLaCasa };
+  const dicho = await describeEnLaCasa(casa, nombre);
+  return { nombre, nombreVisible: texto(mapa(perfil).displayName) ?? provider, ...dicho };
 }
 
 /**
@@ -197,7 +215,7 @@ export function resolverRuta(casa, provider, model) {
   if (pedidoProvider !== null && pedidoModel !== null) {
     return { provider: pedidoProvider, model: pedidoModel, origen: 'peticion' };
   }
-  const { porDefecto } = catalogo(casa);
+  const porDefecto = modeloPorDefecto(casa);
   if (pedidoProvider !== null && pedidoModel === null) {
     if (porDefecto.provider === pedidoProvider && porDefecto.model !== null) {
       return { provider: pedidoProvider, model: porDefecto.model, origen: 'por_defecto' };

@@ -24,6 +24,22 @@ copia el prompt de instalación y lo cuenta en corto.
 - **La instalación, en un comando:** `npm i -g ratacode`.
 - Fuera el nombre del motor de todo lo que ve el usuario (panel, ayuda y mensajes).
 
+## Qué trae la 0.2.1
+
+- **Las claves, en un solo sitio y editables:** la única fuente es **Ajustes → Models** (la
+  casa). El motor y el MCP arrancan **sin** las variables de claves de Windows, así que el
+  campo de cada proveedor siempre se puede pegar y editar en la web.
+- **El MCP deja de mirar el entorno de tu chat:** le pregunta al motor si la credencial está
+  puesta en la casa. Si no lo está, dice
+  `Falta la clave de B.AI. Pégala en RATACODE › Ajustes › Models.` Y las altas de MCP
+  (Claude Code, Codex, OpenClaw…) ya no llevan `--env` ni `env_vars`: sólo `ratacode mcp`.
+- **Arreglado el arranque de una casa de la 0.1:** si su `cordis.patch.yml` se quedó roto (un
+  `[]` pegado delante de las filas, de la 0.2.0), se repara solo al arrancar y el motor no se
+  cae al leer el overlay.
+- **Aviso de migración, una vez:** si tienes variables de claves de proveedores en Windows, el
+  panel te lo recuerda en una línea —«RATACODE ya no la usa: pega tu clave en Ajustes ›
+  Models»— con su botón de cerrar. No copia ninguna clave y no vuelve.
+
 ## Requisitos
 
 - **Windows** (la v1 solo está probada en Windows; Mac y Linux, después).
@@ -114,19 +130,18 @@ Para LM Studio el id de modelo lo pone la aplicación: míralo con
 `curl http://127.0.0.1:1234/v1/models` y escríbelo en el selector de modelos de la caja
 (la pestaña **Modelos locales** te dice cuál devuelve tu servidor).
 
-Los dos lados de la mano están en **Ajustes → Handshakes**: el **apretón de manos** para
-agentes con navegador (Claude Code, Codex, OpenClaw, Rowboat…) —lo copia y lo deja en
+Los dos lados de la mano están en **Ajustes → Conexiones**: el texto que se copia para
+los agentes con navegador (Claude Code, Codex, OpenClaw, Rowboat…) —lo copia y lo deja en
 `<casa>\handshake.md`— y el **MCP para chats web**, con el aviso de lectura total y el
 texto que se pega en el chat. **El MCP es la vía recomendada**: cuesta menos (dos llamadas
 y texto, sin capturas de pantalla), tiene estado explícito y **cada tarea sale en la barra
 lateral del panel** con su conversación, así que no es una caja negra.
 
-**Las claves del MCP.** El servidor MCP las mira en el **entorno del cliente** que lo arranca
-(`B_AI_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`); si no están ahí, deja que lo haga
-**el motor**, que sí resuelve las guardadas con Ajustes → Models en la casa. En resumen: si has
-guardado la clave en la web, `ratacode mcp` funciona sin exportar nada. Lo que este servidor no
-hace nunca es abrir el fichero de claves él mismo. Alta típica con entorno explícito:
-`claude mcp add ratacode -- ratacode mcp`.
+**Las claves del MCP.** Están en UN solo sitio: **Ajustes → Models** (la casa). El servidor
+MCP no mira las variables de entorno del cliente ni abre ficheros de claves: le pregunta al
+motor si la credencial de esa ruta está puesta. Si no lo está, se para y lo dice:
+`Falta la clave de B.AI. Pégala en RATACODE › Ajustes › Models.` Alta típica, sin nada más:
+`claude mcp add --transport stdio ratacode -- ratacode mcp`.
 
 ## Los 9 modos de la casa
 
@@ -158,14 +173,14 @@ motor**; el de por defecto es **MODO-RATA**:
    `ratacode mcp --http --acepto-lectura-total` y `mcp.workspaces` declarado; el túnel es
    `node mcp/tunel.mjs --home <casa> --acepto-lectura-total` (puerto por defecto del MCP: 3778).
 
-> Los rótulos propios y la sección **Handshakes** están en español, pero Ajustes → Models
-> y los menús del motor siguen en inglés (los pone el motor, y RATACODE no reescribe la
-> interfaz a propósito).
+> Los rótulos propios y las secciones **Conexiones**, **Modelos locales** y **Modos** están en
+> español, pero Ajustes → Models y los menús del motor siguen en inglés (los pone el motor, y
+> RATACODE no reescribe la interfaz a propósito).
 
-Para manejar RATACODE desde otro chat sin ayuda, abre **Ajustes → Handshakes** y usa sus
-dos botones (el apretón de manos para agentes con navegador y el MCP para chats web); los
-textos largos están en la carpeta [`apreton`](https://github.com/kittcat-lab/ratacode) del
-repositorio (navegador, headless o MCP).
+Para manejar RATACODE desde otro chat sin ayuda, abre **Ajustes → Conexiones** y usa sus dos
+tarjetas (el texto para los agentes con navegador y el MCP para chats web); los textos largos
+están en la carpeta [`apreton`](https://github.com/kittcat-lab/ratacode) del repositorio
+(navegador, headless o MCP).
 
 ## Seguridad
 

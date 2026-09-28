@@ -60,17 +60,14 @@ Cualquier cliente MCP local (stdio):
 Las sintaxis exactas por app (Claude Code, Codex, OpenClaw, Rowboat y el genérico)
 están en [`..\apreton\mcp.md`](../apreton/mcp.md).
 
-> **Las claves van por el ENTORNO, y este servidor no lee ficheros de claves.**
-> Ni `.credentials.yaml`, ni `.env`, ni bóvedas: sólo mira las variables de
-> entorno que le ha dado el cliente que lo ha arrancado. Si falta una, **se para
-> y lo dice**: `falta B_AI_API_KEY en el entorno del cliente MCP`.
+> **Las claves están en UN solo sitio: RATACODE › Ajustes › Models.** Este servidor
+> no mira las variables de entorno del cliente ni abre ficheros de claves: le
+> pregunta al motor si la credencial de esa ruta está puesta en la casa
+> (`<casa>\.credentials.yaml`). Si no lo está, **se para y lo dice**:
+> `Falta la clave de B.AI. Pégala en RATACODE › Ajustes › Models.`
 >
-> Por eso el cliente tiene que entregarle su entorno al servidor. Un cliente
-> real (Claude Code, Codex) lo hace. Ojo con los que no: el transporte stdio del
-> SDK de MCP, **si no le pasas un entorno, sólo hereda una lista blanca**
-> (`PATH`, `TEMP`, `USERPROFILE`… y ninguna clave; `client/stdio.js:8-24`), así
-> que el servidor se quedaría sin credenciales. Nuestro cliente de prueba se lo
-> pasa a propósito (`env: { ...process.env }`) para imitar a un cliente real.
+> Por eso su alta es `ratacode mcp` y nada más: no hay ninguna variable que
+> pasarle, y la clave no queda escrita en la configuración de tu app.
 >
 > En ningún caso la clave sale por MCP: el servidor la usa, no la cuenta.
 
@@ -100,7 +97,7 @@ usuario (más abajo, «La LECTURA no se puede cerrar»).
 
 | Herramienta | Para qué |
 |---|---|
-| `list_providers` | Proveedores configurados, si tienen credencial y **de dónde sale** (el entorno del cliente, o la casa si la guardaste con Ajustes → Models). Nunca la clave. |
+| `list_providers` | Proveedores configurados y si tienen la credencial puesta en la casa (Ajustes → Models). Nunca la clave. |
 | `list_models` | Modelos con proveedor, id, contexto, capacidades, coste declarado y estado. Se llama **antes** de `run_task`. |
 | `run_task` | Lanza el encargo. Sin `esperar_segundos`, devuelve `task_id` al momento y el trabajo sigue en segundo plano. Con `esperar_segundos` (1-600), la llamada **espera y devuelve el resultado completo** en esa misma respuesta. |
 | `get_task_status` | `queued` · `running` · `completed` · `failed` · `cancelled`. |
@@ -152,10 +149,11 @@ agente deciden el modelo; esta capa no elige por nadie.
   al agente cliente. El servidor las usa y hace la llamada. Además, el propio
   DSH lava el entorno de los shells de sus agentes
   (`dsh-subprocess`: `/KEY|PASSWORD|SECRET|TOKEN/i`), así que la tarea
-  delegada tampoco las ve desde dentro. **De dónde salen:** del entorno del
-  cliente MCP, y si no están ahí, de la casa —las que guardaste con
-  Ajustes → Models—; de esas se encarga el motor, que es quien sabe leerlas.
-  Este servidor no abre el fichero de claves ni para comprobar que existe.
+  delegada tampoco las ve desde dentro. **De dónde salen:** de la casa —las que
+  guardaste con Ajustes → Models—, que es la única fuente; el servidor le
+  pregunta al motor si están puestas (con su `describe`: configurada sí/no, sin
+  leer ningún valor) y el hijo del motor arranca SIN las variables de claves,
+  para que resuelva las de la casa y no una vieja del entorno.
 
 ## Ajustes (en `<casa>\settings.yaml`)
 
@@ -205,7 +203,7 @@ así que en una instalación desde el paquete no las encontrarás).
 node mcp/prueba/cliente-prueba.mjs --home <casa> --provider b-ai --model deepseek-v4.1-flash
 
 # UNA sola llamada: run_task con esperar_segundos, y el resultado (PONG) en esa
-# misma respuesta, sin get_task_status. Con --sin-entorno, el error del tropiezo 12.
+# misma respuesta, sin get_task_status.
 node mcp/prueba/cliente-espera.mjs --home <casa> --provider b-ai --model deepseek-v4.1-flash --esperar 300
 
 # las promesas de seguridad: credencial sin enseñarla, espacio cerrado,
@@ -220,8 +218,8 @@ y recoge el resultado. Sale con código 0 sólo si la respuesta trae PONG.
 `cliente-espera.mjs` es la prueba del tropiezo 17: enseña `run_task` tal como lo
 lista el servidor (con `esperar_segundos` y su descripción), lanza el encargo UNA
 vez con `esperar_segundos` y exige que esa misma respuesta traiga el resultado
-completo con PONG. Con `--sin-entorno` se arranca el servidor sin pasarle el
-entorno, para ver el `falta … en el entorno del cliente MCP`.
+completo con PONG. Se le puede pasar un entorno o no: da igual, porque las claves
+salen de la casa.
 
 `prueba-cancelar-y-espacio.mjs` comprueba cuatro cosas por escrito: que
 `list_providers` no enseña ninguna clave, que una carpeta fuera de los espacios

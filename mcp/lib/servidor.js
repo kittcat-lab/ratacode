@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { ajustesMcp } from './casa.js';
 import { catalogo, credencialDeProveedor, resolverRuta } from './modelos.js';
-import { faltaEnElEntorno } from './claves.js';
+import { faltaLaClave } from './claves.js';
 import { aviso } from './registro.js';
 import { resolverEspacio, resolverModo } from './seguridad.js';
 import { Tareas } from './tareas.js';
@@ -88,7 +88,7 @@ function instrucciones() {
     '',
     'No cambies de modelo automáticamente si el usuario ha indicado uno.',
     'RATACODE nunca devuelve claves: las guarda él y hace las llamadas.',
-    'RATACODE mira el ENTORNO del proceso y, si no hay clave ahí, deja que el motor resuelva las que el humano haya guardado en la casa (Ajustes → Models): este servidor NO abre ficheros de claves. Si no hay clave por ningún lado, lo dirá tal cual («falta B_AI_API_KEY en el entorno del cliente MCP») y no arrancará nada.',
+    'Las claves de los modelos están en UN solo sitio: RATACODE › Ajustes › Models (la casa). Este servidor NO mira el entorno del cliente ni abre ficheros de claves: le pregunta al motor si la credencial de esa ruta está puesta. Si no lo está, lo dirá tal cual («Falta la clave de B.AI. Pégala en RATACODE › Ajustes › Models.») y no arrancará nada.',
     'Las tareas ESCRIBEN sólo dentro del espacio de trabajo autorizado; si necesitas algo fuera, pídelo al humano.',
     'AVISO IMPORTANTE: el motor no sabe encerrar la LECTURA. Una tarea puede leer cualquier fichero que pueda leer el usuario que arrancó este servidor (incluida la casa de RATACODE y su .credentials.yaml), y lo que lea se manda al proveedor del modelo. NO leas ficheros de claves ni nada que el humano no te haya dado; si el encargo lo pide, pregúntale antes.',
   ].join('\n');
@@ -124,11 +124,11 @@ export function registrarHerramientas(servidor, ctx) {
     'list_providers',
     {
       title: 'Proveedores de RATACODE',
-      description: 'Los proveedores configurados en RATACODE, con si tienen credencial disponible y de dónde sale (el entorno del cliente, o las guardadas en la casa que resuelve el motor). Nunca devuelve ninguna clave.',
+      description: 'Los proveedores configurados en RATACODE, con si tienen la credencial puesta en la casa (RATACODE › Ajustes › Models). Nunca devuelve ninguna clave.',
       inputSchema: {},
     },
     conRed(async () => {
-      const { proveedores, porDefecto, avisos } = catalogo(casa);
+      const { proveedores, porDefecto, avisos } = await catalogo(casa);
       return comoTexto({
         proveedores: proveedores.map((p) => ({
           id: p.id,
@@ -136,14 +136,14 @@ export function registrarHerramientas(servidor, ctx) {
           api: p.api,
           base_url: p.base_url,
           tiene_clave: p.tiene_clave,
-          en_la_casa: p.en_la_casa,
           credencial: p.credencial,
           ...(p.falta === null ? {} : { problema: p.falta }),
         })),
         modelo_por_defecto: porDefecto,
         avisos,
-        nota: 'Lo que mira este servidor es el ENTORNO del proceso, y si la casa tiene claves guardadas'
-          + ' (sólo comprueba que el fichero existe: no lo abre). Las de la casa las resuelve el motor.',
+        nota: 'La única fuente de claves es la casa (RATACODE › Ajustes › Models).'
+          + ' Lo que mira este servidor es si la credencial está puesta ahí, preguntándoselo al motor;'
+          + ' nunca lee valores ni mira el entorno del cliente.',
       });
     }),
   );
@@ -159,7 +159,7 @@ export function registrarHerramientas(servidor, ctx) {
       },
     },
     conRed(async ({ provider }) => {
-      const { modelos, porDefecto, avisos } = catalogo(casa);
+      const { modelos, porDefecto, avisos } = await catalogo(casa);
       const filtrados = provider === undefined ? modelos : modelos.filter((m) => m.provider === provider);
       return comoTexto({
         modelos: filtrados,
@@ -224,18 +224,13 @@ export function registrarHerramientas(servidor, ctx) {
       }
 
       const ruta = resolverRuta(casa, args.provider, args.model);
-      // La credencial: en el entorno del cliente, o en la casa (Ajustes >
-      // Models), de la que se encarga el motor. Si no hay ni una cosa ni la otra,
-      // se PARA aquí: nada de arrancar un motor que va a fallar peor.
-      const credencial = credencialDeProveedor(casa, ruta.provider);
-      if (credencial !== null && !credencial.esta && !credencial.enLaCasa) {
-        return comoError(faltaEnElEntorno(credencial.nombre)
-          + '. Ponla en Ajustes → Models de la web (queda en la casa) o expórtala en el cliente MCP.');
+      // La credencial: la de la casa (Ajustes › Models), que es la única fuente.
+      // Se le pregunta al motor. Si no está, se PARA aquí: nada de arrancar un
+      // motor que va a fallar peor y más tarde.
+      const credencial = await credencialDeProveedor(casa, ruta.provider);
+      if (credencial !== null && credencial.motivo === null && credencial.configurada === false) {
+        return comoError(faltaLaClave(credencial.nombreVisible));
       }
-      const avisoCredencial = credencial !== null && !credencial.esta && credencial.enLaCasa
-        ? ['la credencial ' + credencial.nombre + ' no está en el entorno del cliente; la resolverá el motor'
-          + ' desde las claves guardadas en la casa (Ajustes → Models)']
-        : [];
       const { espacio, raiz, avisos } = resolverEspacio({ casa, pedido: args.working_directory, cwdPorDefecto, http: ctx.http === true });
       const { modo, motivo } = resolverModo({ casa, allowDangerous: args.allow_dangerous });
       const prompt = args.context === undefined || args.context.trim() === ''
@@ -274,7 +269,7 @@ export function registrarHerramientas(servidor, ctx) {
           origen: timeoutPedido === null ? 'por_defecto_de_la_casa' : 'peticion',
           ...(timeoutRecortado ? { recortado_al_maximo_ms: ajustes.timeoutMaximoMs } : {}),
         },
-        avisos: [...avisos, ...avisoCredencial],
+        avisos,
       };
 
       // Sin `esperar_segundos`: recibo y a otra cosa (como siempre).

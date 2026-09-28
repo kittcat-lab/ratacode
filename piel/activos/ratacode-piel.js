@@ -273,6 +273,46 @@
   if(lista&&lista.parentElement)lista.parentElement.insertBefore(nota,lista);
   else seccion.append(nota);
  }
+ // ── R22 §4 · EL AVISO DE MIGRACIÓN DE CLAVES (una línea, y no vuelve) ──────
+ // La primera vez que esta casa arranca con la versión que ya NO lee claves del
+ // entorno, si en Windows hay variables de claves de proveedores, la piel lo dice
+ // en UNA línea encima de la caja —«Tienes B_AI_API_KEY en Windows. RATACODE ya
+ // no la usa: pega tu clave en Ajustes › Models.»— con su botón de cerrar. Al
+ // cerrarlo se apunta en la casa y no vuelve nunca más.
+ const AVISO_MIGRACION='mr-migracion';
+ function quitarAvisoMigracion(){
+  document.querySelectorAll('.'+AVISO_MIGRACION).forEach(n=>n.remove());
+ }
+ function pintarAvisoMigracion(texto){
+  for(const caja of document.querySelectorAll('[data-composer-card]')){
+   const padre=caja.parentElement;if(!padre)continue;
+   const previo=caja.previousElementSibling;
+   if(previo&&previo.classList.contains(AVISO_MIGRACION)){
+    const suyo=previo.querySelector('.mr-migracion-texto');
+    if(suyo&&suyo.textContent!==texto)suyo.textContent=texto;
+    continue;
+   }
+   const aviso=document.createElement('div');aviso.className=AVISO_MIGRACION;
+   aviso.append(Object.assign(document.createElement('span'),{className:'mr-migracion-texto',textContent:texto}));
+   const cerrar=document.createElement('button');
+   cerrar.type='button';cerrar.className='mr-migracion-cerrar';cerrar.textContent='Cerrar';
+   cerrar.addEventListener('click',()=>{
+    quitarAvisoMigracion();
+    fetch('/ratacode/migracion',{method:'POST',credentials:'same-origin',cache:'no-store'}).catch(()=>{});
+   });
+   aviso.append(cerrar);
+   padre.insertBefore(aviso,caja);
+  }
+ }
+ function mirarMigracion(){
+  return fetch('/ratacode/migracion',{credentials:'same-origin',cache:'no-store'})
+   .then(r=>r.ok?r.json():null)
+   .then(d=>{
+    if(d&&d.aviso&&typeof d.aviso.texto==='string')pintarAvisoMigracion(d.aviso.texto);
+    else quitarAvisoMigracion();
+   })
+   .catch(()=>{/* motor viejo o sin conexión: ni un aviso de más */});
+ }
  function apply(){
   const title=document.title.replace(/DeepSeek Harness/gi,'RATACODE');if(title!==document.title)document.title=title;
   // Sólo el saludo nativo del motor: nunca mensajes, nombres de modelo ni errores.
@@ -353,4 +393,9 @@
  setInterval(mirarClave,3000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)mirarClave();});
  window.addEventListener('focus',()=>{mirarClave();});
+ // R22 §4: el aviso de migración de claves, al abrir y cada 5 s (se va en cuanto
+ // el usuario lo cierra: la casa apunta que ya lo ha visto).
+ mirarMigracion();
+ setInterval(mirarMigracion,5000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)mirarMigracion();});
 })();
