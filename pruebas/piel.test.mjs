@@ -15,6 +15,10 @@
  *       web (`/ratacode/mcp`, con los dos comandos y el texto del chat), y
  *       comprueba que el plugin de CLIENTE —la sección «Handshakes» de
  *       Ajustes— se sirve de verdad en `/plugins/??ratacode-piel/client.js`.
+ *   B6 · R17: `/ratacode/clave` dice si al modelo por DEFECTO de la casa (esta
+ *       prueba la estrena SIN claves en su entorno) le falta la clave, con el
+ *       `describe` del servicio de credenciales del motor y sin devolver jamás
+ *       el valor de ninguna.
  *   C · COMPRUEBA QUE LA PIEL ENCAJA: cada selector `[class*='_algo']` de
  *       `piel/activos/ratacode-piel.css` tiene que existir en el CSS del
  *       frontend de DSH INSTALADO.
@@ -87,9 +91,13 @@ function arrancar(args) {
   rmSync(args.casa, { recursive: true, force: true });
   rmSync(args.taller, { recursive: true, force: true });
   mkdirSync(args.taller, { recursive: true });
+  // SIN CLAVES a propósito, en el entorno de ESTE proceso (R17): así la casa se
+  // estrena con el modelo de fábrica (B.AI) y la prueba del aviso «falta la
+  // clave» es la misma en cualquier PC, tenga o no credenciales de verdad.
+  const entorno = { ...process.env, B_AI_API_KEY: '', OPENROUTER_API_KEY: '', DEEPSEEK_API_KEY: '' };
   const hijo = spawn(process.execPath, [
     RATACODE, '--port', String(args.puerto), '--home', args.casa, '--carpeta', args.taller,
-  ], { cwd: PRODUCTO, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  ], { cwd: PRODUCTO, env: entorno, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
   const rutaUrl = join(args.casa, 'url.txt');
   const espera = new Promise((resolver, rechazar) => {
     const reloj = setTimeout(() => rechazar(new Error(
@@ -174,6 +182,11 @@ const MARCAS_DEL_INDEX = [
   ['el observador mira también el texto (React lo reescribe)', 'characterData:true'],
   ['el observador mira los ATRIBUTOS que reescribe React', "attributeFilter:['data-placeholder','aria-label']"],
   ['el rebote no depende de requestAnimationFrame', 'setTimeout(correr,16)'],
+  ['R17: la piel pregunta si falta la clave (ruta del motor)', '/ratacode/clave'],
+  ['R17: el aviso, en español, encima de la caja', 'Falta la clave de '],
+  ['R17: la ruta del aviso dice «Abrir Ajustes › Models»', 'Abrir Ajustes › Models'],
+  ['R17: la piel reescribe el error MISSING_CREDENTIAL del motor', 'MISSING_CREDENTIAL'],
+  ['R17: el aviso se vuelve a mirar cada 3 s (se va solo)', 'setInterval(mirarClave,3000)'],
 ];
 
 // ── C · la piel contra el frontend instalado ────────────────────────────────
@@ -341,8 +354,33 @@ async function main() {
       di('      ' + (textoBundle.includes('settings.section') ? 'OK   ' : 'MAL  ') + '  la sección se registra por el slot oficial');
     }
 
-    // B5 · sin cookie, ni el apretón ni el MCP: el cerco del motor
-    for (const ruta of ['/ratacode/handshake', '/ratacode/mcp']) {
+    // B6 · R17: ¿le falta la clave al modelo por defecto? La casa de esta prueba
+    // se estrena SIN claves en su entorno, así que la respuesta es que sí: el
+    // aviso en español y el botón a Ajustes › Models tienen que salir.
+    const estadoClave = await fetch(new URL('/ratacode/clave', destino), conGalleta);
+    const cuerpoClave = await estadoClave.json().catch(() => ({}));
+    di('  B6 · GET /ratacode/clave → ' + estadoClave.status + ' · ' + JSON.stringify({
+      falta: cuerpoClave.falta,
+      proveedor: cuerpoClave.proveedor,
+      nombre: cuerpoClave.nombre,
+      variable: cuerpoClave.variable,
+      tieneClave: cuerpoClave.tieneClave,
+    }));
+    comprobar(estadoClave.status === 200 && cuerpoClave.ok === true, '/ratacode/clave contestó ' + estadoClave.status);
+    comprobar(cuerpoClave.falta === true, 'sin claves en el entorno, el modelo por defecto tiene que salir «falta la clave»');
+    comprobar(cuerpoClave.proveedor === 'b-ai' && cuerpoClave.nombre === 'B.AI',
+      'el modelo por defecto sin claves es el de fábrica (B.AI): salió ' + JSON.stringify(cuerpoClave.proveedor));
+    comprobar(cuerpoClave.variable === 'B_AI_API_KEY' && cuerpoClave.tieneClave === false,
+      'la credencial que falta tiene que ser B_AI_API_KEY, y no estar puesta');
+    comprobar(cuerpoClave.necesitaClave === true, 'una ruta que nombra credencial necesita clave');
+    comprobar(cuerpoClave.proveedores?.['b-ai'] === 'B.AI' && cuerpoClave.proveedores?.ollama === 'Ollama (local, sin clave)',
+      'la ruta devuelve el nombre visible de cada proveedor (para el aviso y para el error)');
+    const clavesEnLaRespuesta = JSON.stringify(cuerpoClave);
+    comprobar(!/"valor"|sk-[A-Za-z0-9]{8}/.test(clavesEnLaRespuesta),
+      '/ratacode/clave NUNCA devuelve el valor de una clave, sólo si está puesta');
+
+    // B7 · sin cookie, ni el apretón ni el MCP ni la clave: el cerco del motor
+    for (const ruta of ['/ratacode/handshake', '/ratacode/mcp', '/ratacode/clave']) {
       const sinGalleta = await fetch(new URL(ruta, destino), { redirect: 'manual' });
       comprobar(sinGalleta.status === 401, ruta + ' sin cookie contestó ' + sinGalleta.status + ' (debía ser 401)');
       di('      ' + (sinGalleta.status === 401 ? 'OK   ' : 'MAL  ') + '  ' + ruta + ' sin cookie contesta 401');

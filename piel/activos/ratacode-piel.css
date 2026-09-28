@@ -105,3 +105,16 @@ a{color:#26c6cc}
 .mr-welcome [class*='_previewBadge']{font:10px/1.5 Consolas,monospace!important;letter-spacing:2px;border:0!important;border-radius:0!important;background:none!important;color:#b4b9b6!important;padding:0!important}
 @media(max-width:800px){.mr-welcome{gap:12px!important}.mr-welcome-mark{width:52px!important;height:62px}.mr-welcome [class*='_previewBadge']{letter-spacing:.5px}}
 
+/* R17 · EL AVISO DE LA CLAVE QUE FALTA, encima de la caja de escribir. Mismo
+   ancho y mismo sitio que la tarjeta del encargo (`--dsh-composer-card-max-width`,
+   que es la del propio motor), para que no baile con la caja. Discreto: una
+   banda con el filo amarillo de la casa, sin gritar. */
+.mr-clave{box-sizing:border-box;display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;
+ max-width:var(--dsh-composer-card-max-width,780px);margin:0 0 6px;padding:7px 12px;border-radius:10px;
+ border:1px solid #3a3f45;border-left:3px solid #e4f226;background:#181a1d;color:#f0eee6;
+ font-size:13px;line-height:19px}
+.mr-clave-texto{flex:1 1 260px;min-width:0}
+.mr-clave-boton{cursor:pointer;white-space:nowrap;padding:4px 11px;border-radius:8px;border:1px solid #464d52;
+ background:#222529;color:inherit;font:inherit;font-size:12px}
+.mr-clave-boton:hover{border-color:#e4f226}
+

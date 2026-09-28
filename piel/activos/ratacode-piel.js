@@ -133,6 +133,81 @@
   });
   mo.observe(document.body,{childList:true,subtree:true});
  }
+ // ── R17 · LA CLAVE QUE FALTA (y el error del motor, en español) ─────────────
+ // El motor ya NO saca su ventana «Add an API key to get started»: con Ollama y
+ // LM Studio declarados sin clave, `providerUsable` da la casa por lista, así
+ // que un usuario sin claves abría el panel con el modelo de fábrica (B.AI) y se
+ // comía el MISSING_CREDENTIAL en inglés. La piel pregunta por su ruta
+ // `/ratacode/clave` —que responde con el `describe` del servicio de credenciales
+ // del motor: aquí no se lee ningún fichero de claves— si al modelo por defecto
+ // de la casa le falta la clave, y avisa en español ENCIMA de la caja de escribir.
+ // El aviso se va solo: cada 3 s (y al volver a la pestaña) se vuelve a mirar.
+ const AVISO_CLAVE='mr-clave';
+ const MENCION_PROVEEDOR=/provider route "([^"]+)"/;
+ let claveVista=null; // lo último que dijo el motor; null = no hay nada que avisar
+ let nombresVistos={}; // ruta del proveedor → nombre visible, aunque no falte clave
+ function textoDeLaClave(d){
+  return 'Falta la clave de '+(d.nombre||d.proveedor)+'. Pégala en Ajustes › Models (o elige otro '
+   +'modelo, o enciende Ollama si lo tienes).';
+ }
+ function botonDeAjustes(){
+  const boton=document.createElement('button');
+  boton.type='button';boton.className='mr-clave-boton';
+  boton.textContent='Abrir Ajustes › Models';
+  boton.addEventListener('click',()=>{abrirAjustesModels();});
+  return boton;
+ }
+ function quitarAvisoClave(){
+  document.querySelectorAll('.'+AVISO_CLAVE).forEach(n=>n.remove());
+ }
+ /** El aviso, encima de CADA caja de escribir montada (la portada y la sesión). */
+ function pintarAvisoClave(){
+  if(claveVista===null){quitarAvisoClave();return;}
+  const texto=textoDeLaClave(claveVista);
+  for(const caja of document.querySelectorAll('[data-composer-card]')){
+   const padre=caja.parentElement;if(!padre)continue;
+   let aviso=caja.previousElementSibling;
+   if(!aviso||!aviso.classList.contains(AVISO_CLAVE)){
+    aviso=document.createElement('div');aviso.className=AVISO_CLAVE;
+    aviso.append(Object.assign(document.createElement('span'),{className:'mr-clave-texto'}),botonDeAjustes());
+    padre.insertBefore(aviso,caja);
+   }
+   const suyo=aviso.querySelector('.mr-clave-texto');
+   if(suyo&&suyo.textContent!==texto)suyo.textContent=texto;
+  }
+ }
+ /** Pregunta a la piel del motor si falta la clave. Si la ruta no está, se calla. */
+ function mirarClave(){
+  return fetch('/ratacode/clave',{credentials:'same-origin',cache:'no-store'})
+   .then(r=>r.ok?r.json():null)
+   .then(d=>{if(d&&d.proveedores)nombresVistos=d.proveedores;claveVista=d&&d.ok===true&&d.falta===true?d:null;pintarAvisoClave();arreglarErrorDeClave();})
+   .catch(()=>{/* sin ruta (motor viejo) o sin conexión: ni un aviso de más */});
+ }
+ // El error del turno (R17 §2): el motor lo pinta con su código en inglés
+ // (`dsh-client-ui-chat`: `turnErrorRow` + `turnErrorCopy` + `turnErrorCode`).
+ // Se reescribe ESE cuadro —y sólo ése: no se recorre ninguna conversación—
+ // para que diga lo mismo, en español, con el botón.
+ function arreglarErrorDeClave(){
+  document.querySelectorAll('[class*="_turnErrorRow"]').forEach(fila=>{
+   const codigo=fila.querySelector('[class*="_turnErrorCode"]');
+   if(!codigo||(codigo.textContent||'').trim()!=='MISSING_CREDENTIAL')return;
+   const copia=fila.querySelector('[class*="_turnErrorCopy"]');if(!copia)return;
+   if(copia.querySelector('.mr-clave-boton'))return;
+   const mensaje=(fila.querySelector('[class*="_turnErrorMessage"]')||{}).textContent||'';
+   const m=MENCION_PROVEEDOR.exec(mensaje);
+   const proveedor=m?m[1]:null;
+   const nombre=nombresVistos[proveedor]||proveedor||'el modelo';
+   const titulo=copia.querySelector('[class*="_turnErrorTitle"]');
+   const cuerpo=copia.querySelector('[class*="_turnErrorMessage"]');
+   const suTitulo='Falta la clave de '+nombre+'.';
+   const suCuerpo='Pégala en Ajustes › Models (o elige otro modelo, o enciende Ollama si lo tienes).';
+   // Sólo se escribe si de verdad cambia: escribir lo mismo dispara otra vuelta
+   // del observador y esto se quedaría girando sin parar.
+   if(titulo&&titulo.textContent!==suTitulo)titulo.textContent=suTitulo;
+   if(cuerpo&&cuerpo.textContent!==suCuerpo)cuerpo.textContent=suCuerpo;
+   copia.append(botonDeAjustes());
+  });
+ }
  function apply(){
   const title=document.title.replace(/DeepSeek Harness/gi,'RATACODE');if(title!==document.title)document.title=title;
   // Sólo el saludo nativo del motor: nunca mensajes, nombres de modelo ni errores.
@@ -175,6 +250,10 @@
   });
   // La caja: se traduce el texto que ponga el frontend, no se fuerza uno fijo.
   traducirCajas();
+  // R17: el aviso de la clave que falta y el error del motor, en español. Se
+  // repintan aquí porque React reescribe el cuadro de la caja al re-renderizar.
+  pintarAvisoClave();
+  arreglarErrorDeClave();
   const input=document.querySelector('[data-composer-input]');if(input)input.setAttribute('aria-label','Mensaje para RATACODE');
   const search=document.querySelector('[class*="_searchInput"]');if(search)search.setAttribute('placeholder','Buscar sesiones…');
  }
@@ -200,4 +279,11 @@
  // R12: la ventana nativa de DSH (sólo DeepSeek) lleva una nota y un botón a
  // Ajustes › Models. Un solo vigilante, montado una sola vez.
  vigilarNativa();
+ // R17: la clave que falta, mirada al abrir, cada 3 s y al volver a la pestaña.
+ // Así el aviso se va SOLO en cuanto se guarda la clave o se elige un modelo
+ // que la tenga (y vuelve si se elige uno que no la tenga), sin recargar nada.
+ mirarClave();
+ setInterval(mirarClave,3000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)mirarClave();});
+ window.addEventListener('focus',()=>{mirarClave();});
 })();

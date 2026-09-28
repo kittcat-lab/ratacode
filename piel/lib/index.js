@@ -29,6 +29,11 @@
  *       GET  /ratacode/mcp        → el MCP para chats web: estado del HTTP y
  *                                   del túnel, aviso de lectura total, los dos
  *                                   comandos y el texto para pegar en el chat.
+ *       GET  /ratacode/clave      → (R17) si al modelo por DEFECTO de la casa le
+ *                                   falta la clave, con el `describe` del
+ *                                   servicio de credenciales del motor (nunca
+ *                                   se lee un fichero de claves) y el nombre
+ *                                   visible de cada proveedor.
  *     Las tres van con el cerco del motor (`connection.requestRejection`:
  *     Host/Origin + cookie de sesión de navegador, `dsh-client-connection`
  *     `lib/index.js:552-556`), igual que los canales del propio DSH.
@@ -272,6 +277,71 @@ function estadoDelMcp(req) {
   };
 }
 
+// ── R17 · la clave que le falta al modelo por defecto ──────────────────────
+
+/**
+ * Un valor dentro de un objeto, por su camino de claves (`['providers','b-ai']`).
+ * El `settingsPath` que declara cada proveedor configurable es justo eso.
+ */
+function porCamino(objeto, camino) {
+  let actual = objeto;
+  for (const trozo of camino ?? []) {
+    if (actual === null || typeof actual !== 'object') return undefined;
+    actual = actual[trozo];
+  }
+  return actual;
+}
+
+/**
+ * ¿Al modelo por DEFECTO de esta casa le falta la clave? Se responde con la vía
+ * OFICIAL del motor y sin leer un solo fichero de claves:
+ *   · el proveedor y el modelo, por `ctx.agentDefaultModel.currentSelection()`;
+ *   · la credencial que esa ruta nombra (`apiKeyEnv`), por el `settingsPath` que
+ *     declara el directorio de proveedores (`ctx.llm.listConfigurableProviders`)
+ *     y el valor resuelto de su namespace (`ctx.settings.get`);
+ *   · si está puesta o no, por `ctx.credentials.describe` (`configured`).
+ * Una ruta que NO nombra credencial (Ollama y LM Studio de fábrica) no pide
+ * clave: esa es la regla del propio motor (`dsh-llm-pi-ai`: `namesCredential`).
+ * @param c - contexto de cordis, ya con `connection`.
+ * @returns el estado; `ok:false` cuando a este motor le falta alguna pieza.
+ */
+async function estadoDeLaClave(c) {
+  const llm = c.get('llm');
+  const settings = c.get('settings');
+  if (llm === undefined || settings === undefined) {
+    return { ok: false, falta: false, motivo: 'este motor no expone llm/settings' };
+  }
+  const entradas = llm.listConfigurableProviders();
+  const proveedores = {};
+  for (const entrada of entradas) proveedores[entrada.provider] = entrada.displayName;
+  const seleccion = c.get('agentDefaultModel')?.currentSelection?.() ?? null;
+  const proveedor = seleccion?.provider ?? null;
+  const entrada = entradas.find((e) => e.provider === proveedor);
+  const perfil = entrada === undefined ? undefined : porCamino(settings.get(entrada.settingsNs), entrada.settingsPath);
+  const variable = typeof perfil?.apiKeyEnv === 'string' && perfil.apiKeyEnv !== '' ? perfil.apiKeyEnv : null;
+  // Un nombre que no es un identificador de shell no puede ser una referencia:
+  // `describe` lo rechazaría, así que se trata como «esta ruta no pide clave».
+  const conForma = variable !== null && /^[A-Za-z_][A-Za-z0-9_]*$/.test(variable);
+  let tieneClave = null;
+  if (conForma) {
+    const credentials = c.get('credentials');
+    if (credentials === undefined) return { ok: false, falta: false, motivo: 'este motor no monta el servicio de credenciales' };
+    try { tieneClave = (await credentials.describe(variable)).configured === true; }
+    catch (e) { return { ok: false, falta: false, motivo: 'no pude preguntar por la credencial: ' + (e?.message ?? e) }; }
+  }
+  return {
+    ok: true,
+    falta: conForma && tieneClave === false,
+    necesitaClave: conForma,
+    tieneClave,
+    proveedor,
+    nombre: (proveedor !== null ? proveedores[proveedor] : null) ?? proveedor,
+    variable: conForma ? variable : null,
+    modelo: seleccion?.model ?? null,
+    proveedores,
+  };
+}
+
 // ── las rutas del servidor de la piel ──────────────────────────────────────
 
 function json(res, codigo, objeto) {
@@ -336,7 +406,16 @@ function montarRutas(c) {
     json(res, 200, estadoDelMcp(req));
   };
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/mcp', handler: mcp }), 'ratacode-piel.mcp');
-  c.logger?.info?.('ratacode-piel: el apretón se sirve en /ratacode/handshake y el MCP en /ratacode/mcp');
+
+  // GET /ratacode/clave → ¿le falta la clave al modelo por defecto de la casa?
+  // Lo pregunta el guion de la piel para avisar en español encima de la caja.
+  const clave = (req, res) => {
+    if (!autorizada(req, res)) return;
+    if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'Usa GET.' }); return; }
+    estadoDeLaClave(c).then((estado) => json(res, 200, estado), (e) => json(res, 500, { ok: false, falta: false, error: String(e?.message ?? e) }));
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/clave', handler: clave }), 'ratacode-piel.clave');
+  c.logger?.info?.('ratacode-piel: el apretón se sirve en /ratacode/handshake, el MCP en /ratacode/mcp y la clave que falta en /ratacode/clave');
 }
 
 /**
