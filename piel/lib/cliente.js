@@ -106,7 +106,8 @@ window.__ModuleLoader__.load({
       'font-size:12px;line-height:17px;white-space:pre-wrap;word-break:break-word}',
       '.mr-ml-avanzado{margin-top:2px}',
       '.mr-ml-avanzado>summary{cursor:pointer;font-size:12px;color:var(--dsw-alias-text-secondary,#9aa0a6)}',
-      // R24 · los tres avisos de una línea (permiso, proveedores y adjuntos).
+      // R24 · los tres avisos de una línea: el del permiso (Ajustes › General y
+      // la caja del encargo) y el de los proveedores (Ajustes › Modelos).
       '.mr-aviso-permiso{margin:0;color:var(--dsw-alias-label-tertiary,#9aa0a6);font-size:12px;font-weight:400;line-height:18px}',
       '.mr-aviso-modelos{margin:0 0 4px;color:var(--dsw-alias-label-tertiary,#9aa0a6);font-size:13px;font-weight:400;line-height:20px}',
       '.mr-aviso-caja{box-sizing:border-box;width:100%;max-width:var(--dsh-composer-card-max-width,780px);',
@@ -963,9 +964,10 @@ window.__ModuleLoader__.load({
       // recuerde puesto. Va detrás del idioma a propósito: el tema se apunta en
       // `<html data-ratacode-tema>`, que es de donde tira el CSS de la casa.
       const tema = paqueteDeTemas(ctx);
-      // R24 · los tres avisos de una línea (el permiso, los proveedores y los
-      // adjuntos), en los tres idiomas. Van detrás del idioma: los pinta el
-      // traductor, que tiene que estar puesto.
+      // R24 · los tres avisos de una línea (el del permiso, DOS veces: en
+      // Ajustes › General y bajo la caja del encargo; y el de los proveedores,
+      // arriba en Ajustes › Modelos), en los tres idiomas. Van detrás del
+      // idioma: los pinta el traductor, que tiene que estar puesto.
       avisosDeLaCasa(ctx);
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
