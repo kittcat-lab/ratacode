@@ -1,18 +1,16 @@
-# Apretón de manos: RATACODE
+# RATACODE
 
-RATACODE corre en MI ordenador: una terminal de trabajo con IA montada sobre un motor
-libre, con modelos baratos (o locales) y
-herramientas de verdad (ficheros, shell, búsqueda, subagentes). Yo planifico y
-reviso; RATACODE hace el trabajo pesado. El panel es la URL del recuadro de
-arriba: ábrela en tu navegador.
+RATACODE corre en MI ordenador: una terminal de trabajo con IA, con modelos
+baratos (o locales) y herramientas de verdad (ficheros, shell, búsqueda,
+subagentes). Yo planifico y reviso; RATACODE hace el trabajo pesado. El panel es
+la URL del recuadro de arriba: ábrela en tu navegador.
 
 ## LO PRIMERO: cuánto trabajo descargas
 
-Antes de nada, pregúntame: «¿qué porcentaje del trabajo quieres que descargue en RATACODE?»
-(0-100 %) y trabaja según mi respuesta:
-0 % = no le mandas nada, solo propones y revisas; 50 % = reparto;
-100 % = le mandas todo el trabajo pesado y tú solo revisas.
-Si no contesto, empieza por 50 % y dímelo.
+Antes de nada, pregúntame: «¿qué porcentaje del trabajo quieres que descargue en
+RATACODE?» (0-100 %) y trabaja según mi respuesta: 0 % = solo propones y revisas;
+50 % = reparto; 100 % = le mandas todo el trabajo pesado y tú solo revisas. Si no
+contesto, empieza por 50 % y dímelo.
 
 ## Cómo me mandas trabajo
 

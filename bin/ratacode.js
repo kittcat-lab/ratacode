@@ -49,7 +49,7 @@
  * Ajustes > Models.
  * De las claves SÓLO se mira si la variable existe: nunca su valor.
  *
- * El apretón de manos y el MCP para chats web viven en Ajustes > Handshakes
+ * El texto de la conexión y el MCP para chats web viven en Ajustes > Conexiones
  * (la piel los sirve en `/ratacode/handshake` y `/ratacode/mcp`); para eso el
  * plugin se lleva copiado `apreton\` y la ruta de ESTA instalación en
  * `instalacion.txt` (para que los comandos del MCP lleven la ruta de verdad).
@@ -76,7 +76,7 @@ const NOMBRE_PLUGIN = 'ratacode-piel';
 const FABRICA_ORIGEN = join(PAQUETE, 'fabrica', 'settings.yaml');
 /** Los nueve modos de fábrica, que van a `<casa>/.agent-presets`. */
 const MODOS_ORIGEN = join(PAQUETE, 'modos');
-/** El apretón de manos, que viaja copiado junto al plugin de la piel. */
+/** El texto de la conexión y su guía, que viajan copiados junto al plugin de la piel. */
 const APRETON_ORIGEN = join(PAQUETE, 'apreton');
 
 /** Puerto fijo y conocido de RATACODE. `--port` lo cambia. */
@@ -1062,12 +1062,12 @@ async function main() {
   const motor = binDelMotor();
 
   const cuenta = copiarArbol(PIEL_ORIGEN, join(perfilWeb, 'node_modules', NOMBRE_PLUGIN), { copiados: 0, iguales: 0 });
-  // El apretón de manos viaja CON el plugin: la piel lo sirve en
-  // /ratacode/handshake (Ajustes > Handshakes) y, copiada dentro del perfil, no
+  // El texto de la conexión viaja CON el plugin: la piel lo sirve en
+  // /ratacode/handshake (Ajustes > Conexiones) y, copiada dentro del perfil, no
   // tiene el repositorio al lado. Se copia en <plugin>\apreton\.
   const cuentaApreton = copiarArbol(APRETON_ORIGEN, join(perfilWeb, 'node_modules', NOMBRE_PLUGIN, 'apreton'), { copiados: 0, iguales: 0 });
   // Y la ruta de ESTA instalación (la carpeta del paquete, con `mcp\tunel.mjs`
-  // dentro), para que los dos comandos del MCP que enseña Ajustes > Handshakes
+  // dentro), para que los dos comandos del MCP que enseña Ajustes > Conexiones
   // lleven la ruta de verdad y no un «<ruta>» que el usuario tenga que buscar.
   writeFileSync(join(perfilWeb, 'node_modules', NOMBRE_PLUGIN, 'instalacion.txt'), PAQUETE + '\n');
   const capaWeb = prepararPerfil(perfilWeb, 'dsh-profile-web',
@@ -1101,7 +1101,7 @@ async function main() {
       ? 'el de fábrica (ninguna clave en el entorno: B_AI_API_KEY, OPENROUTER_API_KEY ni DEEPSEEK_API_KEY)'
       : 'el que ya tuviera la casa (no se toca settings.yaml)')) + '\n');
   process.stdout.write('RATACODE · piel: ' + cuenta.copiados + ' fichero(s) puesto(s), ' + cuenta.iguales + ' ya estaban igual'
-    + ' · apretón: ' + cuentaApreton.copiados + ' puesto(s), ' + cuentaApreton.iguales + ' igual\n');
+    + ' · conexiones: ' + cuentaApreton.copiados + ' puesto(s), ' + cuentaApreton.iguales + ' igual\n');
   process.stdout.write('RATACODE · modos: ' + modos.cuenta.copiados + ' fichero(s) puesto(s), ' + modos.cuenta.iguales
     + ' ya estaban igual en ' + modos.presets
     + (modos.borrados.length > 0 ? ' · fuera los viejos: ' + modos.borrados.join(', ') : '')
@@ -1113,7 +1113,7 @@ async function main() {
   process.stdout.write('RATACODE · proveedores: ' + (estreno.nueva
     ? 'Ajustes › Models: las 8 APIs con clave (B.AI, OpenRouter, Groq, Google Gemini, NVIDIA NIM, SambaNova, Cloudflare Workers AI y DeepSeek nativo) · Ajustes › Modelos locales: Ollama y LM Studio, sin clave'
     : 'los que ya tuviera la casa (no se toca settings.yaml): añade a mano los que falten de las 8 APIs') + '\n');
-  process.stdout.write('RATACODE · manos: apretón y MCP en Ajustes › Handshakes\n');
+  process.stdout.write('RATACODE · manos: el texto de la conexión y el MCP viven en Ajustes › Conexiones\n');
 
   if (ordenes.modo === 'headless') {
     // Antes de arrancar el motor, mira si hay con qué: si el modelo por defecto

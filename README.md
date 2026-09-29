@@ -250,17 +250,20 @@ and get the result back in your agent or chat.
   `Groq`, `Google Gemini`, `NVIDIA NIM`, `SambaNova`, `Cloudflare Workers AI` — the last one
   needs your `{account_id}` pasted into *Customized settings → Base URL*). Set each key in the
   web UI (Settings → Models) or as its environment variable; keys are never bundled.
-  The MCP server reads them from its client's environment, or lets the engine resolve the ones
-  you saved in the web UI.
+  The MCP server asks the engine whether the credential is set in the house — it never reads your
+  chat's environment or any credentials file.
 - **Local models live in their own tab (Settings → "Modelos locales"):** **Ollama** and
-  **LM Studio**, local and key-free — whether they are running, which models you have and
-  which ones work as an agent, their address, the one-line command to start them and the
-  download link. They stay declared in the house, so the box's model picker still offers them.
-- **Nine modes** ship in the picker (MODO-RATA by default) and none of the engine's own.
-- **Handshakes (Settings → Handshakes):** one button writes the short handshake
-  (`<casa>\handshake.md`) for browser agents; the other explains the MCP for web chats, with
-  the read-everything warning and the text to paste. **MCP is the recommended route** (cheaper
-  and more reliable), and every MCP task shows up in the panel sidebar with its conversation.
+  **LM Studio**, local and key-free — whether they are installed, running or off, the button to
+  turn them on and off, which models you have and which ones work as an agent, and your card's
+  recommendation ("your GPU: 10 GB → recommended: qwen3:8b"). They stay declared in the house, so
+  the box's model picker still offers them.
+- **Nine modes** ship in the picker (MODO-RATA by default) and none of the engine's own: three
+  columns by three rows, each with its character's colour and "En uso" on the one in charge.
+- **Conexiones (Settings → Conexiones):** one button copies the text that tells an agent how to
+  work with RATACODE; the other card turns the web-chat connection on and off, with the address
+  to paste in ChatGPT › Settings › Connectors and its one-line warning. **MCP is the recommended
+  route** (cheaper and more reliable), and every MCP task shows up in the panel sidebar with its
+  conversation.
 - **Three ways to use it:** browser (`ratacode`), headless (`ratacode headless "task"`),
   and MCP (`ratacode mcp`) so ChatGPT web, Claude Code, Codex, Rowboat or OpenClaw can
   delegate tasks (`list_models`, `run_task`, `get_task_status`, `get_task_result`, `cancel_task`).

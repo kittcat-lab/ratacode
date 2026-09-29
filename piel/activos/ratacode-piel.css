@@ -44,8 +44,8 @@ button[class*='_newSession']:hover{background:#f2ff4c!important;box-shadow:3px 3
 [class*='_sidebarCol'] [class*='_sectionTitle']{color:#a8adae;font:10px Consolas,monospace;letter-spacing:1.2px;text-transform:uppercase}
 
 /* R12: aquí vivían «Copiar apretón» y «Claves», al pie de la barra lateral. Ya
-   no: el apretón de manos vive en Ajustes › Handshakes (con sus dos botones) y
-   las claves se ponen en Ajustes › Models, como en DSH. */
+   no: el texto de la conexión vive en Ajustes › Conexiones (con sus dos
+   tarjetas) y las claves se ponen en Ajustes › Models, como en DSH. */
 
 /* La nota que la piel mete en la ventana nativa de DSH «Add an API key to get
    started» (sólo pide DeepSeek): una línea en español y un botón que lleva a
@@ -135,4 +135,30 @@ a{color:#26c6cc}
 .mr-locales-nota{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 0;padding:8px 12px;
  border-radius:10px;border:1px solid #3a3f45;border-left:3px solid #e4f226;background:#181a1d;
  color:#f0eee6;font-size:13px;line-height:19px}
+
+/* R23 · LOS MODOS, EN 3×3. La pestaña la pinta el plugin de presets del motor;
+   sólo se ordena lo que la piel ha marcado (`.mr-modos`): título «Modos», nueve
+   tarjetas en tres columnas por tres filas que se ven ENTERAS a 1280×800, el
+   nombre grande con el color de su personaje, el oficio en UNA línea y «En uso»
+   en el que manda. Fuera: la frase en inglés, «Custom», el id técnico y los
+   iconos (que quedan detrás del «⋯»). Por debajo de 1100 px, dos columnas. */
+.mr-modos{max-width:none!important}
+.mr-modos [class*='_intro']{display:none!important}
+.mr-modos [class*='_groupHead']{display:none!important}
+.mr-modos [class*='_creatorButton']{display:none!important}
+.mr-modos [class*='_group']{gap:8px!important}
+.mr-modos [class*='_group']+[class*='_group']{margin-top:8px!important}
+.mr-modos [class*='_cards']{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:9px!important;grid-auto-rows:1fr}
+.mr-modos [class*='_card']{border-radius:12px!important}
+.mr-modos [class*='_cardMain']{padding:11px 12px 9px!important;gap:5px!important}
+.mr-modos [class*='_cardHead']{gap:6px!important;flex-wrap:wrap!important}
+.mr-modos [class*='_cardName']{font-size:16px!important;font-weight:800!important;letter-spacing:.3px;line-height:1.25;white-space:nowrap}
+.mr-modos [class*='_cardDesc']{-webkit-line-clamp:1!important;min-height:0!important;font-size:12px!important;line-height:17px!important}
+.mr-modos [class*='_cardId']{display:none!important}
+.mr-modos [class*='_cardFoot']{display:none!important}
+.mr-modos li[data-abierto='si'] [class*='_cardFoot']{display:flex!important}
+.mr-modos .mr-modos-puntos{cursor:pointer;align-self:flex-end;background:none;border:0;color:#8c9396;
+ font:inherit;font-size:15px;line-height:1;padding:0 6px 4px;border-radius:6px}
+.mr-modos .mr-modos-puntos:hover{color:#f0eee6;background:#222529}
+@media(max-width:1100px){.mr-modos [class*='_cards']{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 

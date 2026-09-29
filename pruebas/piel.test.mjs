@@ -10,10 +10,10 @@
  *   B · PIDE EL INDEX por HTTP y comprueba que la PIEL ESTÁ puesta: el
  *       `<style id="ratacode-piel">`, las variables de la identidad, los dos
  *       guiones y el emblema en data-URI. También pide, por sus rutas
- *       protegidas: el apretón de manos (GET/POST `/ratacode/handshake`, que
+ *       protegidas: el texto de la conexión (GET/POST `/ratacode/handshake`, que
  *       deja `<casa>\handshake.md` en 40 líneas o menos) y el MCP para chats
  *       web (`/ratacode/mcp`, con los dos comandos y el texto del chat), y
- *       comprueba que el plugin de CLIENTE —la sección «Handshakes» de
+ *       comprueba que el plugin de CLIENTE —la sección «Conexiones» de
  *       Ajustes— se sirve de verdad en `/plugins/??ratacode-piel/client.js`.
  *   B6 · R17: `/ratacode/clave` dice si al modelo por DEFECTO de la casa (esta
  *       prueba la estrena SIN claves en su entorno) le falta la clave, con el
@@ -184,7 +184,7 @@ const MARCAS_DEL_INDEX = [
   ['la caja también por atributo (data-placeholder y aria-label)', "querySelectorAll('[data-placeholder]')"],
   ['la nota de la ventana nativa (no la tapa: la lleva a Models)', 'mr-guia'],
   ['el botón que lleva a Ajustes › Models', 'Ajustes › Models'],
-  ['R12: el plugin de cliente que monta la sección Handshakes', 'ratacode-piel/client.js'],
+  ['R12/R23: el plugin de cliente que monta la sección Conexiones', 'ratacode-piel/client.js'],
   ['el observador mira también el texto (React lo reescribe)', 'characterData:true'],
   ['el observador mira los ATRIBUTOS que reescribe React', "attributeFilter:['data-placeholder','aria-label']"],
   ['el rebote no depende de requestAnimationFrame', 'setTimeout(correr,16)'],
@@ -195,8 +195,11 @@ const MARCAS_DEL_INDEX = [
   ['R17: el aviso se vuelve a mirar cada 3 s (se va solo)', 'setInterval(mirarClave,3000)'],
   ['R18: la piel esconde los locales de Ajustes › Models', 'Ollama (local, sin clave)'],
   ['R18: y deja la nota que lleva a su pestaña', 'mr-locales-nota'],
-  ['R18: el aviso del runtime apagado, en español', ' no está encendido: arráncalo con «'],
-  ['R18: el botón que abre la pestaña de los locales', 'Abrir Ajustes › Modelos locales'],
+  ['R23: el aviso del runtime apagado es UNA línea', "' está apagado.'"],
+  ['R23: el botón que abre la pestaña de los locales', 'Abrir Ajustes › Modelos locales'],
+  ['R23: los Modos, marcados por la piel para la cuadrícula 3×3', 'mr-modos'],
+  ['R23: el título de la pestaña de modos', "const MODOS_TITULO='Modos'"],
+  ['R23: el aviso de migración de claves (una vez)', '/ratacode/migracion'],
 ];
 
 // ── C · la piel contra el frontend instalado ────────────────────────────────
@@ -287,7 +290,7 @@ async function main() {
     comprobar(guionOk, 'el guion de la piel no lleva el interceptor de document.title');
     di('      ' + (guionOk ? 'OK   ' : 'MAL  ') + '  el guion intercepta document.title');
 
-    // B2 · el apretón de manos (Ajustes > Handshakes), por su ruta protegida
+    // B2 · el texto de la conexión (Ajustes > Conexiones), por su ruta protegida
     const cabeceraGalleta = [...galletas.entries()].map(([n, v]) => n + '=' + v).join('; ');
     const conGalleta = { redirect: 'manual', headers: { cookie: cabeceraGalleta } };
     const apreton = await fetch(new URL('/ratacode/handshake', destino), conGalleta);
@@ -302,7 +305,7 @@ async function main() {
     comprobar(textoApreton.includes(url), 'el apretón servido no trae la URL real de esta casa');
     comprobar(lineasApreton > 0 && lineasApreton <= 40, 'el apretón servido tiene ' + lineasApreton + ' líneas (tope: 40)');
     comprobar(/¿qué porcentaje del trabajo/i.test(textoApreton), 'el apretón no manda preguntar por el porcentaje de trabajo');
-    comprobar(/handshake\.md|Apretón de manos: RATACODE/i.test(textoApreton), 'el apretón servido no es apreton/handshake.md');
+    comprobar(/RATACODE corre en MI ordenador/i.test(textoApreton), 'el texto servido no es apreton/handshake.md');
     di('      ' + (textoApreton.includes(url) ? 'OK   ' : 'MAL  ') + '  el apretón trae la URL de esta casa');
     di('      ' + (lineasApreton > 0 && lineasApreton <= 40 ? 'OK   ' : 'MAL  ') + '  el apretón tiene ' + lineasApreton + ' líneas (tope 40)');
     const sinClaves = !/sk-[A-Za-z0-9]|API_KEY\s*[:=]\s*[A-Za-z0-9_-]{8}/.test(textoApreton);
@@ -348,7 +351,7 @@ async function main() {
     di('      ' + (pegar.includes('esperar_segundos') ? 'OK   ' : 'MAL  ') + '  el texto del chat cuenta herramientas y esperar_segundos');
     di('      ' + (comandos.split('\n').length === 2 ? 'OK   ' : 'MAL  ') + '  los dos comandos van en un bloque pegable');
 
-    // B4 · el plugin de CLIENTE (la sección «Handshakes» de Ajustes) se sirve
+    // B4 · el plugin de CLIENTE (la sección «Conexiones» de Ajustes) se sirve
     const urlBundle = /\/plugins\/\?\?ratacode-piel\/client\.js&rev=([\w-]+)/.exec(html);
     comprobar(urlBundle !== null, 'el index no trae el plugin de cliente ratacode-piel en el grafo de arranque');
     if (urlBundle !== null) {
@@ -357,14 +360,22 @@ async function main() {
       di('  B4 · GET el bundle del plugin → ' + respuestaBundle.status + ' · ' + Buffer.byteLength(textoBundle, 'utf8') + ' bytes');
       comprobar(respuestaBundle.status === 200, 'el bundle del plugin contestó ' + respuestaBundle.status);
       comprobar(textoBundle.includes('settings.section'), 'el bundle no registra la sección por el slot settings.section');
-      comprobar(textoBundle.includes("id: 'handshakes'"), 'el bundle no registra la sección «handshakes»');
-      comprobar(textoBundle.includes('Handshakes'), 'el bundle no lleva el rótulo «Handshakes»');
-      comprobar(textoBundle.includes('Agentes con navegador') && textoBundle.includes('Chats web'),
-        'el bundle no trae los dos botones de la sección');
+      comprobar(textoBundle.includes("id: 'conexiones'"), 'el bundle no registra la sección «conexiones»');
+      comprobar(textoBundle.includes('Conexiones'), 'el bundle no lleva el rótulo «Conexiones»');
+      comprobar(textoBundle.includes('Claude Code, Codex, OpenClaw') && textoBundle.includes('ChatGPT y Claude web'),
+        'el bundle no trae las dos tarjetas de Conexiones');
+      comprobar(!/apretón de manos|Handshakes/.test(textoBundle),
+        'el bundle sigue hablando de «apretón de manos» o de «Handshakes»');
       // R18 · la pestaña nueva, por la MISMA vía oficial (settings.section)
       comprobar(textoBundle.includes("id: 'modelos-locales'"), 'el bundle no registra la sección «modelos-locales»');
       comprobar(textoBundle.includes('Modelos locales'), 'el bundle no lleva el rótulo «Modelos locales»');
       comprobar(textoBundle.includes('/ratacode/runtimes'), 'la sección nueva no pregunta por los runtimes locales');
+      // R23 · el botón que no logra encenderlo deja el COMANDO a mano (la otra
+      // vía del encargo: «si no se puede lanzar, botón Copiar comando»).
+      comprobar(textoBundle.includes("etiqueta: 'Copiar comando'"),
+        'el bundle no deja el botón «Copiar comando» cuando no puede encender el runtime');
+      comprobar(textoBundle.includes('A mano'),
+        'el bundle no trae el comando plegado («A mano») de la tarjeta de Conexiones');
       di('      ' + (textoBundle.includes('settings.section') ? 'OK   ' : 'MAL  ') + '  la sección se registra por el slot oficial');
     }
 
@@ -429,6 +440,12 @@ async function main() {
       const conClase = porId.ollama.modelos.every((m) => ['agente', 'no', 'sin-datos'].includes(m.clase));
       comprobar(conClase, 'cada modelo del runtime tiene que venir clasificado (vale como agente sí/no/sin datos)');
     }
+
+    // B9 · R23: cuando el botón «Encender» no logra encender el runtime, la ruta
+    // no lo da por bueno: lo dice y deja la tarjeta con el comando a mano.
+    const fuenteDeLaPiel = readFileSync(join(PRODUCTO, 'piel', 'lib', 'index.js'), 'utf8');
+    comprobar(fuenteDeLaPiel.includes('no llegó a encenderse'),
+      'la ruta de los botones tiene que decir cuándo un runtime no llegó a encenderse');
 
     // B7 · sin cookie, ni el apretón ni el MCP ni la clave ni los runtimes: el cerco del motor
     for (const ruta of ['/ratacode/handshake', '/ratacode/mcp', '/ratacode/clave', '/ratacode/runtimes']) {

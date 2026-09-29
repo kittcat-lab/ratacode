@@ -23,9 +23,14 @@
  *
  * ── LO QUE SÍ SIRVE ESTA PIEL (R12) ────────────────────────────────────────
  *   · el CSS y los guiones de la cara (identidad, piel, vida), y
- *   · el APRETÓN DE MANOS de ESTA casa, que vive en Ajustes > Handshakes:
+ *   · el TEXTO DE LA CONEXIÓN de ESTA casa, que vive en Ajustes > Conexiones:
  *       GET  /ratacode/handshake  → el texto corto, con la URL de esta casa.
  *       POST /ratacode/handshake  → además lo deja en `<casa>\handshake.md`.
+ *       GET  /ratacode/conexion   → (R23) el estado de la conexión de los chats
+ *                                   web: si está encendida (el túnel abierto),
+ *                                   la dirección que se pega y si la encendió
+ *                                   RATACODE (entonces el botón puede apagarla).
+ *       POST /ratacode/conexion/encender y /apagar → los botones del usuario.
  *       GET  /ratacode/mcp        → el MCP para chats web: estado del HTTP y
  *                                   del túnel, aviso de lectura total, los dos
  *                                   comandos y el texto para pegar en el chat.
@@ -47,7 +52,7 @@
  *     Host/Origin + cookie de sesión de navegador, `dsh-client-connection`
  *     `lib/index.js:552-556`), igual que los canales del propio DSH.
  *
- * La SECCIÓN «Handshakes» del menú de Ajustes NO la pinta este fichero: la
+ * La SECCIÓN «Conexiones» del menú de Ajustes NO la pinta este fichero: la
  * registra el plugin de cliente `lib/cliente.js` por la vía OFICIAL de DSH
  * (`ctx.slots.register({name:'settings.section', …}, Component)`, la misma que
  * usa `dsh-client-ui-agent-preset/lib/client.js:1519`). Ver `package.json`
@@ -56,7 +61,8 @@
  * Si algún día el motor cambia de nombre el servicio o el tap, esta piel no
  * engancha: se calla y lo dice por consola, en vez de romper el arranque.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -119,12 +125,12 @@ export function vestir(html) {
   return salida;
 }
 
-// ── el apretón de manos (Ajustes > Handshakes) ─────────────────────────────
+// ── el texto de la conexión (Ajustes > Conexiones) ─────────────────────────
 
 /**
  * Dónde está `apreton\handshake.md`. Se busca en dos sitios porque el plugin
  * viaja COPIADO dentro del perfil de la casa: ahí `bin\ratacode.js` deja una
- * copia del apretón junto al plugin; en el repositorio está dos carpetas más
+ * copia del texto junto al plugin; en el repositorio está dos carpetas más
  * arriba. Si no aparece en ninguno, la ruta lo dice en vez de inventarse nada.
  */
 const HANDSHAKE_CANDIDATOS = [
@@ -167,7 +173,7 @@ function urlDeEstaCasa(req) {
 }
 
 /**
- * El texto del apretón para ESTA casa: el `handshake.md` corto, con la casa y
+ * El texto de la conexión para ESTA casa: el `handshake.md` corto, con la casa y
  * la URL ya puestas arriba, para que quien lo reciba no tenga que buscar nada.
  * No lleva ninguna clave: el token de la URL es el de la sesión del navegador,
  * que sólo se sirve por esta ruta protegida con el mismo cerco que el resto.
@@ -188,7 +194,7 @@ function textoDelHandshake(req) {
   const cabecera = [
     '> **Esta casa, ya puesta.** Carpeta: `' + casa + '` · Panel: '
       + (url === null ? '(mira `' + join(casa, 'url.txt') + '`)' : url),
-    '> Pégalo en tu chat tal cual: es el apretón de manos de RATACODE.',
+    '> Pégalo en tu chat tal cual: con esto, el chat sabe trabajar con RATACODE.',
     '',
     '',
   ].join('\n');
@@ -389,7 +395,15 @@ const RUNTIMES_LOCALES = [
     puerto: 11434,
     arranque: 'ollama serve',
     enlace: 'https://ollama.com/download',
-    despues: 'Ollama ya se queda escuchando al instalar y al arrancar el PC; `ollama serve` lo levanta a mano.',
+    descarga: 'Descargar Ollama',
+    pull: (modelo) => 'ollama pull ' + modelo,
+    /** Busca su programa en el PC: primero en el PATH, luego donde se instala. */
+    ejecutable: 'ollama',
+    rutas: ['%LOCALAPPDATA%/Programs/Ollama/ollama.exe'],
+    argsArranque: ['serve'],
+    argsParada: null,
+    /** Cómo se apaga sin tocar nada que no hayamos arrancado nosotros. */
+    apagadoAMano: 'Se apaga desde el icono de Ollama en la bandeja: botón derecho → Quit.',
   },
   {
     id: 'lmstudio',
@@ -398,9 +412,82 @@ const RUNTIMES_LOCALES = [
     puerto: 1234,
     arranque: 'lms server start',
     enlace: 'https://lmstudio.ai/download',
-    despues: 'En LM Studio también vale el botón «Start server» de la pestaña Developer.',
+    descarga: 'Descargar LM Studio',
+    pull: null,
+    ejecutable: 'lms',
+    rutas: ['%USERPROFILE%/.lmstudio/bin/lms.exe', '%LOCALAPPDATA%/LM-Studio/lms.exe', '%LOCALAPPDATA%/Programs/LM Studio/lms.exe'],
+    argsArranque: ['server', 'start'],
+    argsParada: ['server', 'stop'],
+    apagadoAMano: null,
   },
 ];
+
+/** Los runtimes que ha arrancado ESTA piel (y por tanto puede parar ella). */
+const ARRANCADOS = new Map();
+
+/** Expande `%VARIABLE%` y `~` en una ruta de Windows. */
+function expandir(ruta) {
+  return ruta.replace(/%([A-Za-z_][A-Za-z0-9_]*)%/g, (_todo, nombre) => process.env[nombre] ?? '');
+}
+
+/** ¿Existe este fichero? Sin lanzar nada. */
+function existe(ruta) {
+  try { return statSync(ruta).isFile(); } catch { return false; }
+}
+
+/**
+ * Su programa en el PC: primero el PATH (que es lo que usa el usuario al
+ * escribirlo a mano), después las carpetas donde se instala. Sin bloquear: son
+ * comprobaciones de fichero, y el PATH se mira una vez por runtime.
+ * @param runtime - la ficha del runtime.
+ * @returns la ruta del ejecutable, o null si no está instalado.
+ */
+function ejecutableDe(runtime) {
+  const carpetas = (process.env.PATH ?? '').split(process.platform === 'win32' ? ';' : ':').filter((c) => c !== '');
+  const nombres = process.platform === 'win32' ? [runtime.ejecutable + '.exe', runtime.ejecutable + '.cmd', runtime.ejecutable] : [runtime.ejecutable];
+  for (const carpeta of carpetas) {
+    for (const nombre of nombres) {
+      const ruta = join(carpeta, nombre);
+      if (existe(ruta)) return ruta;
+    }
+  }
+  for (const plantilla of runtime.rutas ?? []) {
+    const ruta = expandir(plantilla);
+    if (ruta !== '' && existe(ruta)) return ruta;
+  }
+  return null;
+}
+
+/** La tarjeta del PC (VRAM), mirada UNA vez. `null` si no se puede saber. */
+let tarjetaCache;
+function tarjetaDelPc() {
+  if (tarjetaCache !== undefined) return tarjetaCache;
+  tarjetaCache = null;
+  try {
+    const salida = execFileSync('nvidia-smi', ['--query-gpu=name,memory.total', '--format=csv,noheader'], {
+      encoding: 'utf8', timeout: 4000, windowsHide: true,
+    });
+    const primera = salida.split(/\r?\n/).find((l) => l.trim() !== '');
+    const m = /^(.*?),\s*(\d+)\s*MiB/.exec(primera ?? '');
+    if (m !== null) {
+      tarjetaCache = { nombre: m[1].trim(), gb: Math.round(Number(m[2]) / 1024) };
+    }
+  } catch { /* sin nvidia-smi (o sin tarjeta NVIDIA): no se sabe, y se dice */ }
+  return tarjetaCache;
+}
+
+/**
+ * El modelo recomendado para una tarjeta: el más grande de la tabla que quepa.
+ * @param gb - los GB de VRAM, o null si no se sabe.
+ * @returns el id del modelo, o null si no hay tarjeta que mirar.
+ */
+function modeloParaTarjeta(gb) {
+  if (gb === null) return null;
+  const caben = TARJETAS_LOCALES.filter((t) => Number.parseInt(t.tarjeta, 10) <= gb);
+  if (caben.length === 0) return TARJETAS_LOCALES[TARJETAS_LOCALES.length - 1].modelo;
+  return caben[caben.length - 1].modelo;
+}
+
 
 /**
  * La tabla del README («qué modelo local según tu tarjeta»), en una línea por
@@ -514,7 +601,7 @@ function comoCambiarLaDireccion(c, runtime, baseURL) {
  * que está apagado y NO se espera más: la página no se bloquea.
  * @param c - contexto de cordis.
  * @param runtime - la ficha del runtime.
- * @returns la ficha con `baseURL`, `encendido` y la lista de modelos.
+ * @returns la ficha con `baseURL`, `encendido`, `instalado` y la lista de modelos.
  */
 async function sondearRuntime(c, runtime) {
   const baseURL = baseURLDelRuntime(c, runtime);
@@ -528,20 +615,107 @@ async function sondearRuntime(c, runtime) {
     ids = etiquetas.models.map((m) => m?.name).filter((x) => typeof x === 'string' && x !== '');
   }
   const modelos = [...new Set(ids)].sort((a, b) => a.localeCompare(b)).map((id) => ({ id, ...clasificarModeloLocal(id) }));
+  const ejecutable = ejecutableDe(runtime);
+  const tarjeta = tarjetaDelPc();
+  const encendido = v1 !== null || etiquetas !== null;
   return {
     id: runtime.id,
     nombre: runtime.nombre,
     baseURL,
     puerto: Number((/:(\d+)(?:\/|$)/.exec(baseURL) ?? [null, null])[1]) || runtime.puerto,
-    encendido: v1 !== null || etiquetas !== null,
+    encendido,
     respondeV1: v1 !== null,
     respondeApi: etiquetas !== null,
+    /** ¿Su programa está en el PC? Se mira el PC, no la red: sin bloquear. */
+    instalado: ejecutable !== null || encendido,
+    ejecutable,
+    /** Se puede encender desde aquí si sabemos dónde está su programa. */
+    puedeEncender: ejecutable !== null && !encendido,
+    /** Se puede apagar sin matar nada ajeno: lo arrancamos nosotros, o tiene orden propia. */
+    puedeApagar: encendido && (ARRANCADOS.has(runtime.id) || runtime.argsParada !== null),
+    loArrancamos: ARRANCADOS.has(runtime.id),
+    apagadoAMano: runtime.apagadoAMano,
     modelos,
     arranque: runtime.arranque,
     enlace: runtime.enlace,
-    despues: runtime.despues,
+    descarga: runtime.descarga,
+    pull: runtime.pull === null ? null : runtime.pull(modeloParaTarjeta(tarjeta === null ? null : tarjeta.gb) ?? 'qwen3:8b'),
+    recomendado: modeloParaTarjeta(tarjeta === null ? null : tarjeta.gb) ?? 'qwen3:8b',
     cambiar: comoCambiarLaDireccion(c, runtime, baseURL),
   };
+}
+
+/**
+ * Enciende un runtime local a petición del usuario (el botón «Encender»): se
+ * lanza SU programa, con sus argumentos, sin shell. Si no sabemos dónde está, no
+ * se lanza nada y se dice. Sólo se arranca lo que se pueda parar después.
+ * @param runtime - la ficha del runtime.
+ * @returns `{ok, motivo}`.
+ */
+function encenderRuntime(runtime) {
+  const ejecutable = ejecutableDe(runtime);
+  if (ejecutable === null) return { ok: false, motivo: 'no encuentro el programa de ' + runtime.nombre + ' en este PC' };
+  if (ARRANCADOS.has(runtime.id)) return { ok: true, motivo: 'ya lo había encendido RATACODE' };
+  try {
+    const hijo = spawn(ejecutable, runtime.argsArranque, { detached: true, stdio: 'ignore', windowsHide: true });
+    hijo.on('error', () => { ARRANCADOS.delete(runtime.id); });
+    hijo.unref();
+    ARRANCADOS.set(runtime.id, { hijo, cuando: Date.now() });
+    return { ok: true, motivo: 'encendido desde RATACODE' };
+  } catch (e) {
+    return { ok: false, motivo: 'no pude encenderlo: ' + (e?.message ?? e) };
+  }
+}
+
+/**
+ * Apaga un runtime local a petición del usuario (el botón «Apagar»). Regla de la
+ * casa: NUNCA se mata un proceso que no haya arrancado RATACODE. Si lo arrancó
+ * RATACODE, se para ese proceso (y su árbol). Si no, sólo se para si el propio
+ * runtime trae su orden (`lms server stop`); si no, se dice cómo se apaga a mano.
+ * @param runtime - la ficha del runtime.
+ * @returns `{ok, motivo, aMano}`.
+ */
+function apagarRuntime(runtime) {
+  const nuestro = ARRANCADOS.get(runtime.id);
+  if (nuestro !== undefined) {
+    ARRANCADOS.delete(runtime.id);
+    try {
+      if (process.platform === 'win32' && nuestro.hijo.pid !== undefined) {
+        spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'taskkill /pid ' + nuestro.hijo.pid + ' /T /F'], { windowsHide: true, stdio: 'ignore' });
+      } else {
+        nuestro.hijo.kill('SIGTERM');
+      }
+      return { ok: true, motivo: 'parado (lo había encendido RATACODE)' };
+    } catch (e) {
+      return { ok: false, motivo: 'no pude pararlo: ' + (e?.message ?? e) };
+    }
+  }
+  const ejecutable = ejecutableDe(runtime);
+  if (runtime.argsParada !== null && ejecutable !== null) {
+    try {
+      execFileSync(ejecutable, runtime.argsParada, { timeout: 15000, windowsHide: true, stdio: 'ignore' });
+      return { ok: true, motivo: runtime.nombre + ' ha parado su servidor' };
+    } catch (e) {
+      return { ok: false, motivo: 'no pude pararlo: ' + (e?.message ?? e) };
+    }
+  }
+  return { ok: false, aMano: true, motivo: runtime.apagadoAMano ?? ('Para apagar ' + runtime.nombre + ', ciérralo desde su propia ventana.') };
+}
+
+/** El runtime por su id, o null. */
+function runtimePorId(id) {
+  return RUNTIMES_LOCALES.find((r) => r.id === id) ?? null;
+}
+
+/** Un runtime por su id, esperando un poco a que arranque o se apague. */
+async function esperarCambio(c, id, queremosEncendido, plazoMs) {
+  const limite = Date.now() + plazoMs;
+  let ultimo = null;
+  for (;;) {
+    ultimo = await sondearRuntime(c, runtimePorId(id));
+    if (ultimo.encendido === queremosEncendido || Date.now() >= limite) return ultimo;
+    await new Promise((listo) => setTimeout(listo, 400));
+  }
 }
 
 /** ¿Este proveedor es uno de los dos runtimes locales? */
@@ -551,17 +725,21 @@ function esProveedorLocal(id) {
 
 /**
  * El estado de los dos runtimes locales, tal y como lo pinta Ajustes › Modelos
- * locales: encendido/apagado, sus modelos (y cuáles valen como agente), su
- * dirección, cómo encenderlos y la recomendación por tarjeta del README.
+ * locales: si están instalados, encendidos o apagados, sus modelos (y cuáles
+ * valen como agente), su dirección, cómo encenderlos y la recomendación según la
+ * tarjeta de ESTE PC.
  * @param c - contexto de cordis.
  * @returns el estado completo; nunca lanza (si un sondeo falla, sale apagado).
  */
 async function estadoDeLosRuntimes(c) {
   const runtimes = await Promise.all(RUNTIMES_LOCALES.map((r) => sondearRuntime(c, r)));
+  const tarjeta = tarjetaDelPc();
   return {
     ok: true,
     casa: casaDeEstaCasa(),
     runtimes,
+    tarjeta,
+    recomendado: modeloParaTarjeta(tarjeta === null ? null : tarjeta.gb),
     tarjetas: TARJETAS_LOCALES,
     aviso: 'Una ruta sin `apiKeyEnv` (Ollama y LM Studio) NO pide clave: nada de lo que hables con ellos '
       + 'sale de tu ordenador, y por eso no están en Ajustes › Models, donde sólo se ponen claves.',
@@ -611,6 +789,130 @@ async function estadoDeLaMigracion(c) {
   return { ok: true, aviso: null };
 }
 
+// ── R23 · la conexión de los chats web, con botón (Encender / Apagar) ───────
+
+/** Los dos hijos que ha arrancado RATACODE para abrir la conexión. */
+const CONEXION = { mcp: null, tunel: null, ultimoError: null };
+
+/** ¿Ese hijo sigue vivo? */
+function vivo(hijo) {
+  return hijo !== null && hijo.exitCode === null && hijo.killed !== true;
+}
+
+/** La raíz de la instalación de RATACODE (donde vive `mcp\`). */
+function raizDeLaInstalacion() {
+  return instalacionDeEstaCasa() ?? join(AQUI, '..', '..');
+}
+
+/** Espera a que aparezca un fichero con algo dentro. `false` si no llega a tiempo. */
+async function esperarFichero(ruta, plazoMs) {
+  const limite = Date.now() + plazoMs;
+  for (;;) {
+    try {
+      if (readFileSync(ruta, 'utf8').trim() !== '') return true;
+    } catch { /* todavía no está */ }
+    if (Date.now() >= limite) return false;
+    await new Promise((listo) => setTimeout(listo, 400));
+  }
+}
+
+/** La primera línea con algo de la salida de un hijo, para poder decir qué falló. */
+function primeraLineaUtil(texto) {
+  const lineas = String(texto).split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== '');
+  return lineas.length === 0 ? '' : lineas[0];
+}
+
+/**
+ * Enciende la conexión de los chats web: el MCP por HTTP (local) y el túnel, que
+ * es lo que deja entrar a ChatGPT. Lo hace A PEDIDO DEL USUARIO —su botón— y
+ * acepta lo que el usuario acepta al pulsarlo: las tareas pueden LEER (el motor
+ * no sabe acotar la lectura), y eso está dicho en la propia tarjeta. Aquí no hay
+ * ningún reloj que abra esto solo.
+ * @param casa - la casa de RATACODE.
+ * @returns `{ok, motivo}`.
+ */
+async function encenderConexion(casa) {
+  if (vivo(CONEXION.mcp) || vivo(CONEXION.tunel)) return { ok: true, motivo: 'ya estaba encendida' };
+  const raiz = raizDeLaInstalacion();
+  const guionMcp = join(raiz, 'mcp', 'bin', 'ratacode-mcp.js');
+  const guionTunel = join(raiz, 'mcp', 'tunel.mjs');
+  if (!existsSync(guionMcp) || !existsSync(guionTunel)) {
+    return { ok: false, motivo: 'no encuentro el MCP en esta instalación (' + raiz + ')' };
+  }
+  const salida = { mcp: '', tunel: '' };
+  const arrancar = (cual, guion, args) => {
+    const hijo = spawn(process.execPath, [guion, ...args], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    hijo.stdout.setEncoding('utf8');
+    hijo.stderr.setEncoding('utf8');
+    const guardar = (t) => { salida[cual] = (salida[cual] + t).slice(-4000); };
+    hijo.stdout.on('data', guardar);
+    hijo.stderr.on('data', guardar);
+    return hijo;
+  };
+  CONEXION.ultimoError = null;
+  CONEXION.mcp = arrancar('mcp', guionMcp, ['--home', casa, '--http', '--acepto-lectura-total']);
+  const rutaHttp = join(casa, 'mcp', 'http-url.txt');
+  const rutaTunel = join(casa, 'mcp', 'tunel-url.txt');
+  if (!await esperarFichero(rutaHttp, 20000) || !vivo(CONEXION.mcp)) {
+    const motivo = primeraLineaUtil(salida.mcp) || 'el MCP por HTTP no llegó a escuchar';
+    apagarConexion();
+    return { ok: false, motivo };
+  }
+  CONEXION.tunel = arrancar('tunel', guionTunel, ['--home', casa, '--acepto-lectura-total']);
+  if (!await esperarFichero(rutaTunel, 30000) || !vivo(CONEXION.tunel)) {
+    const motivo = primeraLineaUtil(salida.tunel) || primeraLineaUtil(salida.mcp) || 'el túnel no llegó a abrirse';
+    apagarConexion();
+    return { ok: false, motivo };
+  }
+  return { ok: true, motivo: 'encendida desde RATACODE' };
+}
+
+/**
+ * Apaga la conexión. Sólo se para lo que arrancó RATACODE: un MCP o un túnel
+ * abiertos a mano (en su ventana) NO se tocan — eso lo dice la tarjeta.
+ * @returns `{ok, motivo, nuestro}`.
+ */
+function apagarConexion() {
+  const nuestros = [CONEXION.mcp, CONEXION.tunel].filter((h) => vivo(h));
+  CONEXION.mcp = null;
+  CONEXION.tunel = null;
+  if (nuestros.length === 0) {
+    return { ok: false, nuestro: false, motivo: 'la conexión no la encendió RATACODE: ciérrala donde la lanzaste (Ctrl+C)' };
+  }
+  for (const hijo of nuestros) {
+    try {
+      if (process.platform === 'win32' && hijo.pid !== undefined) {
+        spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'taskkill /pid ' + hijo.pid + '/T /F'], { windowsHide: true, stdio: 'ignore' });
+      } else {
+        hijo.kill('SIGTERM');
+      }
+    } catch { /* ya se fue */ }
+  }
+  return { ok: true, nuestro: true, motivo: 'apagada' };
+}
+
+/**
+ * El estado de la conexión, para la tarjeta «ChatGPT y Claude web»: si hay una
+ * dirección pública que pegar (el túnel abierto), cuál es, y si quien la abrió
+ * fue RATACODE (entonces el botón «Apagar» puede cerrarla).
+ * @param req - el pedido, para componer la URL del panel si falta.
+ * @returns el estado, con `conectado`, `direccion` y `nuestro`.
+ */
+function estadoDeLaConexion(req) {
+  const base = estadoDelMcp(req);
+  const conectado = base.tunel.abierto;
+  return {
+    ok: true,
+    conectado,
+    direccion: conectado ? base.tunel.url : null,
+    nuestro: vivo(CONEXION.mcp) || vivo(CONEXION.tunel),
+    mcpLocal: base.http.abierto,
+    comandos: base.comandos,
+    panel: base.panel,
+    pegar: base.pegar,
+  };
+}
+
 // ── las rutas del servidor de la piel ──────────────────────────────────────
 
 function json(res, codigo, objeto) {
@@ -622,9 +924,10 @@ function json(res, codigo, objeto) {
 }
 
 /**
- * Monta las rutas del apretón, del MCP, de la clave que falta y de los runtimes
- * locales sobre el `webServer`, autenticadas con el mismo cerco que el motor
- * aplica a sus canales (`connection.requestRejection`).
+ * Monta las rutas del texto de la conexión, del MCP, de la conexión con botón,
+ * de la clave que falta y de los runtimes locales sobre el `webServer`,
+ * autenticadas con el mismo cerco que el motor aplica a sus canales
+ * (`connection.requestRejection`).
  * @param c - contexto de cordis con `webServer` y `connection`.
  */
 function montarRutas(c) {
@@ -648,7 +951,7 @@ function montarRutas(c) {
     return ruta;
   };
 
-  // GET /ratacode/handshake → el apretón corto de ESTA casa, sin escribir nada.
+  // GET /ratacode/handshake → el texto corto de ESTA casa, sin escribir nada.
   // POST /ratacode/handshake → lo mismo, y además lo deja en `<casa>\handshake.md`.
   const handshake = (req, res) => {
     if (!autorizada(req, res)) return;
@@ -662,7 +965,7 @@ function montarRutas(c) {
     if (req.method === 'POST') {
       try { ruta = escribirHandshake(hecha.texto); }
       catch (e) { json(res, 500, { ok: false, error: 'no pude escribir handshake.md: ' + (e?.message ?? e) }); return; }
-      c.logger?.info?.('ratacode-piel: apretón de manos dejado en ' + ruta);
+      c.logger?.info?.('ratacode-piel: el texto de la conexión dejado en ' + ruta);
     }
     json(res, 200, { ok: true, url: hecha.url, casa: hecha.casa, ruta, texto: hecha.texto });
   };
@@ -694,7 +997,33 @@ function montarRutas(c) {
     estadoDeLosRuntimes(c).then((estado) => json(res, 200, estado),
       (e) => json(res, 500, { ok: false, error: String(e?.message ?? e) }));
   };
-  // GET /ratacode/migracion → (R22 §4) el aviso de migración de claves, una vez.
+  // GET /ratacode/conexion → (R23) el estado de la conexión de los chats web.
+  // POST /ratacode/conexion/encender y /apagar → los botones del usuario.
+  const conexion = (req, res) => {
+    if (!autorizada(req, res)) return;
+    if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'Usa GET.' }); return; }
+    json(res, 200, estadoDeLaConexion(req));
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/conexion', handler: conexion }), 'ratacode-piel.conexion');
+
+  const botonConexion = (cual) => (req, res) => {
+    if (!autorizada(req, res)) return;
+    if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'Usa POST.' }); return; }
+    const casa = casaDeEstaCasa();
+    if (cual === 'apagar') {
+      const dicho = apagarConexion();
+      json(res, 200, { ...dicho, estado: estadoDeLaConexion(req) });
+      return;
+    }
+    encenderConexion(casa).then((dicho) => {
+      json(res, 200, { ...dicho, estado: estadoDeLaConexion(req) });
+    }, (e) => json(res, 500, { ok: false, motivo: String(e?.message ?? e) }));
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/conexion/encender', handler: botonConexion('encender') }), 'ratacode-piel.conexion-encender');
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/conexion/apagar', handler: botonConexion('apagar') }), 'ratacode-piel.conexion-apagar');
+  // Si la piel se va (el panel se cierra), no se dejan el MCP ni el túnel
+  // abiertos por detrás: se paran los dos, que los arrancó RATACODE.
+  c.effect(() => () => { apagarConexion(); }, 'ratacode-piel.conexion-cierre');
   // POST /ratacode/migracion → el usuario lo ha cerrado: no vuelve.
   const migracion = (req, res) => {
     if (!autorizada(req, res)) return;
@@ -715,7 +1044,54 @@ function montarRutas(c) {
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/migracion', handler: migracion }), 'ratacode-piel.migracion');
 
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/runtimes', handler: runtimes }), 'ratacode-piel.runtimes');
-  c.logger?.info?.('ratacode-piel: el apretón se sirve en /ratacode/handshake, el MCP en /ratacode/mcp, la clave que falta en /ratacode/clave y los runtimes locales en /ratacode/runtimes');}
+
+  // POST /ratacode/runtimes/encender y /apagar → (R23) el botón del usuario, y
+  // NADA MÁS: aquí no hay ningún reloj que encienda ni apague por su cuenta. Al
+  // apagar sólo se para lo que arrancó RATACODE (o lo que el runtime sabe parar
+  // por su cuenta: `lms server stop`); un proceso ajeno no se toca jamás.
+  const accionRuntime = (accion) => (req, res) => {
+    if (!autorizada(req, res)) return;
+    if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'Usa POST.' }); return; }
+    let cuerpo = '';
+    req.on('data', (trozo) => { cuerpo += trozo; if (cuerpo.length > 4096) req.destroy(); });
+    req.on('end', () => {
+      let pedido = {};
+      try { pedido = JSON.parse(cuerpo === '' ? '{}' : cuerpo); } catch { /* sin cuerpo: se dice */ }
+      const runtime = runtimePorId(pedido.id);
+      if (runtime === null) { json(res, 400, { ok: false, error: 'no conozco el runtime «' + String(pedido.id) + '»' }); return; }
+      const dicho = accion === 'encender' ? encenderRuntime(runtime) : apagarRuntime(runtime);
+      if (!dicho.ok) {
+        // No se ha podido encender desde aquí (su programa no arrancó): se dice en
+        // UNA línea, CON el comando, y la tarjeta deja ese comando para copiar —
+        // que es la otra vía del encargo («si no, botón Copiar comando»).
+        json(res, 200, accion === 'encender'
+          ? { ok: false, aMano: true, motivo: 'no llegó a encenderse: ' + dicho.motivo + ' — a mano, «' + runtime.arranque + '»' }
+          : { ok: false, motivo: dicho.motivo, aMano: dicho.aMano === true });
+        return;
+      }
+      esperarCambio(c, runtime.id, accion === 'encender', 12000).then((estado) => {
+        // El botón no da por bueno lo que no ha pasado: si le hemos pedido que se
+        // encienda y sigue apagado (su programa no arrancó, o tardó más de la
+        // cuenta), se dice —y la tarjeta deja el COMANDO a mano, que es la otra
+        // vía del encargo— en vez de dejar al usuario mirando una pantalla igual.
+        if (estado.encendido !== (accion === 'encender')) {
+          json(res, 200, {
+            ok: false,
+            aMano: true,
+            motivo: accion === 'encender'
+              ? 'no llegó a encenderse: pruébalo a mano con «' + runtime.arranque + '»'
+              : 'sigue encendido: páralo a mano' + (runtime.apagadoAMano === null ? '' : ' (' + runtime.apagadoAMano + ')'),
+            runtime: estado,
+          });
+          return;
+        }
+        json(res, 200, { ok: true, motivo: dicho.motivo, runtime: estado });
+      }, (e) => json(res, 500, { ok: false, error: String(e?.message ?? e) }));
+    });
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/runtimes/encender', handler: accionRuntime('encender') }), 'ratacode-piel.runtimes-encender');
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/runtimes/apagar', handler: accionRuntime('apagar') }), 'ratacode-piel.runtimes-apagar');
+  c.logger?.info?.('ratacode-piel: el texto de la conexión se sirve en /ratacode/handshake, el MCP en /ratacode/mcp, la conexión con botón en /ratacode/conexion, la clave que falta en /ratacode/clave y los runtimes locales en /ratacode/runtimes');}
 
 /**
  * Monta la piel sobre el servidor web del motor.

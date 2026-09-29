@@ -76,7 +76,7 @@ const host = o.host ?? '127.0.0.1';
 const puerto = o.port;
 
 /** Dónde queda constancia de que el túnel está ABIERTO: `<casa>\mcp\tunel-url.txt`.
- *  Lo lee Ajustes > Handshakes (la piel, ruta /ratacode/mcp) para decir si el
+ *  Lo lee Ajustes > Conexiones (la piel, ruta /ratacode/conexion) para decir si el
  *  túnel está abierto y enseñar la URL pública. Se borra al cerrar el túnel, así
  *  que su presencia es señal de que hay alguien exponiendo el puerto. */
 const RUTA_TUNEL_ABIERTO = join(casa, 'mcp', 'tunel-url.txt');
@@ -190,7 +190,7 @@ const mirar = (trozo, destino) => {
   if (dominio === null) return;
   anunciada = true;
   // La URL pública COMPLETA (dominio + /mcp/<clave>) queda en la casa, para que
-  // Ajustes > Handshakes pueda decir «túnel abierto» y enseñarla sin que nadie
+  // Ajustes > Conexiones pueda decir «conectado» y enseñarla sin que nadie
   // tenga que copiarla de la consola. Sólo-dueño, y se borra al cerrar.
   try { escribirSoloDueno(RUTA_TUNEL_ABIERTO, dominio + '/mcp/' + clave + '\n'); } catch { /* la casa manda, pero no es imprescindible */ }
   process.stdout.write('\n============================================================\n');

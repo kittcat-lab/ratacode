@@ -1,6 +1,6 @@
 {
   "name": "ratacode",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "RATACODE · la terminal de trabajo con IA: le mandas el trabajo pesado a modelos baratos (o a los tuyos, en local) y el resultado vuelve a tu agente o a tu chat.",
   "license": "MIT",
   "author": {

@@ -152,14 +152,13 @@
  let claveVista=null; // lo último que dijo el motor; null = no hay nada que avisar
  let nombresVistos={}; // ruta del proveedor → nombre visible, aunque no falte clave
  function textoDeLaClave(d){
-  // R18 · un modelo LOCAL no necesita clave: lo que puede pasar es que su motor
-  // esté apagado, y entonces el aviso dice eso, con la línea que lo enciende.
+  // R23 · una línea y un botón, y nada más:
+  //   · un modelo LOCAL no necesita clave: lo que pasa es que su motor está apagado;
+  //   · una API, si le falta la clave, se dice en cuatro palabras.
   if(d.local&&d.local.encendido===false){
-   return (d.local.nombre||d.nombre||d.proveedor)+' no está encendido: arráncalo con «'
-    +(d.local.arranque||'…')+'» y vuelve a intentarlo.';
+   return (d.local.nombre||d.nombre||d.proveedor)+' está apagado.';
   }
-  return 'Falta la clave de '+(d.nombre||d.proveedor)+'. Pégala en Ajustes › Models (o elige otro '
-   +'modelo, o enciende Ollama si lo tienes).';
+  return 'Falta la clave de '+(d.nombre||d.proveedor)+'.';
  }
  /** El botón del aviso: al runtime local apagado se le lleva a SU pestaña. */
  function botonDeAviso(esLocal){
@@ -182,8 +181,10 @@
   const esLocal=!esAvisoDeClave(claveVista);
   for(const caja of document.querySelectorAll('[data-composer-card]')){
    const padre=caja.parentElement;if(!padre)continue;
-   let aviso=caja.previousElementSibling;
-   if(!aviso||!aviso.classList.contains(AVISO_CLAVE)){
+   // Se busca entre los hermanos, no sólo el de justo antes: el aviso de
+   // migración también va encima de la caja y, si no, se duplican sin fin.
+   let aviso=padre.querySelector(':scope > .'+AVISO_CLAVE);
+   if(!aviso){
     aviso=document.createElement('div');aviso.className=AVISO_CLAVE;
     aviso.append(Object.assign(document.createElement('span'),{className:'mr-clave-texto'}));
     padre.insertBefore(aviso,caja);
@@ -224,7 +225,7 @@
    const titulo=copia.querySelector('[class*="_turnErrorTitle"]');
    const cuerpo=copia.querySelector('[class*="_turnErrorMessage"]');
    const suTitulo='Falta la clave de '+nombre+'.';
-   const suCuerpo='Pégala en Ajustes › Models (o elige otro modelo, o enciende Ollama si lo tienes).';
+   const suCuerpo='Pégala en RATACODE › Ajustes › Models.';
    // Sólo se escribe si de verdad cambia: escribir lo mismo dispara otra vuelta
    // del observador y esto se quedaría girando sin parar.
    if(titulo&&titulo.textContent!==suTitulo)titulo.textContent=suTitulo;
@@ -264,7 +265,7 @@
   const lista=seccion.querySelector('[class*="_rows"]');
   const nota=document.createElement('p');
   nota.className=NOTA_LOCALES;
-  nota.append('Ollama y LM Studio no piden clave, así que no se mezclan con estas APIs: están en ');
+  nota.append('Ollama y LM Studio (sin clave) están en ');
   const boton=document.createElement('button');
   boton.type='button';boton.className='mr-clave-boton';
   boton.textContent='Abrir Ajustes › Modelos locales';
@@ -286,8 +287,8 @@
  function pintarAvisoMigracion(texto){
   for(const caja of document.querySelectorAll('[data-composer-card]')){
    const padre=caja.parentElement;if(!padre)continue;
-   const previo=caja.previousElementSibling;
-   if(previo&&previo.classList.contains(AVISO_MIGRACION)){
+   const previo=padre.querySelector(':scope > .'+AVISO_MIGRACION);
+   if(previo){
     const suyo=previo.querySelector('.mr-migracion-texto');
     if(suyo&&suyo.textContent!==texto)suyo.textContent=texto;
     continue;
@@ -312,6 +313,77 @@
     else quitarAvisoMigracion();
    })
    .catch(()=>{/* motor viejo o sin conexión: ni un aviso de más */});
+ }
+ // ── R23 · LOS MODOS, EN 3×3 ────────────────────────────────────────────────
+ // La pestaña de modos la pinta el plugin de presets del motor: tarjetas en dos
+ // columnas con scroll, la etiqueta «Custom», el id técnico, los iconos de
+ // carpeta/duplicar/borrar y una frase en inglés. No hay slot para sustituirla,
+ // así que la piel la ORDENA encima: se marca la sección (sólo lo marcado se
+ // toca), se renombra a «Modos», cada tarjeta se queda con su NOMBRE grande (con
+ // el color de su personaje), su oficio en UNA línea y «En uso» en el que manda,
+ // y los iconos se esconden detrás de un «⋯». El CSS hace la cuadrícula de 3×3.
+ const MODOS_TITULO='Modos';
+ const MODOS_ORIGEN=/^A preset is the plugin composition/;
+ const MODOS_COLOR={
+  'MODO-RATA':'#ff268e','ARQUITECTO':'#e4f226','CAPATAZ':'#26c6cc','HERO':'#ff8a3d','TIRITA':'#7dd3fc',
+  'GEPETO':'#c084fc','FARO':'#f5d90a','PIX':'#4ade80','NEX':'#f87171'
+ };
+ const MODOS_LINEA={
+  'MODO-RATA':'Tareas normales.',
+  'ARQUITECTO':'Decide cómo se construye.',
+  'CAPATAZ':'Convierte el objetivo en plan.',
+  'HERO':'Las manos: implementa.',
+  'TIRITA':'Cura fallos: causa y arreglo.',
+  'GEPETO':'Segunda opinión y pesquisa.',
+  'FARO':'Escribe claro y sin inventar.',
+  'PIX':'Un solo programa.',
+  'NEX':'Modos y plugins.'
+ };
+ function arreglarModos(){
+  // El menú de Ajustes: «Agent presets» se llama «Modos».
+  for(const b of document.querySelectorAll('[class*="_navList"] button')){
+   if((b.textContent||'').trim()==='Agent presets'&&b.textContent!==MODOS_TITULO)b.textContent=MODOS_TITULO;
+  }
+  // La sección: se reconoce por su frase en inglés, y se marca.
+  let seccion=null;
+  for(const p of document.querySelectorAll('p[class*="_intro"]')){
+   if(MODOS_ORIGEN.test((p.textContent||'').trim())){seccion=p.closest('[class*="_section"]');break;}
+  }
+  if(!seccion)return;
+  seccion.classList.add('mr-modos');
+  const titulo=seccion.querySelector('h2[class*="_title"]');
+  if(titulo&&(titulo.textContent||'').trim()!==MODOS_TITULO)titulo.textContent=MODOS_TITULO;
+  for(const cab of seccion.querySelectorAll('[class*="_groupHead"]')){if(cab.style.display!=='none')cab.style.display='none';}
+  for(const tarjeta of seccion.querySelectorAll('li[class*="_card"]')){
+   const nombre=(tarjeta.querySelector('[class*="_cardName"]')?.textContent||'').trim();
+   const elNombre=tarjeta.querySelector('[class*="_cardName"]');
+   const color=MODOS_COLOR[nombre];
+   if(elNombre&&color!==undefined&&elNombre.style.color!=='rgb('+[1,3,5].map(i=>parseInt(color.slice(i,i+2),16)).join(', ')+')'){
+    elNombre.style.color=color;
+   }
+   // Fuera las etiquetas «Custom»/«Built-in»; «In use» pasa a «En uso».
+   for(const etiqueta of tarjeta.querySelectorAll('[class*="_cardHead"] > span')){
+    const suyo=(etiqueta.textContent||'').trim();
+    if(suyo==='Custom'||suyo==='Built-in'){if(etiqueta.style.display!=='none')etiqueta.style.display='none';}
+    else if(suyo==='In use')etiqueta.textContent='En uso';
+   }
+   // El oficio, en UNA línea (el suyo, corto; el del fichero es un párrafo).
+   const desc=tarjeta.querySelector('[class*="_cardDesc"]');
+   const linea=MODOS_LINEA[nombre];
+   if(desc&&linea!==undefined&&(desc.textContent||'').trim()!==linea)desc.textContent=linea;
+   // Los iconos, detrás de un «⋯» discreto.
+   const pie=tarjeta.querySelector('[class*="_cardFoot"]');
+   if(pie&&!tarjeta.querySelector('.mr-modos-puntos')){
+    const puntos=document.createElement('button');
+    puntos.type='button';puntos.className='mr-modos-puntos';puntos.textContent='⋯';
+    puntos.setAttribute('aria-label','Más acciones: '+nombre);
+    puntos.addEventListener('click',(ev)=>{
+     ev.stopPropagation();
+     tarjeta.dataset.abierto=tarjeta.dataset.abierto==='si'?'no':'si';
+    });
+    tarjeta.insertBefore(puntos,pie);
+   }
+  }
  }
  function apply(){
   const title=document.title.replace(/DeepSeek Harness/gi,'RATACODE');if(title!==document.title)document.title=title;
@@ -361,6 +433,8 @@
   arreglarErrorDeClave();
   // R18: en Ajustes › Models sólo quedan las APIs con clave.
   ocultarLocalesEnModels();
+  // R23: los modos, en 3×3 y en cristiano.
+  arreglarModos();
   const input=document.querySelector('[data-composer-input]');if(input)input.setAttribute('aria-label','Mensaje para RATACODE');
   const search=document.querySelector('[class*="_searchInput"]');if(search)search.setAttribute('placeholder','Buscar sesiones…');
  }

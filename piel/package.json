@@ -1,7 +1,7 @@
 {
   "name": "ratacode-piel",
   "version": "0.1.0",
-  "description": "RATACODE · la piel: inyecta el CSS y los guiones de RATACODE en el index que sirve DSH web (index transform tap) y añade la sección «Handshakes» a Ajustes por la vía oficial de slots.",
+  "description": "RATACODE · la piel: inyecta el CSS y los guiones de RATACODE en el index que sirve DSH web (index transform tap) y añade las secciones «Modelos locales» y «Conexiones» a Ajustes por la vía oficial de slots.",
   "license": "MIT",
   "author": {
     "name": "Patxi"

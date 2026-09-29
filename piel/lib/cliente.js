@@ -10,21 +10,22 @@
  * `exports["./client"]`, y `@deepseek-ai/dsh-client-modules` lo sirve en
  * `/plugins/ratacode-piel/client.js` y lo monta como plugin del navegador.
  *
- * La sección son DOS BOTONES, los dos en español:
- *   1) «Agentes con navegador (Claude Code, Codex, OpenClaw, Rowboat…)»: copia
- *      el apretón de manos de ESTA casa (corto, con su URL) y lo deja en
- *      `<casa>\handshake.md`.
- *   2) «Chats web (ChatGPT, Claude…)»: el MCP para chats web — arrancar
- *      `ratacode mcp --http --acepto-lectura-total` y `node mcp/tunel.mjs`, el
- *      aviso de lectura total, y el texto que se pega en el chat.
+ * La sección «Conexiones» (R23; en R12 se llamaba de otra manera) son DOS TARJETAS,
+ * las dos en español y con pasos 1-2-3:
+ *   1) «Claude Code, Codex, OpenClaw…»: copia el texto de ESTA casa (corto, con su
+ *      URL) y lo deja en `<casa>\handshake.md`.
+ *   2) «ChatGPT y Claude web»: enciende y apaga la conexión (el MCP por HTTP y su
+ *      túnel, que los arranca la piel cuando el usuario pulsa), dice su estado en
+ *      una palabra, copia la dirección que se pega en ChatGPT y avisa en UNA
+ *      línea.
  *
  * R18 · Añade una SEGUNDA sección por la misma vía oficial, «Modelos locales»,
  * con los dos runtimes que corren en el ordenador (Ollama y LM Studio): si están
- * encendidos (lo pregunta a `/ratacode/runtimes`, que sondea `/v1/models` sin
- * bloquear la página), qué modelos tienen y cuáles valen como agente, su
- * `baseURL` y cómo cambiarla, cómo encenderlos en una línea y la recomendación
- * por tarjeta del README. Así Ajustes › Models queda SÓLO para las APIs con
- * clave, que es lo que pidió Patxi.
+ * instalados, encendidos o apagados (lo pregunta a `/ratacode/runtimes`, que
+ * sondea `/v1/models` sin bloquear la página), sus modelos con una etiqueta
+ * corta, el botón de encender/apagar y la recomendación según la tarjeta del PC.
+ * Así Ajustes › Models queda SÓLO para las APIs con clave, que es lo que pidió
+ * Patxi.
  *
  * Este fichero NO es un módulo ES: es un bundle en el formato del cargador de
  * módulos del navegador de DSH (`window.__ModuleLoader__.load({id, factory})`),
@@ -43,21 +44,11 @@ window.__ModuleLoader__.load({
 
     /** El CSS de la sección (se inyecta una sola vez, como hace todo plugin). */
     const CSS = [
-      '.mr-hs{display:flex;flex-direction:column;gap:10px;padding:4px 0 18px;max-width:760px}',
-      '.mr-hs-intro{margin:0;color:var(--dsw-alias-text-secondary,#9aa0a6);font-size:13px;line-height:19px}',
-      '.mr-hs-botones{display:flex;flex-direction:column;gap:8px}',
-      '.mr-hs-boton{display:flex;flex-direction:column;gap:3px;align-items:flex-start;text-align:left;width:100%;cursor:pointer;',
-      'padding:11px 13px;border-radius:10px;border:1px solid var(--dsw-alias-border-secondary,#3a3f45);',
-      'background:var(--dsw-alias-bg-secondary,#1b1e21);color:inherit;font:inherit}',
-      '.mr-hs-boton:hover{border-color:#e4f226}',
-      '.mr-hs-boton[data-abierto="si"]{border-color:#e4f226}',
-      '.mr-hs-titulo{font-weight:600;font-size:14px}',
-      '.mr-hs-sub{font-size:12px;opacity:.75}',
-      '.mr-hs-caja{border:1px solid var(--dsw-alias-border-secondary,#3a3f45);border-radius:10px;padding:12px 13px;display:flex;flex-direction:column;gap:9px}',
-      '.mr-hs-linea{margin:0;font-size:13px;line-height:19px}',
-      '.mr-hs-aviso{margin:0;font-size:13px;line-height:19px;color:#ffb4b4;border-left:3px solid #ff6b6b;padding-left:9px}',
-      '.mr-hs-ok{color:#a6e22e}',
-      '.mr-hs-mal{color:#ffb4b4}',
+      // R23 · Conexiones y Modelos locales: lo mínimo para que se lea claro.
+      '.mr-cx{display:flex;flex-direction:column;gap:12px;padding:4px 0 18px;max-width:640px}',
+      '.mr-cx-tarjeta{border:1px solid var(--dsw-alias-border-secondary,#3a3f45);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:9px}',
+      '.mr-cx-cabeza{display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
+      '.mr-cx-nombre{font-weight:600;font-size:15px}',
       '.mr-hs-pre{margin:0;padding:10px;border-radius:8px;background:#0e1012;color:#dfe3e6;font-family:ui-monospace,Consolas,monospace;',
       'font-size:12px;line-height:17px;white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto}',
       '.mr-hs-acciones{display:flex;gap:8px;flex-wrap:wrap}',
@@ -65,28 +56,42 @@ window.__ModuleLoader__.load({
       'background:var(--dsw-alias-bg-secondary,#1b1e21);color:inherit;font:inherit;font-size:12px}',
       '.mr-hs-accion:hover{border-color:#e4f226}',
       '.mr-hs-accion[data-copiado="si"]{border-color:#a6e22e;color:#a6e22e}',
-      // R18 · Ajustes › Modelos locales
+      // R23 · Ajustes › Modelos locales
       '.mr-ml{display:flex;flex-direction:column;gap:12px;padding:4px 0 18px;max-width:760px}',
       '.mr-ml-tarjeta{border:1px solid var(--dsw-alias-border-secondary,#3a3f45);border-radius:10px;padding:12px 13px;display:flex;flex-direction:column;gap:8px}',
-      '.mr-ml-cabeza{display:flex;align-items:center;gap:8px;flex-wrap:wrap}',
-      '.mr-ml-nombre{font-weight:600;font-size:14px}',
+      '.mr-ml-cabeza{display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
+      '.mr-ml-nombre{font-weight:600;font-size:15px}',
       '.mr-ml-pildora{border:1px solid var(--dsw-alias-border-secondary,#3a3f45);border-radius:999px;padding:1px 9px;font-size:12px}',
       '.mr-ml-encendido{color:#a6e22e;border-color:#a6e22e}',
       '.mr-ml-apagado{color:#ffb4b4;border-color:#ff6b6b}',
-      '.mr-ml-modelos{display:flex;flex-direction:column;gap:5px;margin:0;padding:0;list-style:none}',
-      '.mr-ml-modelo{display:flex;align-items:baseline;gap:8px;font-size:13px;flex-wrap:wrap}',
+      '.mr-ml-sin{color:var(--dsw-alias-text-secondary,#9aa0a6)}',
+      '.mr-ml-paso{display:flex;align-items:baseline;gap:8px;font-size:13px;line-height:19px}',
+      '.mr-ml-num{font-weight:700;color:#e4f226;min-width:12px}',
+      '.mr-ml-pasoTxt{min-width:0}',
+      '.mr-ml-modelo{display:flex;align-items:baseline;gap:8px;font-size:13px;cursor:pointer;text-align:left;',
+      'background:none;border:0;border-radius:8px;padding:3px 6px;color:inherit;font-family:inherit}',
+      '.mr-ml-modelo:hover{background:var(--dsw-alias-bg-secondary,#1b1e21)}',
       '.mr-ml-id{font-family:ui-monospace,Consolas,monospace;font-size:12px}',
       '.mr-ml-clase{border-radius:6px;padding:1px 7px;font-size:11px}',
       '.mr-ml-si{background:rgba(166,226,46,.14);color:#a6e22e}',
       '.mr-ml-no{background:rgba(255,107,107,.14);color:#ffb4b4}',
       '.mr-ml-duda{background:rgba(154,160,166,.16);color:#c9ced3}',
       '.mr-ml-nota{margin:0;font-size:12px;line-height:17px;color:var(--dsw-alias-text-secondary,#9aa0a6)}',
-      '.mr-ml-enlace{color:#e4f226}',
-      '.mr-ml-tarjetas{margin:0;font-size:13px;line-height:20px}',
+      '.mr-ml-aviso{margin:0;font-size:13px;line-height:19px;color:#ffb4b4}',
+      '.mr-ml-tarjeta-pc{margin:0;font-size:13px;line-height:20px;font-weight:600}',
+      '.mr-ml-acciones{display:flex;gap:8px;flex-wrap:wrap;align-items:center}',
+      '.mr-ml-boton{display:inline-block;cursor:pointer;text-decoration:none;padding:7px 14px;border-radius:8px;',
+      'border:1px solid var(--dsw-alias-border-secondary,#3a3f45);background:var(--dsw-alias-bg-secondary,#1b1e21);',
+      'color:inherit;font:inherit;font-size:13px}',
+      '.mr-ml-boton:hover{border-color:#e4f226}',
+      '.mr-ml-pre{margin:0;padding:9px;border-radius:8px;background:#0e1012;color:#dfe3e6;font-family:ui-monospace,Consolas,monospace;',
+      'font-size:12px;line-height:17px;white-space:pre-wrap;word-break:break-word}',
+      '.mr-ml-avanzado{margin-top:2px}',
+      '.mr-ml-avanzado>summary{cursor:pointer;font-size:12px;color:var(--dsw-alias-text-secondary,#9aa0a6)}',
     ].join('');
 
     if (typeof document !== 'undefined') {
-      const tagId = 'ratacode-piel/handshakes.css';
+      const tagId = 'ratacode-piel/secciones.css';
       if (document.querySelector('style[data-plugin-css=' + JSON.stringify(tagId) + ']') === null) {
         const tag = document.createElement('style');
         tag.dataset.plugin = 'ratacode-piel';
@@ -130,17 +135,6 @@ window.__ModuleLoader__.load({
       } catch { return false; }
     }
 
-    /** Un botón grande de la sección (el título y su explicación). */
-    function Boton(props) {
-      return e('button', {
-        type: 'button',
-        className: 'mr-hs-boton',
-        'data-abierto': props.abierto ? 'si' : 'no',
-        'aria-expanded': props.abierto ? 'true' : 'false',
-        onClick: props.onClick,
-      }, e('span', { className: 'mr-hs-titulo' }, props.titulo), e('span', { className: 'mr-hs-sub' }, props.sub));
-    }
-
     /** Un bloque de texto con su botón de copiar. */
     function Bloque(props) {
       const [copiado, setCopiado] = React.useState(false);
@@ -160,192 +154,215 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * La sección «Handshakes» de Ajustes.
-     * @param props - props del asiento (renderSlot, close…) más lo inyectado.
-     * @returns el árbol de la sección.
+     * R23 · La sección «Conexiones» de Ajustes: dos tarjetas, cada una con sus
+     * pasos 1-2-3 y un botón por acción. Lo que se explica largo va plegado.
      */
-    function SeccionHandshakes() {
-      const [vista, setVista] = React.useState(null);
-      const [nav, setNav] = React.useState({ fase: 'quieto' });
-      const [mcp, setMcp] = React.useState({ fase: 'quieto' });
-      const [aviso, setAviso] = React.useState('');
+    function SeccionConexiones() {
+      const [texto, setTexto] = React.useState(null);
+      const [copiado, setCopiado] = React.useState('');
+      const [conexion, setConexion] = React.useState({ fase: 'cargando' });
+      const [enCurso, setEnCurso] = React.useState('');
+      const [dicho, setDicho] = React.useState('');
 
-      const pulsarNavegador = () => {
-        setVista(vista === 'navegador' ? null : 'navegador');
-        if (nav.fase === 'cargando' || nav.fase === 'listo') return;
-        setNav({ fase: 'cargando' });
-        setAviso('');
+      const mirarConexion = () => {
+        setConexion((previo) => (previo.fase === 'listo' ? { ...previo, fase: 'remirando' } : { fase: 'cargando' }));
+        pedir('/ratacode/conexion', 'GET').then((r) => {
+          if (!r.ok) { setConexion({ fase: 'error', error: r.error ?? 'error' }); return; }
+          setConexion({ fase: 'listo', datos: r });
+        });
+      };
+      React.useEffect(() => { mirarConexion(); }, []);
+
+      const copiarConAviso = (etiqueta, valor) => {
+        Promise.resolve(copiarAlPortapapeles(valor)).then((ok) => {
+          setCopiado(ok ? etiqueta : '');
+          if (ok) setTimeout(() => setCopiado(''), 2200);
+        });
+      };
+
+      /** El botón «Copiar» de la primera tarjeta: copia y deja el texto en la casa. */
+      const pulsarCopiar = () => {
+        setDicho('');
         pedir('/ratacode/handshake', 'POST').then((r) => {
-          if (!r.ok) { setNav({ fase: 'error', error: r.error ?? 'error' }); return; }
-          setNav({ fase: 'listo', texto: r.texto, ruta: r.ruta, url: r.url, casa: r.casa });
-          Promise.resolve(copiarAlPortapapeles(r.texto)).then((ok) => {
-            setAviso(ok ? 'Copiado al portapapeles. ' : '');
-          });
+          if (!r.ok) { setDicho('No pude prepararlo: ' + (r.error ?? 'error')); return; }
+          setTexto(r.texto);
+          copiarConAviso('texto', r.texto);
         });
       };
 
-      const pulsarMcp = () => {
-        setVista(vista === 'mcp' ? null : 'mcp');
-        if (mcp.fase === 'cargando') return;
-        setMcp({ fase: 'cargando' });
-        pedir('/ratacode/mcp', 'GET').then((r) => {
-          if (!r.ok) { setMcp({ fase: 'error', error: r.error ?? 'error' }); return; }
-          setMcp({ fase: 'listo', datos: r });
-        });
+      const botonConexion = (cual) => {
+        setDicho('');
+        setEnCurso(cual);
+        fetch('/ratacode/conexion/' + cual, { method: 'POST', credentials: 'same-origin', cache: 'no-store' })
+          .then((res) => res.json().catch(() => null))
+          .then((r) => {
+            setEnCurso('');
+            if (r === null) setDicho('No pude hablar con RATACODE.');
+            else if (r.ok !== true) setDicho(r.motivo ?? 'No pude hacerlo.');
+            if (r !== null && r.estado !== undefined) setConexion({ fase: 'listo', datos: r.estado });
+            else mirarConexion();
+          })
+          .catch(() => { setEnCurso(''); setDicho('No pude hablar con RATACODE.'); });
       };
 
       const hijos = [];
 
-      hijos.push(e('p', { className: 'mr-hs-intro', key: 'intro' },
-        'Aquí se dan la mano los dos que trabajan con RATACODE: los agentes con navegador '
-        + '(por el apretón de manos) y los chats web (por el MCP). Las claves de los modelos no se '
-        + 'piden aquí: se ponen en Ajustes › Models, como siempre.'));
+      // ── tarjeta 1 · los agentes con navegador ─────────────────────────────
+      hijos.push(e('div', { className: 'mr-cx-tarjeta', key: 'agentes' },
+        e('div', { className: 'mr-cx-cabeza' }, e('span', { className: 'mr-cx-nombre' }, 'Claude Code, Codex, OpenClaw…')),
+        e(Paso, { n: '1' }, 'Copia esto',
+          e('button', { type: 'button', className: 'mr-ml-boton', onClick: pulsarCopiar }, copiado === 'texto' ? 'Copiado ✓' : 'Copiar')),
+        e(Paso, { n: '2' }, 'Pégalo en tu chat'),
+        e(Paso, { n: '3' }, 'Listo'),
+        texto === null ? null : e('details', { className: 'mr-ml-avanzado', key: 'ver' },
+          e('summary', {}, 'Ver lo que se copia'),
+          e('pre', { className: 'mr-hs-pre' }, texto))));
 
-      hijos.push(e('div', { className: 'mr-hs-botones', key: 'botones' },
-        e(Boton, {
-          key: 'navegador',
-          abierto: vista === 'navegador',
-          titulo: 'Agentes con navegador (Claude Code, Codex, OpenClaw, Rowboat…)',
-          sub: 'Copia el apretón de manos de esta casa y lo deja en <casa>\\handshake.md',
-          onClick: pulsarNavegador,
-        }),
-        vista === 'navegador' ? e('div', { className: 'mr-hs-caja', key: 'navegador-caja' }, panelNavegador(nav, aviso)) : null,
-        e(Boton, {
-          key: 'mcp',
-          abierto: vista === 'mcp',
-          titulo: 'Chats web (ChatGPT, Claude…)',
-          sub: 'El MCP por HTTP + túnel, el aviso de lectura total y el texto para pegar en el chat',
-          onClick: pulsarMcp,
-        }),
-        vista === 'mcp' ? e('div', { className: 'mr-hs-caja', key: 'mcp-caja' }, panelMcp(mcp)) : null));
-
-      return e('div', { className: 'mr-hs' }, hijos);
-    }
-
-    /** El panel del apretón de manos (agentes con navegador). */
-    function panelNavegador(nav, aviso) {
-      if (nav.fase === 'cargando') return [e('p', { className: 'mr-hs-linea', key: 'l' }, 'Escribiendo el apretón de esta casa…')];
-      if (nav.fase === 'error') return [e('p', { className: 'mr-hs-aviso', key: 'l' }, 'No pude preparar el apretón: ' + nav.error)];
-      if (nav.fase !== 'listo') return [e('p', { className: 'mr-hs-linea', key: 'l' }, 'Pulsa el botón: se copia y se deja en el fichero de la casa.')];
-      return [
-        e('p', { className: 'mr-hs-linea mr-hs-ok', key: 'ruta' },
-          (aviso ?? '') + 'Dejado en ' + nav.ruta + ' (' + nav.texto.split('\n').length + ' líneas).'),
-        e('p', { className: 'mr-hs-linea', key: 'uso' },
-          'Quien lo reciba abre el panel de esta casa, pregunta primero «¿qué porcentaje del trabajo quieres '
-          + 'que descargue en RATACODE?» y trabaja según tu respuesta.'),
-        e('pre', { className: 'mr-hs-pre', key: 'texto' }, nav.texto),
-        e(Bloque, { key: 'copiar', texto: nav.texto, etiqueta: 'Copiar otra vez' }),
+      // ── tarjeta 2 · los chats web (ChatGPT y Claude web) ──────────────────
+      const d = conexion.fase === 'listo' ? conexion.datos : null;
+      const conectado = d !== null && d.conectado === true;
+      const tarjeta = [
+        e('div', { className: 'mr-cx-cabeza', key: 'cabeza' },
+          e('span', { className: 'mr-cx-nombre' }, 'ChatGPT y Claude web'),
+          e('span', { className: 'mr-ml-pildora ' + (conectado ? 'mr-ml-encendido' : 'mr-ml-sin') },
+            conectado ? 'Conectado' : 'Sin conectar')),
+        e(Paso, { n: '1', key: 'p1' }, 'Enciende la conexión',
+          conectado
+            ? e('button', { type: 'button', className: 'mr-ml-boton', onClick: () => botonConexion('apagar') },
+              enCurso === 'apagar' ? 'Apagando…' : 'Apagar')
+            : e('button', { type: 'button', className: 'mr-ml-boton', 'data-accion': 'encender', onClick: () => botonConexion('encender') },
+              enCurso === 'encender' ? 'Encendiendo…' : 'Encender')),
+        e(Paso, { n: '2', key: 'p2' }, 'Copia la dirección',
+          conectado
+            ? e('button', { type: 'button', className: 'mr-ml-boton', onClick: () => copiarConAviso('direccion', d.direccion) },
+              copiado === 'direccion' ? 'Copiada ✓' : 'Copiar dirección')
+            : null),
+        e(Paso, { n: '3', key: 'p3' }, 'Pégala en ChatGPT › Ajustes › Conectores'),
+        e('p', { className: 'mr-ml-nota', key: 'aviso' },
+          'Mientras está encendida, quien tenga la dirección puede leer tus ficheros. Apágala al terminar.'),
       ];
-    }
-
-    /** El panel del MCP para chats web. */
-    function panelMcp(mcp) {
-      if (mcp.fase === 'cargando') return [e('p', { className: 'mr-hs-linea', key: 'l' }, 'Mirando si el MCP y el túnel están abiertos…')];
-      if (mcp.fase === 'error') return [e('p', { className: 'mr-hs-aviso', key: 'l' }, 'No pude mirar el MCP: ' + mcp.error)];
-      if (mcp.fase !== 'listo') return [e('p', { className: 'mr-hs-linea', key: 'l' }, 'Pulsa el botón para ver el estado y el texto que se pega en el chat.')];
-      const d = mcp.datos;
-      const abierto = d.tunel && d.tunel.abierto === true;
-      const hijos = [];
-      hijos.push(e('p', { className: 'mr-hs-linea', key: 'estado' },
-        'MCP por HTTP: ', e('b', { key: 'h' }, d.http && d.http.abierto ? 'arrancado' : 'parado'),
-        d.http && d.http.url ? ' (' + d.http.url.replace(/\/mcp\/.*$/, '/mcp/<oculta>') + ')' : '',
-        ' · Túnel de Cloudflare: ', e('b', { key: 't' }, abierto ? 'ABIERTO' : 'cerrado'),
-        abierto ? ' (' + d.tunel.url.replace(/\/mcp\/.*$/, '/mcp/<oculta>') + ')' : ''));
-      if (abierto) {
-        hijos.push(e('p', { className: 'mr-hs-linea', key: 'url' },
-          'URL pública para pegar en el chat (modo desarrollador → conector MCP): ', e('code', { key: 'c' }, d.tunel.url)));
-      } else {
-        hijos.push(e('p', { className: 'mr-hs-aviso', key: 'cerrado' },
-          'El túnel NO está abierto, así que ningún chat web puede llegar a este PC. Arranca los dos comandos, '
-          + 'cada uno en su ventana (el primero deja el MCP por HTTP escuchando en 3778; el segundo abre el túnel):'));
-        hijos.push(e('pre', { className: 'mr-hs-pre', key: 'comandos' }, d.comandos));
-        hijos.push(e(Bloque, { key: 'copiar-comandos', texto: d.comandos, etiqueta: 'Copiar los dos comandos' }));
+      if (conexion.fase === 'error') {
+        tarjeta.push(e('p', { className: 'mr-ml-aviso', key: 'error' }, 'No pude mirar la conexión: ' + conexion.error));
       }
-      hijos.push(e('p', { className: 'mr-hs-aviso', key: 'lectura' },
-        'AVISO DE LECTURA TOTAL: el motor de RATACODE no sabe acotar lo que una tarea LEE, así que quien tenga '
-        + 'esa URL puede pedir que le lea ficheros de este PC. Por eso el MCP por HTTP y el túnel exigen '
-        + '--acepto-lectura-total. No la compartas y ciérralo (Ctrl+C) al acabar.'));
-      hijos.push(e('p', { className: 'mr-hs-linea', key: 'pegar-intro' },
-        'Esto es lo que se pega en el chat (dice qué es RATACODE, las herramientas y cómo esperar a que acabe):'));
-      hijos.push(e('pre', { className: 'mr-hs-pre', key: 'pegar' }, d.pegar));
-      hijos.push(e(Bloque, { key: 'copiar-pegar', texto: d.pegar, etiqueta: 'Copiar el texto del chat' }));
-      return hijos;
+      if (d !== null && !d.nuestro && conectado) {
+        tarjeta.push(e('p', { className: 'mr-ml-nota', key: 'ajena' },
+          'La encendiste tú (en una ventana): se apaga con Ctrl+C ahí.'));
+      }
+      if (d !== null && !conectado && d.comandos !== undefined) {
+        tarjeta.push(e('details', { className: 'mr-ml-avanzado', key: 'comandos' },
+          e('summary', {}, 'A mano'),
+          e('pre', { className: 'mr-hs-pre' }, d.comandos)));
+      }
+      if (dicho !== '') tarjeta.push(e('p', { className: 'mr-ml-aviso', key: 'dicho' }, dicho));
+      hijos.push(e('div', { className: 'mr-cx-tarjeta', key: 'web' }, tarjeta));
+
+      return e('div', { className: 'mr-cx' }, hijos);
     }
 
-    // ── R18 · Ajustes › Modelos locales ─────────────────────────────────────
+    // ── R23 · Ajustes › Modelos locales (una tarjeta por programa) ──────────
 
-    /** El texto de la píldora de estado de un runtime local. */
-    function textoEstado(runtime) {
-      return runtime.encendido ? 'encendido' : 'apagado';
+    /** Las tres palabras de estado. Una, y corta. */
+    function estadoDe(runtime) {
+      if (runtime.encendido) return 'Encendido';
+      return runtime.instalado ? 'Apagado' : 'No instalado';
     }
 
-    /** Una píldora («encendido» / «apagado») del runtime. */
+    /** La píldora del estado: verde si está encendido, gris si no. */
     function Pildora(props) {
-      return e('span', {
-        className: 'mr-ml-pildora ' + (props.encendido ? 'mr-ml-encendido' : 'mr-ml-apagado'),
-        'data-estado': props.encendido ? 'encendido' : 'apagado',
-      }, props.texto);
+      const clase = props.estado === 'Encendido' ? 'mr-ml-encendido' : (props.estado === 'Apagado' ? 'mr-ml-apagado' : 'mr-ml-sin');
+      return e('span', { className: 'mr-ml-pildora ' + clase, 'data-estado': props.estado }, props.estado);
     }
 
     /**
-     * Una fila de modelo local: su id y si vale como agente (clase + por qué).
-     * @param props - `modelo` con `{id, clase, nota}`.
-     * @returns la fila.
+     * «1 · Enciéndelo»: el número, el texto y, si toca, su botón al lado.
+     */
+    function Paso(props) {
+      const hijos = Array.isArray(props.children) ? props.children : [props.children];
+      return e('div', { className: 'mr-ml-paso' },
+        e('span', { className: 'mr-ml-num' }, props.n),
+        e('span', { className: 'mr-ml-pasoTxt' }, hijos[0]),
+        hijos.slice(1));
+    }
+
+    /**
+     * Un modelo del runtime: su id, su etiqueta corta y, al pulsarlo, se elige en
+     * la caja si se puede.
      */
     function ModeloLocal(props) {
       const m = props.modelo;
+      const etiqueta = m.clase === 'agente' ? 'Recomendado' : (m.clase === 'no' ? 'No sirve para agentes' : 'Sin datos');
       const clase = m.clase === 'agente' ? 'mr-ml-si' : (m.clase === 'no' ? 'mr-ml-no' : 'mr-ml-duda');
-      const etiqueta = m.clase === 'agente' ? 'vale como agente' : (m.clase === 'no' ? 'NO vale como agente' : 'sin datos');
-      return e('li', { className: 'mr-ml-modelo' },
+      return e('button', {
+        type: 'button',
+        className: 'mr-ml-modelo',
+        'data-modelo': m.id,
+        title: 'Ponlo en la caja',
+        onClick: () => props.onElegir(m.id),
+      },
         e('span', { className: 'mr-ml-id' }, m.id),
-        e('span', { className: 'mr-ml-clase ' + clase, 'data-clase': m.clase }, etiqueta),
-        e('span', { className: 'mr-ml-nota' }, m.nota));
+        e('span', { className: 'mr-ml-clase ' + clase }, etiqueta));
     }
 
-    /** Una tarjeta de runtime local: estado, modelos, dirección y arranque. */
+    /** Una tarjeta de programa: nombre, estado, sus pasos y sus botones. */
     function TarjetaRuntime(props) {
       const r = props.runtime;
+      const estado = estadoDe(r);
       const hijos = [];
       hijos.push(e('div', { className: 'mr-ml-cabeza', key: 'cabeza' },
         e('span', { className: 'mr-ml-nombre' }, r.nombre),
-        e(Pildora, { key: 'p', encendido: r.encendido, texto: textoEstado(r) }),
-        e('span', { className: 'mr-ml-nota', key: 'dir' }, 'dirección: ', e('code', { key: 'c' }, r.baseURL))));
-      if (r.encendido) {
-        if (r.modelos.length === 0) {
-          hijos.push(e('p', { className: 'mr-ml-nota', key: 'vacio' },
-            'Está encendido, pero no tiene ningún modelo bajado. Baja el que te toque con «'
-            + (r.id === 'ollama' ? 'ollama pull ' + props.recomendado : 'LM Studio → búscalo y descárgalo') + '».'));
+        e(Pildora, { key: 'p', estado })));
+
+      if (estado === 'No instalado') {
+        hijos.push(e(Paso, { key: 'p1', n: '1' }, 'Descárgalo'));
+        hijos.push(e('div', { className: 'mr-ml-acciones', key: 'a1' },
+          e('a', { className: 'mr-ml-boton', href: r.enlace, target: '_blank', rel: 'noreferrer' }, r.descarga)));
+        hijos.push(e(Paso, { key: 'p2', n: '2' }, 'Instálalo y ábrelo'));
+        hijos.push(e(Paso, { key: 'p3', n: '3' }, r.pull === null ? 'Descarga un modelo desde la app' : 'Descarga un modelo'));
+        if (r.pull !== null) {
+          hijos.push(e('div', { className: 'mr-ml-acciones', key: 'a3' },
+            e(Bloque, { key: 'c', texto: r.pull, etiqueta: 'Copiar «' + r.pull + '»' })));
+        }
+      } else if (estado === 'Apagado') {
+        if (r.puedeEncender && props.aMano !== true) {
+          hijos.push(e('div', { className: 'mr-ml-acciones', key: 'enc' },
+            e('button', { type: 'button', className: 'mr-ml-boton', 'data-accion': 'encender', 'data-runtime': r.id, onClick: () => props.onEncender() }, props.encendiendo ? 'Encendiendo…' : 'Encender')));
         } else {
-          hijos.push(e('p', { className: 'mr-ml-nota', key: 'tiene' },
-            'Tiene ' + r.modelos.length + ' modelo' + (r.modelos.length === 1 ? '' : 's')
-            + ' (los que valen como agente lo dicen al lado):'));
-          hijos.push(e('ul', { className: 'mr-ml-modelos', key: 'lista' },
-            r.modelos.map((m) => e(ModeloLocal, { key: m.id, modelo: m }))));
+          // No se puede encender desde aquí (o lo hemos intentado y su programa no
+          // arrancó): el comando, en UN bloque y con su botón de copiar.
+          hijos.push(e(Paso, { key: 'p1', n: '1' }, 'Enciéndelo con este comando'));
+          hijos.push(e('pre', { className: 'mr-ml-pre', key: 'pre' }, r.arranque));
+          hijos.push(e('div', { className: 'mr-ml-acciones', key: 'acc' },
+            e(Bloque, { key: 'c', texto: r.arranque, etiqueta: 'Copiar comando' })));
         }
       } else {
-        hijos.push(e('p', { className: 'mr-ml-nota', key: 'apagado' },
-          'Está apagado, así que ahora mismo no puede trabajar. Enciéndelo con esta línea:'));
-        hijos.push(e('pre', { className: 'mr-hs-pre', key: 'arranque' }, r.arranque));
-        hijos.push(e('div', { className: 'mr-hs-acciones', key: 'copiar' },
-          e(Bloque, { texto: r.arranque, etiqueta: 'Copiar «' + r.arranque + '»' })));
-        hijos.push(e('p', { className: 'mr-ml-nota', key: 'despues' }, r.despues));
+        hijos.push(e('div', { className: 'mr-ml-acciones', key: 'apag' },
+          r.puedeApagar
+            ? e('button', { type: 'button', className: 'mr-ml-boton', 'data-accion': 'apagar', 'data-runtime': r.id, onClick: () => props.onApagar() }, props.apagando ? 'Apagando…' : 'Apagar')
+            : e('span', { className: 'mr-ml-nota', key: 'amano' }, r.apagadoAMano ?? '')));
+        if (r.modelos.length === 0) {
+          hijos.push(e('p', { className: 'mr-ml-nota', key: 'vacio' },
+            r.pull === null ? 'Sin modelos: descarga uno desde la app.' : 'Sin modelos: ' + r.pull));
+        } else {
+          for (const m of r.modelos) hijos.push(e(ModeloLocal, { key: m.id, modelo: m, onElegir: props.onElegir }));
+        }
       }
-      hijos.push(e('p', { className: 'mr-ml-nota', key: 'enlace' },
-        '¿No lo tienes? ', e('a', { className: 'mr-ml-enlace', href: r.enlace, target: '_blank', rel: 'noreferrer' },
-          'Descargar ' + r.nombre + ' →')));
-      hijos.push(e('p', { className: 'mr-ml-nota', key: 'cambiar' }, r.cambiar));
-      return e('div', { className: 'mr-ml-tarjeta', key: r.id, 'data-runtime': r.id }, hijos);
+
+      hijos.push(e('details', { className: 'mr-ml-avanzado', key: 'avanzado' },
+        e('summary', {}, 'Avanzado'),
+        e('p', { className: 'mr-ml-nota' }, r.cambiar)));
+      return e('div', { className: 'mr-ml-tarjeta', key: r.id, 'data-runtime': r.id, 'data-estado': estado }, hijos);
     }
 
     /**
-     * La sección «Modelos locales» de Ajustes: los dos runtimes que corren en el
-     * ordenador, con su estado, sus modelos y la recomendación por tarjeta.
-     * Pregunta a `/ratacode/runtimes` (el servidor de la piel sondea con tope de
-     * 1,5 s), así que NUNCA bloquea la página: mientras mira, lo dice.
-     * @returns el árbol de la sección.
+     * La pestaña «Modelos locales»: una tarjeta por programa (Ollama y LM Studio),
+     * con su estado, sus pasos 1-2-3 y un botón por acción. Nada de explicar
+     * tripas: lo avanzado (dirección y puerto) va plegado.
      */
     function SeccionModelosLocales() {
       const [estado, setEstado] = React.useState({ fase: 'cargando' });
+      const [enCurso, setEnCurso] = React.useState({});
+      const [aMano, setAMano] = React.useState({});
+      const [dicho, setDicho] = React.useState('');
 
       const mirar = () => {
         setEstado((previo) => (previo.fase === 'listo' ? { fase: 'remirando', datos: previo.datos } : { fase: 'cargando' }));
@@ -356,55 +373,103 @@ window.__ModuleLoader__.load({
       };
       React.useEffect(() => { mirar(); }, []);
 
-      const hijos = [];
-      hijos.push(e('p', { className: 'mr-hs-intro', key: 'intro' },
-        'Estos dos motores corren en TU ordenador: no piden clave y nada de lo que hables con ellos sale de tu PC. '
-        + 'Por eso no están en Ajustes › Models (esa pestaña es para las APIs con clave): aquí se ve si están '
-        + 'encendidos, qué modelos tienes y cuáles valen para trabajar como agente.'));
+      const accion = (id, cual) => {
+        setDicho('');
+        setAMano((previo) => ({ ...previo, [id]: false }));
+        setEnCurso((previo) => ({ ...previo, [id]: cual }));
+        fetch('/ratacode/runtimes/' + cual, {
+          method: 'POST', credentials: 'same-origin', cache: 'no-store',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id }),
+        }).then((res) => res.json().catch(() => null)).then((r) => {
+          setEnCurso((previo) => ({ ...previo, [id]: null }));
+          if (r === null) { setDicho('No pude hablar con RATACODE.'); mirar(); return; }
+          if (r.ok !== true) {
+            setDicho(r.motivo ?? 'No pude hacerlo.');
+            // No se ha podido desde aquí: la tarjeta deja el COMANDO, que es la
+            // otra vía (y así el usuario no se queda sin nada que hacer).
+            if (r.aMano === true) setAMano((previo) => ({ ...previo, [id]: true }));
+          }
+          mirar();
+        }).catch(() => {
+          setEnCurso((previo) => ({ ...previo, [id]: null }));
+          setDicho('No pude hablar con RATACODE.');
+        });
+      };
 
-      if (estado.fase === 'cargando') {
-        hijos.push(e('p', { className: 'mr-hs-linea', key: 'mirando' }, 'Mirando si están encendidos… (no hace falta esperar aquí: la página sigue viva)'));
-        return e('div', { className: 'mr-ml' }, hijos);
-      }
+      const elegir = (id) => {
+        setDicho('');
+        elegirModeloEnLaCaja(id).then((ok) => {
+          if (!ok) setDicho('No pude ponerlo en la caja: elígelo en el selector de modelos.');
+        });
+      };
+
+      if (estado.fase === 'cargando') return e('div', { className: 'mr-ml' }, e('p', { className: 'mr-ml-nota' }, 'Mirando…'));
       if (estado.fase === 'error') {
-        hijos.push(e('p', { className: 'mr-hs-aviso', key: 'error' }, 'No pude mirar los motores locales: ' + estado.error));
-        hijos.push(e('div', { className: 'mr-hs-acciones', key: 'reintentar' },
-          e('button', { type: 'button', className: 'mr-hs-accion', onClick: mirar }, 'Volver a mirar')));
-        return e('div', { className: 'mr-ml' }, hijos);
+        return e('div', { className: 'mr-ml' },
+          e('p', { className: 'mr-ml-aviso' }, 'No pude mirar los programas locales: ' + estado.error),
+          e('button', { type: 'button', className: 'mr-ml-boton', onClick: mirar }, 'Volver a mirar'));
       }
 
       const d = estado.datos;
       const runtimes = Array.isArray(d.runtimes) ? d.runtimes : [];
-      const primero = runtimes[0] ?? null;
-      for (const r of runtimes) {
-        hijos.push(e(TarjetaRuntime, { key: r.id, runtime: r, recomendado: (d.tarjetas ?? [])[0]?.modelo ?? 'qwen3:8b' }));
-      }
+      return e('div', { className: 'mr-ml' },
+        runtimes.map((r) => e(TarjetaRuntime, {
+          key: r.id,
+          runtime: r,
+          encendiendo: enCurso[r.id] === 'encender',
+          apagando: enCurso[r.id] === 'apagar',
+          aMano: aMano[r.id] === true,
+          onEncender: () => accion(r.id, 'encender'),
+          onApagar: () => accion(r.id, 'apagar'),
+          onElegir: elegir,
+        })),
+        e('p', { className: 'mr-ml-tarjeta-pc', key: 'pc' },
+          d.tarjeta === null || d.tarjeta === undefined
+            ? 'No sé qué tarjeta tienes. Recomendados: 8 GB → qwen3:8b · 12 GB → gemma4:12b · 16 GB → gpt-oss:20b · 24 GB → muse-glimmer:30b · Solo CPU → granite4.1:3b'
+            : 'Tu tarjeta: ' + d.tarjeta.gb + ' GB → recomendado: ' + (d.recomendado ?? 'qwen3:8b')),
+        dicho === '' ? null : e('p', { className: 'mr-ml-aviso', key: 'dicho' }, dicho),
+        e('div', { className: 'mr-ml-acciones', key: 'mirar' },
+          e('button', { type: 'button', className: 'mr-ml-boton', onClick: mirar }, estado.fase === 'remirando' ? 'Mirando otra vez…' : 'Volver a mirar')));
+    }
 
-      hijos.push(e('p', { className: 'mr-hs-intro', key: 'proveedor' }, d.aviso ?? ''));
-      hijos.push(e('p', { className: 'mr-ml-tarjetas', key: 'tarjetas-tabla' },
-        'Qué modelo según tu tarjeta (tabla del README): ',
-        (d.tarjetas ?? []).map((t, i) => e('span', { key: t.tarjeta },
-          (i > 0 ? ' · ' : ''),
-          e('b', { key: 'b' }, t.tarjeta), ' → ',
-          e('code', { key: 'm' }, t.modelo), ' (' + t.tamano + ')'))));
-      if (primero !== null) {
-        hijos.push(e('p', { className: 'mr-ml-nota', key: 'recuerda' },
-          'Baja el tuyo con `ollama pull <id>`, enciende el motor y elígelo en el selector de modelos de la caja '
-          + 'de escribir' + (primero.modelos[0]?.id ? ' (ahora mismo tienes «' + primero.modelos[0].id + '» en marcha)' : '') + '.'));
-      }
-      hijos.push(e('div', { className: 'mr-hs-acciones', key: 'acciones' },
-        e('button', { type: 'button', className: 'mr-hs-accion', onClick: mirar },
-          estado.fase === 'remirando' ? 'Mirando otra vez…' : 'Volver a mirar')));
-
-      return e('div', { className: 'mr-ml' }, hijos);
+    /**
+     * R23 · Poner un modelo local en la CAJA: se abre el selector de modelos del
+     * propio motor y se pulsa el suyo. Es lo que hace un dedo, hecho por código.
+     * Si no se puede (el modelo no está en el catálogo de la casa, o el selector
+     * no está montado), se devuelve `false` y la pestaña lo dice en una línea.
+     * @param id - el id del modelo (`qwen3:8b`).
+     * @returns si se ha podido elegir.
+     */
+    async function elegirModeloEnLaCaja(id) {
+      const normal = (t) => String(t ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const esperar = (ms) => new Promise((listo) => setTimeout(listo, ms));
+      try {
+        const caja = document.querySelector('[data-composer-card]');
+        if (caja === null) return false;
+        const disparador = [...caja.querySelectorAll('button[aria-haspopup="menu"]')].find((b) => /trigger/.test(String(b.className)));
+        if (disparador === undefined) return false;
+        disparador.click();
+        await esperar(300);
+        const celda = [...document.querySelectorAll('[role="menuitem"]')]
+          .find((x) => ((x.querySelector('[class*="cellLabel"]')?.textContent ?? '').trim()) === 'Model');
+        if (celda !== undefined) { celda.click(); await esperar(400); }
+        const opciones = [...document.querySelectorAll('[role="menuitemradio"]')];
+        const buscado = normal(id);
+        const suyo = opciones.find((o) => normal(o.querySelector('[class*="modelName"]')?.textContent) === buscado)
+          ?? opciones.find((o) => normal(o.textContent).includes(buscado));
+        if (suyo === undefined) { document.body.click(); return false; }
+        suyo.click();
+        return true;
+      } catch { return false; }
     }
 
     /** Servicios que necesita el plugin de cliente. */
     const inject = ['slots'];
 
     /**
-     * Monta las secciones de la piel en el menú de Ajustes: «Modelos locales»
-     * (R18, justo detrás de Models) y «Handshakes» (R12).
+     * Monta las secciones de la piel en el menú de Ajustes: «Modelos locales» (R18,
+     * justo detrás de Models) y «Conexiones» (R12/R23).
      * @param ctx - contexto del plugin de navegador.
      */
     function apply(ctx) {
@@ -416,10 +481,10 @@ window.__ModuleLoader__.load({
       }, SeccionModelosLocales));
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
-        id: 'handshakes',
+        id: 'conexiones',
         order: 25,
-        label: () => 'Handshakes',
-      }, SeccionHandshakes));
+        label: () => 'Conexiones',
+      }, SeccionConexiones));
     }
 
     exports.apply = apply;

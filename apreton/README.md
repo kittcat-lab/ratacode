@@ -1,4 +1,4 @@
-# RATACODE · Apretón de manos: cuál elegir según tu app
+# RATACODE · Conexiones: cuál elegir según tu app
 
 | Tu app | Qué usar | Por qué |
 |---|---|---|
@@ -45,7 +45,7 @@ Una terminal de trabajo con IA con la cara de RATACODE, montada sobre un motor l
 - **T2:** el espacio de trabajo ya viene puesto; no abras diálogos nativos.
 - **T4:** no uses capturas; lee ficheros o usa `get_task_result`.
 - **T11:** nunca leas `.credentials.yaml`, `.env` ni bóvedas.
-- **T12:** el cliente MCP tiene que pasarle el ENTORNO al servidor (Claude Code: `--env`; Codex: `env_vars`, no la clave escrita en el fichero). Si no, sale `falta B_AI_API_KEY en el entorno del cliente MCP`.
+- **T12:** las claves NO se le pasan al servidor MCP: están en RATACODE › Ajustes › Models y el servidor las lee de ahí. Si falta una, sale `Falta la clave de <proveedor>. Pégala en RATACODE › Ajustes › Models.`
 - **T13:** si el tutor dice algo falso, corrígelo con la prueba.
 - **T16:** `url.txt` se borra al arrancar y se escribe cuando el puerto contesta. Si no carga, espera 15 s y vuelve a leerla; si el puerto no escucha, arranca `ratacode` otra vez. El porqué de un cierre queda en `<casa>\ratacode.log`.
 - **T17:** no termines el turno con la tarea en marcha: usa `run_task` con `esperar_segundos` o no pares hasta que `get_task_status` diga `completed`/`failed`. Por stdio, la tarea vive lo que vive el cliente.
