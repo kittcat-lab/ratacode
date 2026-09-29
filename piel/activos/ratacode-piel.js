@@ -322,8 +322,11 @@
  // toca), se renombra a «Modos», cada tarjeta se queda con su NOMBRE grande (con
  // el color de su personaje), su oficio en UNA línea y «En uso» en el que manda,
  // y los iconos se esconden detrás de un «⋯». El CSS hace la cuadrícula de 3×3.
+ // R21 §6: la sección se reconoce por su frase de entrada, y desde que el panel
+ // va en español (vía oficial de idiomas) la frase llega en español: se
+ // reconocen las DOS, para que la cuadrícula 3×3 no se caiga al traducir.
  const MODOS_TITULO='Modos';
- const MODOS_ORIGEN=/^A preset is the plugin composition/;
+ const MODOS_ORIGEN=/^(A preset is the plugin composition|Un preset es la composición de plugins)/;
  const MODOS_COLOR={
   'MODO-RATA':'#ff268e','ARQUITECTO':'#e4f226','CAPATAZ':'#26c6cc','HERO':'#ff8a3d','TIRITA':'#7dd3fc',
   'GEPETO':'#c084fc','FARO':'#f5d90a','PIX':'#4ade80','NEX':'#f87171'
@@ -340,11 +343,18 @@
   'NEX':'Modos y plugins.'
  };
  function arreglarModos(){
-  // El menú de Ajustes: «Agent presets» se llama «Modos».
+  // El menú de Ajustes: «Agent presets» se llama «Modos». R21 §6: el rótulo se
+  // cambia SÓLO en su texto —antes se pisaba `textContent` del botón entero, y
+  // eso se llevaba por delante el ICONO de la fila—. El nombre puede llegar en
+  // inglés (motor sin diccionario) o ya en español (R21, vía oficial de
+  // idiomas: `settings.agentPreset.nav` = «Presets de agente»); los dos valen.
+  const NOMBRES_MODOS=['Agent presets','Presets de agente'];
   for(const b of document.querySelectorAll('[class*="_navList"] button')){
-   if((b.textContent||'').trim()==='Agent presets'&&b.textContent!==MODOS_TITULO)b.textContent=MODOS_TITULO;
+   const etiqueta=b.querySelector('[class*="_navLabel"]')||b;
+   if(NOMBRES_MODOS.indexOf((etiqueta.textContent||'').trim())!==-1&&etiqueta.textContent!==MODOS_TITULO)etiqueta.textContent=MODOS_TITULO;
   }
-  // La sección: se reconoce por su frase en inglés, y se marca.
+  // La sección: se reconoce por su frase de entrada (en inglés o ya en español,
+  // que es como llega desde R21 por la vía oficial de idiomas), y se marca.
   let seccion=null;
   for(const p of document.querySelectorAll('p[class*="_intro"]')){
    if(MODOS_ORIGEN.test((p.textContent||'').trim())){seccion=p.closest('[class*="_section"]');break;}
@@ -361,10 +371,12 @@
    if(elNombre&&color!==undefined&&elNombre.style.color!=='rgb('+[1,3,5].map(i=>parseInt(color.slice(i,i+2),16)).join(', ')+')'){
     elNombre.style.color=color;
    }
-   // Fuera las etiquetas «Custom»/«Built-in»; «In use» pasa a «En uso».
+   // Fuera las etiquetas «Custom»/«Built-in» —y sus versiones en español—;
+   // «In use» pasa a «En uso» (aquí ya llega traducido, pero se deja por si el
+   // motor vuelve a pintarlo en inglés al cambiar de idioma).
    for(const etiqueta of tarjeta.querySelectorAll('[class*="_cardHead"] > span')){
     const suyo=(etiqueta.textContent||'').trim();
-    if(suyo==='Custom'||suyo==='Built-in'){if(etiqueta.style.display!=='none')etiqueta.style.display='none';}
+    if(suyo==='Custom'||suyo==='Built-in'||suyo==='Personalizado'||suyo==='De serie'){if(etiqueta.style.display!=='none')etiqueta.style.display='none';}
     else if(suyo==='In use')etiqueta.textContent='En uso';
    }
    // El oficio, en UNA línea (el suyo, corto; el del fichero es un párrafo).
