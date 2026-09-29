@@ -177,6 +177,7 @@
       disabled: true
 
     - id: tool-ralph
+      disabled: true
       name: '@deepseek-ai/dsh-tool-ralph'
       config:
         subagentProvider: spawn
