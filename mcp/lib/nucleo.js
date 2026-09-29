@@ -21,7 +21,7 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { entornoDelMotorSinClaves } from './claves.js';
-import { parcheDePolitica } from './seguridad.js';
+import { copiarCerco, parcheDePolitica } from './seguridad.js';
 
 /** Cuánto se espera a que un hijo termine de irse antes de matarlo. */
 const GRACIA_MS = 2500;
@@ -41,6 +41,7 @@ export function lanzarTarea({
   casa,
   dshBin,
   espacio,
+  raices,
   provider,
   model,
   prompt,
@@ -51,8 +52,12 @@ export function lanzarTarea({
 }) {
   const carpetaTemporal = join(casa, 'mcp', 'tmp');
   mkdirSync(carpetaTemporal, { recursive: true });
+  // El cerco de lectura: el plugin (`lectura.js`) tiene que estar EN la carpeta
+  // del parche, porque el motor lo busca por su nombre relativo desde ahí. Se
+  // copia ANTES de arrancar el motor: si no está, el cerco no se monta.
+  copiarCerco(casa);
   const rutaParche = join(carpetaTemporal, 'politica-' + id + '.yml');
-  writeFileSync(rutaParche, parcheDePolitica({ modo, espacio }));
+  writeFileSync(rutaParche, parcheDePolitica({ modo, espacio, raices: raices ?? [espacio] }));
 
   // El hijo arranca SIN las variables de claves (ni las del cliente MCP ni las
   // de Windows): la única fuente de claves es el almacén de la casa, que es lo

@@ -89,8 +89,7 @@ function instrucciones() {
     'No cambies de modelo automáticamente si el usuario ha indicado uno.',
     'RATACODE nunca devuelve claves: las guarda él y hace las llamadas.',
     'Las claves de los modelos están en UN solo sitio: RATACODE › Ajustes › Models (la casa). Este servidor NO mira el entorno del cliente ni abre ficheros de claves: le pregunta al motor si la credencial de esa ruta está puesta. Si no lo está, lo dirá tal cual («Falta la clave de B.AI. Pégala en RATACODE › Ajustes › Models.») y no arrancará nada.',
-    'Las tareas ESCRIBEN sólo dentro del espacio de trabajo autorizado; si necesitas algo fuera, pídelo al humano.',
-    'AVISO IMPORTANTE: el motor no sabe encerrar la LECTURA. Una tarea puede leer cualquier fichero que pueda leer el usuario que arrancó este servidor (incluida la casa de RATACODE y su .credentials.yaml), y lo que lea se manda al proveedor del modelo. NO leas ficheros de claves ni nada que el humano no te haya dado; si el encargo lo pide, pregúntale antes.',
+    'Cada tarea del MCP trabaja ENCERRADA en las carpetas autorizadas de la casa (`mcp.workspaces`): lee y escribe sólo ahí. Fuera de ahí la herramienta se para y te lo dice («Fuera de la carpeta autorizada: <ruta>»). No hay terminal, ni red, ni subagentes, ni guiones: no hay forma de saltar el cerco. Si necesitas algo de fuera, pídelo al humano.',
   ].join('\n');
 }
 
@@ -231,7 +230,7 @@ export function registrarHerramientas(servidor, ctx) {
       if (credencial !== null && credencial.motivo === null && credencial.configurada === false) {
         return comoError(faltaLaClave(credencial.nombreVisible));
       }
-      const { espacio, raiz, avisos } = resolverEspacio({ casa, pedido: args.working_directory, cwdPorDefecto, http: ctx.http === true });
+      const { espacio, raiz, raices, avisos } = resolverEspacio({ casa, pedido: args.working_directory, cwdPorDefecto, http: ctx.http === true });
       const { modo, motivo } = resolverModo({ casa, allowDangerous: args.allow_dangerous });
       const prompt = args.context === undefined || args.context.trim() === ''
         ? args.prompt
@@ -254,6 +253,7 @@ export function registrarHerramientas(servidor, ctx) {
         provider: ruta.provider,
         model: ruta.model,
         espacio,
+        raices,
         modo,
         maxTokens: args.max_tokens,
         timeoutMs,

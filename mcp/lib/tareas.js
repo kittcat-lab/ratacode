@@ -88,6 +88,7 @@ export class Tareas {
       casa: this.casa,
       dshBin: this.dshBin,
       espacio: peticion.espacio,
+      raices: peticion.raices,
       provider: peticion.provider,
       model: peticion.model,
       prompt: peticion.prompt,
