@@ -168,11 +168,13 @@ motor**; el de por defecto es **MODO-RATA**:
 2. **Headless** — `ratacode headless "encargo"`: mandas el encargo por terminal, sin
    pantalla, y la entrega queda en un fichero.
 3. **MCP** — `ratacode mcp` (o `node mcp/bin/ratacode-mcp.js --home <casa>`): servidor MCP
-   por stdio para Claude Code, Codex, ChatGPT web, Rowboat u OpenClaw. Siete herramientas:
+   por stdio para Claude Code, Codex, ChatGPT web, Rowboat u OpenClaw. Nueve herramientas:
    `list_providers` → `list_models` → `run_task` → `get_task_status` → `get_task_result` →
-   `cancel_task` y `ratacode_status`. Por HTTP (para ChatGPT web) hace falta
-   `ratacode mcp --http` y `mcp.workspaces` declarado; el túnel es
-   `node mcp/tunel.mjs --home <casa>` (puerto por defecto del MCP: 3778).
+   `cancel_task` y `ratacode_status`, más **`list_files`** y **`read_file`** (sólo lectura, para
+   el conector de ChatGPT con cuenta propia: con un plan Pro el modo desarrollador sólo deja usar
+   herramientas que no cambian nada). Por HTTP (para ChatGPT web) hace falta `ratacode mcp --http`
+   y `mcp.workspaces` declarado; el túnel es `node mcp/tunel.mjs --home <casa>` (puerto por
+   defecto del MCP: 3778).
 
 > Los rótulos propios y las secciones **Conexiones**, **Modelos locales** y **Modos** están en
 > español, pero Ajustes → Models y los menús del motor siguen en inglés (los pone el motor, y

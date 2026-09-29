@@ -151,6 +151,44 @@ cierres.
 por HTTP puedes darle la URL con la clave y no depender de que acepte un servidor stdio (que es lo
 que sigue sin estar comprobado, ver arriba).
 
+## ChatGPT web con TU cuenta (Pro): conector propio, sólo lectura (R26)
+
+Con la cuenta de ChatGPT (plan Pro) sí se puede tener el MCP propio: se llama **modo desarrollador**
+y se activa en ChatGPT › **Ajustes › Seguridad e inicio de sesión › Modo desarrollador** (en
+Enterprise/Edu lo concede un administrador; la política por plan está en el
+[artículo de ayuda de OpenAI](https://help.openai.com/en/articles/12584461-developer-mode-apps-and-full-mcp-connectors-in-chatgpt-beta)).
+Después se crea el conector en **ChatGPT › Plugins** (`https://chatgpt.com/plugins`) → **+** →
+nombre y descripción → en **Conexión**, la **URL pública** del MCP.
+
+Tres cosas que conviene saber antes de pelearse con la URL:
+
+- **ChatGPT no acepta claves propias.** No puede mandar `Authorization: Bearer <tu-clave>` ni una
+  cabecera inventada ([docs de autenticación](https://developers.openai.com/plugins/build/auth):
+  «ChatGPT does **not** support … custom API keys»). Por eso la clave va **dentro de la URL**, que
+  es una URL-capacidad: quien la tenga, entra. El MCP la admite en la ruta (`/mcp/<clave>`, la de
+  siempre), en la consulta (`/mcp?clave=<clave>`) o en la cabecera `Bearer`, por si un cliente no
+  traga con una de las tres.
+- **`localhost` no le sirve a ChatGPT**: hay que exponerlo. O con el túnel público de siempre
+  (`node mcp/tunel.mjs`, abajo), o con el **Secure MCP Tunnel** de OpenAI
+  ([guía](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)), que pide un
+  `tunnel_id` de la Platform y `tunnel-client`. **El túnel lo enciende el humano, no RATACODE.**
+- **Con Pro, sólo lectura.** El MCP publica ahora tres herramientas de sólo lectura, marcadas como
+  tales (`readOnlyHint: true`, que es la marca que documenta OpenAI): `ratacode_status` (estado,
+  versión, carpetas autorizadas, herramientas y sesiones), `list_files` (listar una carpeta
+  autorizada) y `read_file` (leer un fichero de dentro). No gastan claves ni tokens, y el cerco de
+  la ruta lo comprueba **el servidor**, con el mismo `lib/lectura.js` de las tareas.
+
+> **`CHATGPT_PRO_WRITE = NO DISPONIBLE POR PLAN`.** `run_task` y `cancel_task` siguen ahí y siguen
+> funcionando por stdio y por HTTP, pero un conector de ChatGPT Pro no puede usarlas: el plan sólo
+> habilita herramientas que no cambian nada. Para mandar trabajo, usa Codex, Claude Code o el propio
+> panel de RATACODE.
+
+Lo que se puede pedirle a ChatGPT, entonces: «consulta RATACODE y dime qué hay en la carpeta
+autorizada», «léeme `notas.md` de ahí». Y lo que NO puede: nada de fuera de `mcp.workspaces` —ni
+por `..`, ni por ruta absoluta, ni por una unión de Windows, ni por el nombre corto 8.3, ni por
+`\\?\`, ni con una variable de entorno—, ni traerse las instrucciones `AGENTS.md` o las habilidades
+de carpetas de arriba (eso se apaga en cada tarea desde R26; mira «Lo que una tarea puede LEER»).
+
 ## Cómo usarlo
 
 1. **`list_models`** — llama primero para ver qué modelos hay, con proveedor, id, contexto, capacidades y estado.

@@ -94,6 +94,36 @@ Y **ya no hay nada que aceptar**: cada tarea va encerrada en las carpetas de
 bandera `--acepto-lectura-total` de antes es un no-op: se acepta para no romper
 los comandos viejos, y no hace nada (más abajo, «La LECTURA, encerrada»).
 
+### ChatGPT web con tu cuenta (R26): conector propio y túnel
+
+ChatGPT **no acepta claves propias** ni cabeceras que le inventes
+([docs de autenticación](https://developers.openai.com/plugins/build/auth): no admite claves de API
+de cliente), así que la clave viaja **dentro de la URL**: es una URL-capacidad. El servidor la
+admite de tres formas —en la ruta `/mcp/<clave>`, en la consulta `/mcp?clave=<clave>` o en
+`Authorization: Bearer <clave>`— por si un cliente no traga con una de ellas; la que se le da a
+Patxi es la de la ruta. Y **el `Origin` de otra web se corta con un 403**: sólo se atiende desde
+loopback y desde OpenAI.
+
+Pasos (documentación oficial de hoy: [conectar y probar](https://developers.openai.com/plugins/deploy/connect-chatgpt)):
+
+1. En ChatGPT: **Ajustes › Seguridad e inicio de sesión › Modo desarrollador** (en ChatGPT Pro la
+   política del plan puede limitarlo; el artículo de ayuda de OpenAI lo detalla).
+2. En el PC: `ratacode mcp --http` (con `mcp.workspaces` declarado) y, en otra ventana,
+   `node mcp/tunel.mjs --home <casa>`. El túnel **público lo enciende el humano**, no RATACODE.
+3. En ChatGPT: **ChatGPT › Plugins** (`https://chatgpt.com/plugins`) → **+** → nombre y descripción
+   → en **Conexión**, pegar la URL pública completa (la que imprimió `tunel.mjs`).
+4. Crear y revisar las herramientas que descubre. Si el plan **no** permite las de escritura, el
+   conector funciona igual con las de sólo lectura: `ratacode_status`, `list_files` y `read_file`.
+
+> `CHATGPT_PRO_WRITE = NO DISPONIBLE POR PLAN`: con Pro, el conector propio (modo desarrollador) es
+> de sólo lectura. `run_task` y `cancel_task` siguen existiendo y funcionando por stdio y para los
+> clientes que sí pueden escribir; en ChatGPT Pro no aparecerán utilizables.
+
+Alternativa nativa (en vez de cloudflared): **Secure MCP Tunnel** de OpenAI
+([guía](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)), que necesita un
+`tunnel_id` de la Platform y `tunnel-client`; no sustituye a la URL pública si algún día se publica
+el conector.
+
 ## Las herramientas
 
 | Herramienta | Para qué |
@@ -104,7 +134,17 @@ los comandos viejos, y no hace nada (más abajo, «La LECTURA, encerrada»).
 | `get_task_status` | `queued` · `running` · `completed` · `failed` · `cancelled`. |
 | `get_task_result` | Respuesta, modelo, proveedor, tokens, coste (si está declarado), duración y errores. |
 | `cancel_task` | Detiene la tarea de inmediato (se mata el proceso que la ejecuta). |
-| `ratacode_status` | Estado del propio servidor: casa, motor, tareas vivas, clientes y últimas líneas del cuaderno. |
+| `ratacode_status` | Estado del servidor: si está vivo, versión, herramientas, **carpetas autorizadas**, sesiones (clientes) y topes. Ni la casa ni ninguna clave. |
+| `list_files` | **Sólo lectura (R26).** Lista una carpeta autorizada (entradas con tipo, tamaño y fecha). Fuera de las carpetas autorizadas, se para. |
+| `read_file` | **Sólo lectura (R26).** Devuelve el texto de un fichero de dentro (256 KB como mucho; si es binario, lo dice). Fuera, se para. |
+
+Las tres de sólo lectura (`ratacode_status`, `list_files`, `read_file`) van marcadas con
+`readOnlyHint: true`, `destructiveHint: false` y `openWorldHint: false`, que es lo que OpenAI
+documenta para que el cliente sepa que no cambian nada. **No gastan claves ni tokens**, y el cerco
+de la ruta se comprueba EN EL SERVIDOR con `lib/lectura.js` (el mismo de las tareas): `..`, rutas
+absolutas, uniones que apuntan fuera, nombres cortos 8.3, `\\?\`, UNC y variables de entorno caen
+todos del mismo lado. Por eso son las que puede usar un **ChatGPT Pro** en modo desarrollador
+(mira «ChatGPT web» más abajo).
 
 `run_task` acepta: `prompt`, `esperar_segundos`, `provider`, `model`,
 `working_directory`, `context`, `max_tokens`, `timeout`, `allow_dangerous`.
@@ -142,6 +182,14 @@ agente deciden el modelo; esta capa no elige por nadie.
   trabajos en segundo plano (`tool-jobs`), ni red (`tool-web`), ni subagentes
   (`tool-subagent*`), ni guiones (`tool-workflow`) ni bucles de agentes (`tool-ralph`).
   Se apagan una a una en el parche de cada tarea, con su motivo escrito al lado.
+- **Y las dos lecturas que no pasan por ninguna herramienta (R26).** El motor carga solo las
+  instrucciones `AGENTS.md` de la carpeta de trabajo **y de todas las de arriba** (y del
+  `<casa>\AGENTS.md`) y las habilidades (*skills*) de `<raíz>/.dsh/skills`, `<raíz>/.agents/skills`,
+  `<casa>\skills` y `~/.agents/skills`: eso NO lo ve el gancho, porque no es una llamada a
+  herramienta. Medido: sin apagarlas, un canario puesto en el `AGENTS.md` de la casa **y** una
+  habilidad de fuera **llegaban al modelo**. Se apagan con sus ajustes documentados
+  (`agent-instructions` → `maxBytes: 0`; `skill-filesystem` → `includeDefaultRoots: false`), y la
+  prueba `pruebas/mcp-lectura.test.mjs` mide el antes y el después con el mismo montaje.
 - **El sandbox lo impone el core.** Cada tarea arranca en `workspace-write` con su cwd
   como frontera de escritura, y el MCP le pasa al hijo un parche que **fija** el modo.
   Ojo con el detalle que costó una ronda: la casa de fábrica trae
@@ -241,7 +289,8 @@ y que `cancel_task` deja la tarea en `cancelled` de verdad.
 ## Lo que falta (a propósito)
 
 - **Del MCP:** nada de transporte. El stdio y el Streamable HTTP están hechos, y el túnel
-  (`mcp/tunel.mjs`) también; las siete herramientas y sus topes, en marcha.
+  (`mcp/tunel.mjs`) también; las nueve herramientas (siete de trabajo y estado, dos de sólo
+  lectura) y sus topes, en marcha.
 - **Del lanzador:** arranque/parada del MCP desde el panel con `MCP: ON/OFF`, la sección
   **Connections** en Ajustes (puerto, clientes, última actividad) y el botón que explique el MCP
   dentro de la web. Hoy eso se hace por línea de órdenes y se mira en `<casa>\mcp\`.
