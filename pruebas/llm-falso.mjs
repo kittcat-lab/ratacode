@@ -40,10 +40,10 @@ function textoDe(mensaje) {
   return '';
 }
 
-/** La etiqueta de la prueba, del primer mensaje del usuario. */
+/** La etiqueta de la prueba, del primer mensaje del usuario (`[R25:a]`, `[R26:tapado]`…). */
 function etiquetaDe(mensajes) {
   const usuario = (mensajes ?? []).find((m) => m.role === 'user');
-  const encontrada = /\[R25:([a-z0-9-]+)\]/i.exec(textoDe(usuario));
+  const encontrada = /\[[a-z]*\d*:([a-z0-9-]+)\]/i.exec(textoDe(usuario));
   return encontrada === null ? 'sin-etiqueta' : encontrada[1].toLowerCase();
 }
 
@@ -109,7 +109,16 @@ export function arrancarLlmFalso({ puerto, guiones }) {
       const etiqueta = etiquetaDe(peticion.messages);
       const paso = cuentas.get(etiqueta) ?? 0;
       cuentas.set(etiqueta, paso + 1);
-      diario.push({ etiqueta, paso, messages: peticion.messages ?? [], tools: (peticion.tools ?? []).map((t) => t.function?.name) });
+      diario.push({
+        etiqueta,
+        paso,
+        messages: peticion.messages ?? [],
+        tools: (peticion.tools ?? []).map((t) => t.function?.name),
+        // R26: los ESQUEMAS completos, para poder auditar qué herramientas ve el
+        // modelo y con qué nombre piden la ruta (el cerco sólo mira las claves
+        // conocidas: `lib/lectura.js` → CLAVES_DE_RUTA).
+        esquemas: peticion.tools ?? [],
+      });
 
       const guion = guiones[etiqueta] ?? guiones['*'] ?? [];
       const siguiente = guion.length === 0 ? { texto: 'sin guion' } : guion[Math.min(paso, guion.length - 1)];
