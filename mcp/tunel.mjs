@@ -7,9 +7,12 @@
  * URL y su tope de tareas) ya funciona sin esto; el túnel sólo lo expone a
  * Internet mientras corre.
  *
- * Y exponerlo significa EXPONER LA LECTURA: el motor no sabe encerrar lo que una
- * tarea LEE, así que quien tenga la URL puede pedir que le lean cualquier
- * fichero del PC. Por eso este script también exige `--acepto-lectura-total`.
+ * Y exponerlo ya NO expone nada de más: cada tarea va encerrada en las carpetas
+ * de `mcp.workspaces` (lee y escribe sólo ahí, sin terminal ni red ni
+ * subagentes), así que quien tenga la URL puede mandar trabajo, pero no sacar
+ * ficheros de fuera de esas carpetas. Antes hacía falta `--acepto-lectura-total`
+ * porque el motor no encerraba la LECTURA; desde R25 sí está encerrada (mira
+ * `lib/lectura.js`) y la bandera es un no-op que se acepta por no romper nada.
  *
  * Qué hace al ejecutarlo:
  *   1. Lee la URL local del MCP (http://127.0.0.1:<puerto>/mcp/<clave>) de la
@@ -22,7 +25,7 @@
  *   5. Imprime la URL pública COMPLETA para pegar en ChatGPT (dominio + /mcp/<clave>).
  *
  * Uso:
- *   node mcp/tunel.mjs --home <casa> --acepto-lectura-total [--port <puerto>] [--host 127.0.0.1] [--misma-clave]
+ *   node mcp/tunel.mjs --home <casa> [--port <puerto>] [--host 127.0.0.1] [--misma-clave]
  *
  * Al abrirlo estrena clave (el servidor que ya corre la adopta sin reiniciar);
  * con `--misma-clave` reutiliza la que había.
@@ -34,7 +37,6 @@ import { spawnSync, spawn } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { resolverCasa } from './lib/casa.js';
-import { exigirAceptoLecturaTotal } from './lib/lectura.js';
 
 const TUNEL_NOMBRADO = 'mcp.mod-rat.com';
 
@@ -63,13 +65,9 @@ function leerOrdenes(argv) {
 
 const o = leerOrdenes(process.argv.slice(2));
 
-// La misma puerta que el MCP por HTTP: aquí también se expone la LECTURA.
-if (!exigirAceptoLecturaTotal({
-  aceptado: o.aceptoLecturaTotal,
-  mando: 'node mcp/tunel.mjs --home <casa> --acepto-lectura-total',
-})) {
-  process.exit(1);
-}
+// R25 · `--acepto-lectura-total` ya no hace falta (y no hace nada): la lectura
+// va encerrada por el mismo cerco que en el MCP local. Se sigue aceptando para
+// no romper los comandos antiguos.
 
 const casa = resolverCasa(o.casa);
 const host = o.host ?? '127.0.0.1';
@@ -94,7 +92,7 @@ function urlLocal() {
   if (deFichero === null) {
     const rutaClave = join(casa, 'mcp', 'http-secret.txt');
     if (!existsSync(rutaClave)) {
-      throw new Error('no encuentro la clave del MCP en ' + rutaClave + '. Arranca primero: ratacode mcp --http --acepto-lectura-total --port ' + puerto + ' --home ' + casa);
+      throw new Error('no encuentro la clave del MCP en ' + rutaClave + '. Arranca primero: ratacode mcp --http --port ' + puerto + ' --home ' + casa);
     }
     const leida = readFileSync(rutaClave, 'utf8').trim();
     return { origen: 'http://' + host + ':' + puerto, clave: leida };

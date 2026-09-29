@@ -252,10 +252,44 @@ function textoParaPegar(url) {
     'casa y dime cuál es. Con un encargo largo, usa esperar_segundos y no cierres',
     'tu turno hasta que get_task_status diga completed o failed.',
     '',
-    'AVISO: RATACODE no puede acotar lo que una tarea LEE (el motor no tiene modo',
-    'de sólo lectura), así que quien tenga esta URL puede pedir que le lea',
-    'ficheros de mi PC. No la compartas y no la dejes abierta más de lo necesario.',
+    'AVISO: cada tarea trabaja ENCERRADA en las carpetas autorizadas de mi casa',
+    '(mcp.workspaces): lee y escribe solo ahí, sin terminal, sin red y sin',
+    'subagentes. Fuera de ahí la herramienta se para y lo dice. No la compartas',
+    'y no la dejes abierta más de lo necesario.',
   ].join('\n');
+}
+
+/**
+ * Las carpetas que el MCP tiene autorizadas en ESTA casa (`mcp.workspaces` de
+ * `settings.yaml`). Se lee el texto a mano, y a propósito: esta piel viaja
+ * copiada dentro del perfil del motor y no lleva dependencias (no tiene
+ * js-yaml), y lo único que hace falta es la lista que va debajo de `mcp:`.
+ * @returns {string[]} las carpetas, en el orden en que están declaradas.
+ */
+function carpetasAutorizadas() {
+  const casa = casaDeEstaCasa();
+  let texto;
+  try { texto = readFileSync(join(casa, 'settings.yaml'), 'utf8'); } catch { return []; }
+  const salida = [];
+  let enMcp = false;
+  let enLista = false;
+  for (const linea of texto.split(/\r?\n/)) {
+    if (/^\S/.test(linea)) { // una clave de primer nivel: empieza (o acaba) `mcp:`
+      enMcp = /^mcp:/.test(linea);
+      enLista = false;
+      continue;
+    }
+    if (!enMcp) continue;
+    const clave = /^\s+([A-Za-z_][\w-]*):/.exec(linea);
+    if (clave !== null) {
+      enLista = clave[1] === 'workspaces';
+      continue;
+    }
+    if (!enLista) continue;
+    const punto = /^\s*-\s+(.+?)\s*$/.exec(linea);
+    if (punto !== null) salida.push(punto[1].replace(/^['"]|['"]$/g, ''));
+  }
+  return salida;
 }
 
 /**
@@ -275,9 +309,10 @@ function estadoDelMcp(req) {
   const donde = instalacion === null ? '<ruta de RATACODE>' : instalacion;
   const conecta = urlTunel !== '' ? urlTunel : (urlLocal !== '' ? urlLocal : null);
   const comandos = [
-    'cd ' + donde + '; ratacode mcp --http --acepto-lectura-total',
-    'cd ' + donde + '; node mcp/tunel.mjs --home ' + casa + ' --acepto-lectura-total',
+    'cd ' + donde + '; ratacode mcp --http',
+    'cd ' + donde + '; node mcp/tunel.mjs --home ' + casa,
   ].join('\n');
+  const carpetas = carpetasAutorizadas();
   return {
     ok: true,
     casa,
@@ -292,7 +327,11 @@ function estadoDelMcp(req) {
       url: urlTunel === '' ? null : urlTunel,
     },
     panel: urlDeEstaCasa(req),
-    lecturaTotal: true,
+    // R25 · las carpetas donde ESTE chat puede leer y escribir, tal y como las
+    // declara la casa. Sin lista no hay conexión posible (el MCP no arranca por
+    // HTTP sin `mcp.workspaces`), así que aquí siempre hay al menos una.
+    carpetas,
+    carpeta: carpetas[0] ?? null,
     comandos,
     pegar: textoParaPegar(conecta),
   };
@@ -830,10 +869,11 @@ function primeraLineaUtil(texto) {
 
 /**
  * Enciende la conexión de los chats web: el MCP por HTTP (local) y el túnel, que
- * es lo que deja entrar a ChatGPT. Lo hace A PEDIDO DEL USUARIO —su botón— y
- * acepta lo que el usuario acepta al pulsarlo: las tareas pueden LEER (el motor
- * no sabe acotar la lectura), y eso está dicho en la propia tarjeta. Aquí no hay
- * ningún reloj que abra esto solo.
+ * es lo que deja entrar a ChatGPT. Lo hace A PEDIDO DEL USUARIO —su botón— y ya
+ * no hay nada que aceptar al pulsarlo: desde R25 cada tarea del MCP va encerrada
+ * en las carpetas de `mcp.workspaces` (lee y escribe sólo ahí, sin terminal, sin
+ * red, sin subagentes y sin guiones). Aquí no hay ningún reloj que abra esto
+ * solo.
  * @param casa - la casa de RATACODE.
  * @returns `{ok, motivo}`.
  */
@@ -856,7 +896,7 @@ async function encenderConexion(casa) {
     return hijo;
   };
   CONEXION.ultimoError = null;
-  CONEXION.mcp = arrancar('mcp', guionMcp, ['--home', casa, '--http', '--acepto-lectura-total']);
+  CONEXION.mcp = arrancar('mcp', guionMcp, ['--home', casa, '--http']);
   const rutaHttp = join(casa, 'mcp', 'http-url.txt');
   const rutaTunel = join(casa, 'mcp', 'tunel-url.txt');
   if (!await esperarFichero(rutaHttp, 20000) || !vivo(CONEXION.mcp)) {
@@ -864,7 +904,7 @@ async function encenderConexion(casa) {
     apagarConexion();
     return { ok: false, motivo };
   }
-  CONEXION.tunel = arrancar('tunel', guionTunel, ['--home', casa, '--acepto-lectura-total']);
+  CONEXION.tunel = arrancar('tunel', guionTunel, ['--home', casa]);
   if (!await esperarFichero(rutaTunel, 30000) || !vivo(CONEXION.tunel)) {
     const motivo = primeraLineaUtil(salida.tunel) || primeraLineaUtil(salida.mcp) || 'el túnel no llegó a abrirse';
     apagarConexion();
@@ -913,6 +953,8 @@ function estadoDeLaConexion(req) {
     direccion: conectado ? base.tunel.url : null,
     nuestro: vivo(CONEXION.mcp) || vivo(CONEXION.tunel),
     mcpLocal: base.http.abierto,
+    carpeta: base.carpeta,
+    carpetas: base.carpetas,
     comandos: base.comandos,
     panel: base.panel,
     pegar: base.pegar,

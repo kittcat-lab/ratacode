@@ -138,16 +138,28 @@ window.__ModuleLoader__.load({
       es: {
         'permiso.fullAccess': 'El agente actúa sin pedirte permiso. Úsalo solo en carpetas tuyas.',
         'modelos.proveedor': 'Lo que envías va al proveedor que elijas y se rige por sus condiciones.',
+        'conexion.espacio': 'Este chat solo puede leer y escribir en {carpeta}.',
       },
       en: {
         'permiso.fullAccess': 'The agent acts without asking your permission. Use it only in folders of your own.',
         'modelos.proveedor': 'What you send goes to the provider you choose and is governed by its terms.',
+        'conexion.espacio': 'This chat can only read and write in {carpeta}.',
       },
       zh: {
         'permiso.fullAccess': '智能体不经你许可就会直接操作。请只在属于你自己的文件夹里使用。',
         'modelos.proveedor': '你发送的内容会交给你选择的提供商，并受其条款约束。',
+        'conexion.espacio': '此对话只能在 {carpeta} 中读写。',
       },
     };
+
+    /**
+     * El traductor de {@link AVISOS_NS}, en una variable de este ámbito: lo pone
+     * `avisosDeLaCasa` (que es quien registra los diccionarios) y lo usa también
+     * la tarjeta de «Conexiones», que se pinta en otro momento. Si todavía no
+     * está, se dice en español: nunca se queda en blanco.
+     */
+    let tAvisos = null;
+    const AVISO_ESPACIO_ES = 'Este chat solo puede leer y escribir en {carpeta}.';
 
     /** Un pedido a las rutas de la piel; nunca revienta: devuelve el error. */
     async function pedir(ruta, metodo) {
@@ -199,6 +211,19 @@ window.__ModuleLoader__.load({
           'data-copiado': copiado ? 'si' : 'no',
           onClick: copiar,
         }, copiado ? 'Copiado ✓' : props.etiqueta));
+    }
+
+    /**
+     * La línea de la tarjeta de «Conexiones» (R25): dónde puede leer y escribir
+     * ESTE chat. La carpeta la dice el MCP (`/ratacode/conexion` la saca de
+     * `mcp.workspaces`), y el idioma lo pone el servicio de idiomas del motor.
+     * @param {{carpeta?: string}|null} d - el estado de la conexión, o null.
+     * @returns {string} la línea.
+     */
+    function avisoDeEspacio(d) {
+      const carpeta = typeof d?.carpeta === 'string' && d.carpeta !== '' ? d.carpeta : 'la carpeta autorizada';
+      if (tAvisos !== null) return tAvisos('conexion.espacio', { carpeta });
+      return AVISO_ESPACIO_ES.replace('{carpeta}', carpeta);
     }
 
     /**
@@ -286,8 +311,7 @@ window.__ModuleLoader__.load({
               copiado === 'direccion' ? 'Copiada ✓' : 'Copiar dirección')
             : null),
         e(Paso, { n: '3', key: 'p3' }, 'Pégala en ChatGPT › Ajustes › Conectores'),
-        e('p', { className: 'mr-ml-nota', key: 'aviso' },
-          'Mientras está encendida, quien tenga la dirección puede leer tus ficheros. Apágala al terminar.'),
+        e('p', { className: 'mr-ml-nota', key: 'aviso' }, avisoDeEspacio(d)),
       ];
       if (conexion.fase === 'error') {
         tarjeta.push(e('p', { className: 'mr-ml-aviso', key: 'error' }, 'No pude mirar la conexión: ' + conexion.error));
@@ -865,6 +889,7 @@ window.__ModuleLoader__.load({
     function avisosDeLaCasa(ctx) {
       ctx.effect(() => ctx.locale.register(AVISOS_NS, AVISOS), 'ratacode-piel: los avisos, en los tres idiomas');
       const t = ctx.locale.bind(AVISOS_NS);
+      tAvisos = t;
       const pintar = () => { try { pintarAvisos(ctx, t); } catch { /* un aviso nunca tumba la pantalla */ } };
       pintar();
       setInterval(pintar, 900);

@@ -51,7 +51,7 @@
  */
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
@@ -333,6 +333,12 @@ async function main() {
     di('      ' + (existeHandshake ? 'OK   ' : 'MAL  ') + '  <casa>\\handshake.md escrito (' + lineasFichero + ' líneas)');
 
     // B3 · el MCP para chats web: estado, los dos comandos y el texto del chat
+    // R25 · la casa declara su carpeta autorizada ANTES de preguntar: la tarjeta
+    // de Conexiones tiene que decir ESA carpeta (la lee el plugin en cada
+    // petición, así que vale escribirla aquí).
+    const rutaAjustes = join(args.casa, 'settings.yaml');
+    writeFileSync(rutaAjustes, readFileSync(rutaAjustes, 'utf8')
+      + '\nmcp:\n  workspaces:\n    - ' + JSON.stringify(args.taller) + '\n');
     const estadoMcp = await fetch(new URL('/ratacode/mcp', destino), conGalleta);
     const cuerpoMcp = await estadoMcp.json().catch(() => ({}));
     di('  B3 · GET /ratacode/mcp → ' + estadoMcp.status + ' · http:' + (cuerpoMcp.http?.abierto === true)
@@ -341,16 +347,22 @@ async function main() {
     comprobar(cuerpoMcp.http?.abierto === false && cuerpoMcp.tunel?.abierto === false,
       'en una casa recién estrenada el MCP y el túnel tienen que salir CERRADOS');
     const comandos = String(cuerpoMcp.comandos ?? '');
-    comprobar(comandos.includes('ratacode mcp --http --acepto-lectura-total'), 'los comandos no arrancan el MCP por HTTP');
-    comprobar(comandos.includes('tunel.mjs') && comandos.includes('--acepto-lectura-total'), 'los comandos no arrancan el túnel con su acepto');
+    comprobar(comandos.includes('ratacode mcp --http'), 'los comandos no arrancan el MCP por HTTP');
+    comprobar(!comandos.includes('--acepto-lectura-total'), 'R25 · los comandos ya no piden --acepto-lectura-total (la lectura va encerrada)');
+    comprobar(comandos.includes('tunel.mjs'), 'los comandos no arrancan el túnel');
     comprobar(/^cd .+; /m.test(comandos) && comandos.split('\n').length === 2,
       'los dos comandos tienen que ir en un bloque pegable «cd <ruta>; comando» (2 líneas)');
     comprobar(typeof cuerpoMcp.instalacion === 'string' && resolve(cuerpoMcp.instalacion) === resolve(PRODUCTO),
       'los comandos no llevan la ruta de ESTA instalación: «' + cuerpoMcp.instalacion + '» (esperaba ' + PRODUCTO + ')');
+    // R25 · la carpeta autorizada, que es lo que el panel enseña en la tarjeta.
+    comprobar(Array.isArray(cuerpoMcp.carpetas) && cuerpoMcp.carpetas.length === 1,
+      'el estado del MCP no trae las carpetas autorizadas de la casa: ' + JSON.stringify(cuerpoMcp.carpetas));
+    comprobar(typeof cuerpoMcp.carpeta === 'string' && resolve(cuerpoMcp.carpeta) === resolve(args.taller),
+      'el estado del MCP no dice la carpeta autorizada de la casa: «' + cuerpoMcp.carpeta + '» (esperaba ' + args.taller + ')');
     const pegar = String(cuerpoMcp.pegar ?? '');
     comprobar(pegar.includes('list_models') && pegar.includes('run_task') && pegar.includes('esperar_segundos'),
       'el texto para pegar en el chat no cuenta las herramientas ni esperar_segundos');
-    comprobar(/AVISO/.test(pegar), 'el texto para pegar no lleva el aviso de lectura total');
+    comprobar(/AVISO/.test(pegar) && /ENCERRADA|encerrada/.test(pegar), 'el texto para pegar no lleva el aviso nuevo (la tarea va encerrada)');
     di('      ' + (pegar.includes('esperar_segundos') ? 'OK   ' : 'MAL  ') + '  el texto del chat cuenta herramientas y esperar_segundos');
     di('      ' + (comandos.split('\n').length === 2 ? 'OK   ' : 'MAL  ') + '  los dos comandos van en un bloque pegable');
 
@@ -365,6 +377,13 @@ async function main() {
       comprobar(textoBundle.includes('settings.section'), 'el bundle no registra la sección por el slot settings.section');
       comprobar(textoBundle.includes("id: 'conexiones'"), 'el bundle no registra la sección «conexiones»');
       comprobar(textoBundle.includes('Conexiones'), 'el bundle no lleva el rótulo «Conexiones»');
+      // R25 · la línea del espacio, en los TRES idiomas (el texto lo pone el
+      // servicio de idiomas del motor, no la piel).
+      comprobar(textoBundle.includes('conexion.espacio')
+        && textoBundle.includes('Este chat solo puede leer y escribir en {carpeta}.')
+        && textoBundle.includes('This chat can only read and write in {carpeta}.')
+        && textoBundle.includes('此对话只能在 {carpeta} 中读写。'),
+        'el bundle no trae la línea «Este chat solo puede leer y escribir en <carpeta>» en los tres idiomas');
       comprobar(textoBundle.includes('Claude Code, Codex, OpenClaw') && textoBundle.includes('ChatGPT y Claude web'),
         'el bundle no trae las dos tarjetas de Conexiones');
       comprobar(!/apretón de manos|Handshakes/.test(textoBundle),
