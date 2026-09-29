@@ -102,27 +102,16 @@ export function esCarpetaDeUsuario(ruta) {
 }
 
 /**
- * Resolver el espacio de una tarea, o negarse con un motivo útil.
- * @param {{casa: string, pedido?: string, cwdPorDefecto: string, http?: boolean}} opciones
- * @returns {{espacio: string, raiz: string, raices: string[], avisos: string[]}}
+ * Las raíces autorizadas de una casa, con el apretón del modo HTTP. NO lanza:
+ * devuelve la lista (que puede quedar vacía) y los avisos. Se usa desde
+ * `resolverEspacio` (las tareas) y desde `lib/carpeta.js` (las dos herramientas
+ * de sólo lectura y `ratacode_status`), para que TODOS miren las mismas
+ * carpetas por las mismas reglas.
+ * @param {{ajustes: object, cwdPorDefecto: string, http?: boolean}} opciones
+ * @returns {{raices: string[], avisos: string[]}}
  */
-export function resolverEspacio({ casa, pedido, cwdPorDefecto, http = false }) {
-  const ajustes = ajustesMcp(casa);
+export function raicesAutorizadas({ ajustes, cwdPorDefecto, http = false }) {
   const avisos = [...ajustes.avisos];
-
-  // En modo HTTP (el del túnel) el espacio se aprieta: sin `mcp.workspaces`
-  // declarados no se trabaja. Si no, la única raíz sería la carpeta desde la que
-  // arrancó el servidor —que puede ser la carpeta de usuario entera— y con la
-  // URL en la mano eso es el disco ajeno.
-  if (http && ajustes.workspaces.length === 0) {
-    throw new Error(
-      'en modo HTTP hacen falta espacios declarados: pon `mcp.workspaces:` en ' + casa
-      + '\\settings.yaml con las carpetas donde puede trabajar (y `workspace_por_defecto:` si quieres'
-      + ' una por defecto). Sin esa lista, la única raíz sería la carpeta desde la que arrancó el'
-      + ' servidor, y eso, con la URL en la mano de cualquiera, es demasiado.',
-    );
-  }
-
   let raices = ajustes.workspaces.length > 0
     ? ajustes.workspaces.map(normalizarRuta)
     : [normalizarRuta(ajustes.workspacePorDefecto ?? cwdPorDefecto)];
@@ -139,14 +128,39 @@ export function resolverEspacio({ casa, pedido, cwdPorDefecto, http = false }) {
       avisos.push('espacio demasiado ancho, lo ignoro: ' + fuera
         + ' (ni la raíz de un disco ni tu carpeta de usuario valen como espacio de trabajo en modo HTTP)');
     }
-    if (permitidas.length === 0) {
-      throw new Error(
-        'no queda ningún espacio de trabajo admisible: ni la raíz de un disco ni tu carpeta de usuario ('
-        + homedir() + ' y ' + dirname(homedir()) + ') valen. Declara `mcp.workspaces` en '
-        + casa + '\\settings.yaml con carpetas de trabajo de verdad.',
-      );
-    }
     raices = permitidas;
+  }
+  return { raices, avisos };
+}
+
+/**
+ * Resolver el espacio de una tarea, o negarse con un motivo útil.
+ * @param {{casa: string, pedido?: string, cwdPorDefecto: string, http?: boolean}} opciones
+ * @returns {{espacio: string, raiz: string, raices: string[], avisos: string[]}}
+ */
+export function resolverEspacio({ casa, pedido, cwdPorDefecto, http = false }) {
+  const ajustes = ajustesMcp(casa);
+
+  // En modo HTTP (el del túnel) el espacio se aprieta: sin `mcp.workspaces`
+  // declarados no se trabaja. Si no, la única raíz sería la carpeta desde la que
+  // arrancó el servidor —que puede ser la carpeta de usuario entera— y con la
+  // URL en la mano eso es el disco ajeno.
+  if (http && ajustes.workspaces.length === 0) {
+    throw new Error(
+      'en modo HTTP hacen falta espacios declarados: pon `mcp.workspaces:` en ' + casa
+      + '\\settings.yaml con las carpetas donde puede trabajar (y `workspace_por_defecto:` si quieres'
+      + ' una por defecto). Sin esa lista, la única raíz sería la carpeta desde la que arrancó el'
+      + ' servidor, y eso, con la URL en la mano de cualquiera, es demasiado.',
+    );
+  }
+
+  const { raices, avisos } = raicesAutorizadas({ ajustes, cwdPorDefecto, http });
+  if (http && raices.length === 0) {
+    throw new Error(
+      'no queda ningún espacio de trabajo admisible: ni la raíz de un disco ni tu carpeta de usuario ('
+      + homedir() + ' y ' + dirname(homedir()) + ') valen. Declara `mcp.workspaces` en '
+      + casa + '\\settings.yaml con carpetas de trabajo de verdad.',
+    );
   }
 
   const candidato = pedido === undefined || pedido === null || String(pedido).trim() === ''
@@ -217,7 +231,13 @@ function yamlSeguro(texto) {
  *      ({@link HERRAMIENTAS_QUE_SE_APAGAN});
  *   4. el cerco de la LECTURA: se inserta `./lectura.js` (el plugin que copia
  *      {@link copiarCerco}) con las carpetas autorizadas dentro;
- *   5. nada más: no se toca ni un fichero del motor.
+ *   5. las dos lecturas que NO pasan por herramienta ninguna (R26): las
+ *      instrucciones `AGENTS.md` de las carpetas de arriba y las habilidades de
+ *      `<raíz>/.dsh/skills`, `<raíz>/.agents/skills`, `<casa>\skills` y
+ *      `~/.agents/skills`. El gancho no las ve porque no son una llamada a
+ *      herramienta: se apagan con sus ajustes documentados (`maxBytes: 0` y
+ *      `includeDefaultRoots: false`).
+ *   6. nada más: no se toca ni un fichero del motor.
  *
  * El `insert` es la única forma de AÑADIR una fila (un parche con `id` sólo
  * retoca una que ya exista: `cordis-plugin-include/lib/index.js:67-89`), y el
@@ -247,6 +267,23 @@ export function parcheDePolitica({ modo, espacio, raices }) {
   for (const [id, motivo] of HERRAMIENTAS_QUE_SE_APAGAN) {
     lineas.push('', '# ' + id + ': ' + motivo, '- id: ' + id, '  disabled: true');
   }
+  lineas.push(
+    '',
+    '# Las INSTRUCCIONES (AGENTS.md) se leen del cwd Y de TODAS las carpetas de arriba',
+    '# (y de <casa>\\AGENTS.md), sin pasar por ninguna herramienta: el gancho no las ve.',
+    '# `maxBytes: 0` es la forma documentada de apagar su carga (`dsh-agent-instructions`:',
+    '# «non-positive or non-finite disables loading»).',
+    '- id: agent-instructions',
+    '  config:',
+    '    maxBytes: 0',
+    '',
+    '# Y las HABILIDADES (skills) se descubren en <raíz-del-proyecto>/.dsh/skills,',
+    '# <raíz>/.agents/skills, <casa>\\skills y ~/.agents/skills: también fuera del cerco.',
+    '# Sin raíces por defecto no se monta ninguna («project and user roots»).',
+    '- id: skill-filesystem',
+    '  config:',
+    '    includeDefaultRoots: false',
+  );
   lineas.push(
     '',
     '# El cerco de la LECTURA: un plugin de cordis que engancha `tools/pre-execute` y',
