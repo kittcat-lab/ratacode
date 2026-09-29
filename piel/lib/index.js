@@ -919,6 +919,42 @@ function estadoDeLaConexion(req) {
   };
 }
 
+// ── R21 · EL ASPECTO QUE LA CASA RECUERDA ──────────────────────────────────
+/**
+ * Los TRES temas de RATACODE, en su orden, con el nombre que se ve y el color
+ * que los identifica. Los aplica la vía OFICIAL de temas de DSH
+ * (`piel\lib\cliente.js`: `ctx.theme.register` con su ficha de tokens); aquí
+ * sólo se guarda CUÁL, porque el motor no admite un id de tema de fuera en su
+ * esquema de ajustes (`light`/`dark`/`system`).
+ */
+const TEMAS_DE_LA_CASA = [
+  { id: 'ratacode-pink', nombre: 'RATACODE PINK', principal: '#ff268e', detalle: '#e4f226' },
+  { id: 'ratacode-yellow', nombre: 'RATACODE YELLOW', principal: '#e4f226', detalle: '#ff268e' },
+  { id: 'minimal', nombre: 'MINIMAL', principal: '#e8e6df', detalle: '#8c9396' },
+];
+/** El tema de fábrica: el primero de la lista. */
+const TEMA_POR_DEFECTO = TEMAS_DE_LA_CASA[0].id;
+/** Los tres temas, tal cual (para la ruta). */
+function sistemaDeTemas() {
+  return TEMAS_DE_LA_CASA;
+}
+/** Dónde se apunta el tema elegido: `<casa>\tema.txt`, una palabra. */
+function rutaDelTema() {
+  return join(casaDeEstaCasa(), 'tema.txt');
+}
+/**
+ * El tema que la casa recuerda. Si no hay nada apuntado —o lo apuntado no es
+ * uno de los tres— se responde el de fábrica; NUNCA se inventa otro.
+ * @returns el id del tema.
+ */
+function leerTema() {
+  try {
+    const leido = readFileSync(rutaDelTema(), 'utf8').trim();
+    if (TEMAS_DE_LA_CASA.some((t) => t.id === leido)) return leido;
+  } catch { /* sin fichero: el de fábrica */ }
+  return TEMA_POR_DEFECTO;
+}
+
 // ── las rutas del servidor de la piel ──────────────────────────────────────
 
 function json(res, codigo, objeto) {
@@ -1049,6 +1085,40 @@ function montarRutas(c) {
   };
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/migracion', handler: migracion }), 'ratacode-piel.migracion');
 
+  // GET  /ratacode/tema → (R21) el aspecto que la casa recuerda (los tres temas
+  //                       de RATACODE; `ratacode-pink` si no hay nada apuntado).
+  // POST /ratacode/tema → los botones de Ajustes › General › Aspecto.
+  // El motor NO guarda un id de tema de fuera (su esquema sólo admite
+  // `light`/`dark`/`system`: `THEME_PREFERENCES`), así que el recuerdo lo pone
+  // la casa, en UN fichero con una palabra dentro. El TEMA en sí lo aplica la
+  // vía oficial (`ctx.theme.register` + `setTheme`), no esta ruta.
+  const temas = sistemaDeTemas();
+  const tema = (req, res) => {
+    if (!autorizada(req, res)) return;
+    if (req.method === 'GET') { json(res, 200, { ok: true, tema: leerTema(), temas: temas.map((t) => t.id) }); return; }
+    if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'Usa GET o POST.' }); return; }
+    let cuerpo = '';
+    req.on('data', (trozo) => { cuerpo += trozo; if (cuerpo.length > 1024) req.destroy(); });
+    req.on('end', () => {
+      let pedido = {};
+      try { pedido = JSON.parse(cuerpo === '' ? '{}' : cuerpo); } catch { /* sin cuerpo: se dice */ }
+      const cual = typeof pedido.tema === 'string' ? pedido.tema : '';
+      if (!temas.some((t) => t.id === cual)) {
+        json(res, 400, { ok: false, error: 'no conozco el tema «' + cual + '»' });
+        return;
+      }
+      try {
+        writeFileSync(rutaDelTema(), cual + '\n', { mode: 0o600 });
+      } catch (e) {
+        json(res, 500, { ok: false, error: 'no pude apuntar el tema: ' + (e?.message ?? e) });
+        return;
+      }
+      c.logger?.info?.('ratacode-piel: el aspecto de la casa queda en ' + cual);
+      json(res, 200, { ok: true, tema: cual });
+    });
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/tema', handler: tema }), 'ratacode-piel.tema');
+
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/runtimes', handler: runtimes }), 'ratacode-piel.runtimes');
 
   // POST /ratacode/runtimes/encender y /apagar → (R23) el botón del usuario, y
@@ -1097,7 +1167,7 @@ function montarRutas(c) {
   };
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/runtimes/encender', handler: accionRuntime('encender') }), 'ratacode-piel.runtimes-encender');
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/runtimes/apagar', handler: accionRuntime('apagar') }), 'ratacode-piel.runtimes-apagar');
-  c.logger?.info?.('ratacode-piel: el texto de la conexión se sirve en /ratacode/handshake, el MCP en /ratacode/mcp, la conexión con botón en /ratacode/conexion, la clave que falta en /ratacode/clave y los runtimes locales en /ratacode/runtimes');}
+  c.logger?.info?.('ratacode-piel: el texto de la conexión se sirve en /ratacode/handshake, el MCP en /ratacode/mcp, la conexión con botón en /ratacode/conexion, la clave que falta en /ratacode/clave, los runtimes locales en /ratacode/runtimes y el aspecto en /ratacode/tema');}
 
 /**
  * Monta la piel sobre el servidor web del motor.

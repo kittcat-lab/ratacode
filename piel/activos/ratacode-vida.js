@@ -97,7 +97,12 @@
     const r = lienzo.getBoundingClientRect();
     return r.width > 1 && r.height > 1 ? r : null;
   }
-  function puedeVerse() { return !document.hidden && enPantalla; }
+  /* R21 · el tema MINIMAL va sin ratitas de fondo: ni se pinta el lienzo (lo
+     esconde el CSS) ni se le da una vuelta de reloj (esto). Se mira el
+     documento cada vez, así que cambiar de tema en Ajustes para y arranca el
+     fotograma sin recargar nada. */
+  function conRatitas() { return document.documentElement.dataset.ratacodeTema !== 'minimal'; }
+  function puedeVerse() { return !document.hidden && enPantalla && conRatitas(); }
   function parar() {
     cancelAnimationFrame(fotograma); fotograma = 0; ultimoCuadro = 0;
   }

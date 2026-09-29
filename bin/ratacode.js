@@ -108,6 +108,13 @@ const PRESET_POR_DEFECTO = 'modo-rata';
  * Language. Aquí sólo se apunta el de la casa cuando no hay ninguno apuntado.
  */
 const IDIOMA_POR_DEFECTO = 'es';
+/**
+ * Los TRES temas de RATACODE (R21), en su orden, y el de fábrica: el primero.
+ * El id tiene que ser el mismo que registra `piel\lib\cliente.js` por la vía
+ * oficial de temas de DSH.
+ */
+const TEMAS_DE_LA_CASA = ['ratacode-pink', 'ratacode-yellow', 'minimal'];
+const TEMA_POR_DEFECTO = TEMAS_DE_LA_CASA[0];
 /** Los presets que salieron en versiones anteriores de RATACODE y ya no existen. */
 const PRESETS_VIEJOS = ['enlazador', 'promptista', 'escritor'];
 /**
@@ -549,6 +556,25 @@ function ponerIdiomaPorDefecto(casa, idioma = IDIOMA_POR_DEFECTO) {
   else nuevo = (texto.trim() === '' ? '' : texto.replace(/\s*$/, '\n')) + '\n' + bloque;
   writeFileSync(ruta, nuevo, { mode: 0o600 });
   return { cambiado: true, antes: actual ?? '(no estaba)', motivo: (actual ?? '(no estaba)') + ' → ' + idioma };
+}
+
+/**
+ * El ASPECTO de la casa (R21): los tres temas (RATACODE PINK, RATACODE YELLOW
+ * y MINIMAL) los aplica la vía OFICIAL de temas de DSH, pero el motor no admite
+ * un id de tema de fuera en su esquema de ajustes (`light`/`dark`/`system`,
+ * `dsh-client-ui-theme`: `THEME_PREFERENCES`), así que CUÁL está puesto se
+ * apunta en `<casa>\tema.txt` (una palabra) y la piel lo vuelve a poner al
+ * abrir. Aquí sólo se deja apuntado el de fábrica: no se pisa una elección.
+ */
+function ponerTemaPorDefecto(casa, tema = TEMA_POR_DEFECTO) {
+  const ruta = join(casa, 'tema.txt');
+  if (existsSync(ruta)) {
+    const leido = readFileSync(ruta, 'utf8').trim();
+    if (TEMAS_DE_LA_CASA.includes(leido)) return { cambiado: false, motivo: 'ya estaba en ' + leido };
+  }
+  mkdirSync(casa, { recursive: true });
+  writeFileSync(ruta, tema + '\n', { mode: 0o600 });
+  return { cambiado: true, motivo: tema };
 }
 
 /**
@@ -1127,6 +1153,9 @@ async function main() {
   // ha elegido ya otro idioma (el inglés y el chino siguen en Ajustes › General ›
   // Language, y la elección del usuario se respeta siempre).
   const idioma = ponerIdiomaPorDefecto(casa);
+  // R21 · el aspecto: se apunta el tema de fábrica (RATACODE PINK) si la casa no
+  // tiene ninguno apuntado. La elección del usuario no se toca.
+  const aspecto = ponerTemaPorDefecto(casa);
 
   const carpeta = exigirCarpeta(ordenes.carpeta ?? process.cwd());
   const espacio = registrarEspacio(casa, carpeta);
@@ -1163,6 +1192,10 @@ async function main() {
     ? 'español puesto por defecto (' + idioma.motivo + ')'
     : 'el que ya tuviera la casa (' + idioma.motivo + ')')
     + ' · inglés y chino siguen en Ajustes › General › Language\n');
+  process.stdout.write('RATACODE · aspecto: ' + (aspecto.cambiado
+    ? 'RATACODE PINK puesto por defecto (' + aspecto.motivo + ')'
+    : 'el que ya tuviera la casa (' + aspecto.motivo + ')')
+    + ' · los tres (PINK, YELLOW, MINIMAL) en Ajustes › General › Aspecto\n');
 
   if (ordenes.modo === 'headless') {
     // Antes de arrancar el motor, mira si hay con qué: si el modelo por defecto

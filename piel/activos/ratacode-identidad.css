@@ -1,17 +1,50 @@
-/* RATACODE · identidad compartida: los colores y la marca. Nada de la casa. */
+/* RATACODE · identidad compartida: los colores y la marca. Nada de la casa.
+ *
+ * R21 · LOS TRES TEMAS. El panel tiene tres aspectos y se eligen en
+ * Ajustes › General › Aspecto (los registra `piel\lib\cliente.js` por la vía
+ * OFICIAL de temas de DSH: `ctx.theme.register`, con sus fichas de tokens
+ * `--dsw-*`). El tema activo se apunta en `<html data-ratacode-tema="…">`, y
+ * aquí se traduce a las tres palabras de la casa:
+ *
+ *   --mr-principal  el color que manda (botones, marca, lo que pide el dedo)
+ *   --mr-detalle    el de los detalles (filos, realces, la segunda voz)
+ *   --mr-acento     el del foco y los enlaces
+ *
+ * `--mr-pink` y `--mr-yellow` NO cambian: son la identidad de RATACODE (las
+ * ratitas de fondo se pintan con ellas, y `ratacode-vida.js` las lee del
+ * documento una sola vez, antes de que el tema esté puesto).
+ */
 :root, html[data-ratacode-piel] {
  --mr-black:#101113; --mr-panel:#181a1d; --mr-raised:#222529; --mr-line:#353a3d;
  --mr-white:#f0eee6; --mr-muted:#a8adae; --mr-pink:#ff268e; --mr-yellow:#e4f226; --mr-cyan:#26c6cc;
  --bg-0:var(--mr-black); --bg-1:var(--mr-panel); --bg-2:#202326; --bg-3:#2a2d31;
  --border:var(--mr-line); --border-soft:#282c30; --text-1:var(--mr-white); --text-2:var(--mr-muted); --text-3:#8c9396;
  --rat-yellow:var(--mr-yellow); --rat-pink:var(--mr-pink); --info:var(--mr-cyan);
+ /* El tema de por defecto es RATACODE PINK (el primero de la lista). */
+ --mr-principal:#ff268e; --mr-detalle:#e4f226; --mr-acento:#e4f226;
+ --mr-principal-suave:#4a1c33; --mr-sombra:#e4f226; --mr-filo:#e4f226;
  color-scheme:dark;
 }
+/* b) RATACODE YELLOW — amarillo principal, secundarios en rosa, negro y gris. */
+html[data-ratacode-tema='ratacode-yellow'] {
+ --mr-principal:#e4f226; --mr-detalle:#ff268e; --mr-acento:#ff268e;
+ --mr-principal-suave:#3a3320; --mr-sombra:#ff268e; --mr-filo:#ff268e;
+}
+/* c) MINIMAL — todo negro y gris, sólo líneas y pequeños detalles (y sin ratitas). */
+html[data-ratacode-tema='minimal'] {
+ --mr-principal:#e8e6df; --mr-detalle:#8c9396; --mr-acento:#b8bdbb;
+ --mr-principal-suave:#26282b; --mr-sombra:#3c3c3d; --mr-filo:#464d52;
+}
 html[data-ratacode-piel] body{background-color:var(--mr-black);color:var(--mr-white)}
-::selection{background:#8a2055;color:#fffaf1}
+::selection{background:var(--mr-principal-suave);color:#fffaf1}
 .mr-emblema{display:inline-block;flex:none;width:32px;height:32px;background:var(--mr-emblema) center/contain no-repeat}
 .mr-wordmark{font:900 italic 19px/1 'Segoe UI',sans-serif;letter-spacing:-.7px;white-space:nowrap}
-html[data-ratacode-piel] :is(button,input,textarea,select,[role='button']):focus-visible{outline:2px solid var(--mr-cyan);outline-offset:2px}
-html[data-ratacode-piel] :is(input[type='checkbox'],input[type='radio'],input[type='range']){accent-color:var(--mr-yellow)}
+html[data-ratacode-piel] :is(button,input,textarea,select,[role='button']):focus-visible{outline:2px solid var(--mr-acento);outline-offset:2px}
+html[data-ratacode-piel] :is(input[type='checkbox'],input[type='radio'],input[type='range']){accent-color:var(--mr-principal)}
 html[data-ratacode-piel] ::-webkit-scrollbar-thumb{background:#444b4e;border-radius:5px}
+/* MINIMAL no lleva ratitas de fondo: ni se pintan ni gastan reloj. El lienzo
+   (`.mr-vida`) se esconde aquí, y `ratacode-vida.js` para su fotograma en cuanto
+   ve el tema en el documento. */
+html[data-ratacode-tema='minimal'] .mr-vida,
+html[data-ratacode-tema='minimal'] .mr-vida-salida>.mr-vida{display:none!important}
 @media(prefers-reduced-motion:reduce){html[data-ratacode-piel] *,html[data-ratacode-piel] *::before{scroll-behavior:auto!important;animation:none!important;transition:none!important}}

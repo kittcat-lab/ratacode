@@ -1,46 +1,57 @@
-/* RATACODE: adaptador visual. Conserva editor, permisos y estados. */
+/* RATACODE: adaptador visual. Conserva editor, permisos y estados.
+ *
+ * R21 · LOS COLORES DE LA MARCA YA NO VIVEN AQUÍ. El aspecto lo pone el TEMA
+ * activo, registrado por la vía OFICIAL de temas de DSH (`ctx.theme.register`,
+ * en `piel\lib\cliente.js`): sus fichas de tokens `--dsw-*` se aplican al body
+ * como estilo en línea, y ganan a la hoja. Este bloque de tokens queda SÓLO como
+ * respaldo —sin `!important`, a propósito— para que un motor viejo (sin servicio
+ * de temas) siga viéndose como RATACODE. Todo lo demás tira de las tres palabras
+ * del tema (`--mr-principal`, `--mr-detalle`, `--mr-acento`), así que el panel
+ * entero —fondos, textos, botones y su reacción, bordes e iconos— cambia con él.
+ */
 html body, html body[data-ds-dark-theme] {
- --dsw-alias-bg-base:#101113!important; --dsw-alias-bg-layer-1:#181a1d!important;
- --dsw-alias-bg-layer-2:#222529!important; --dsw-specific-menu:#222529!important;
- --dsw-alias-label-primary:#f0eee6!important; --dsw-alias-label-secondary:#b8bdbb!important;
- --dsw-alias-label-tertiary:#9ba3a5!important; --dsw-alias-label-dimmed:#818a8e!important;
- --dsw-alias-brand-primary:#e4f226!important; --dsw-static-deepseek-450:#26c6cc!important;
- --dsw-alias-button-primary-fill:#e4f226!important; --dsw-alias-button-primary-hover:#f1ff45!important;
- --dsw-alias-label-primary-foreground:#121411!important;
- --dsw-alias-interactive-bg-hover:#292c30!important; --dsw-alias-interactive-bg-active:#33232d!important;
- --dsw-alias-button-tool-bar-fill:#222529!important; --dsw-alias-button-tool-bar-hover:#30353a!important;
- --dsw-alias-button-ghost-active-fill:#382333!important; --dsw-alias-button-ghost-active-border:#ff268e!important;
- --dsw-alias-border-l1:#282c30!important; --dsw-alias-border-l2:#353a3d!important;
- --dsw-alias-border-l3:#464d52!important; --dsw-alias-border-l4:#626b70!important;
- --dsw-alias-state-success-primary:#26c6cc!important; --dsw-alias-state-warn-primary:#e4f226!important;
- --dsw-alias-markdown-code-block:#15171a!important; --dsw-alias-markdown-code-block-banner:#222529!important;
- --dsw-alias-markdown-inline-code:#292d31!important; --dsh-state-ongoing:#26c6cc!important;
- background:#101113!important;color:#f0eee6!important;color-scheme:dark;
+ --dsw-alias-bg-base:#101113; --dsw-alias-bg-layer-1:#181a1d;
+ --dsw-alias-bg-layer-2:#222529; --dsw-specific-menu:#222529;
+ --dsw-alias-label-primary:#f0eee6; --dsw-alias-label-secondary:#b8bdbb;
+ --dsw-alias-label-tertiary:#9ba3a5; --dsw-alias-label-dimmed:#818a8e;
+ --dsw-alias-brand-primary:var(--mr-principal);
+ --dsw-alias-button-primary-fill:var(--mr-principal);
+ --dsw-alias-label-primary-foreground:#121411;
+ --dsw-alias-interactive-bg-hover:#292c30; --dsw-alias-interactive-bg-active:var(--mr-principal-suave);
+ --dsw-alias-button-tool-bar-fill:#222529; --dsw-alias-button-tool-bar-hover:#30353a;
+ --dsw-alias-button-ghost-active-fill:var(--mr-principal-suave);
+ --dsw-alias-button-ghost-active-border:var(--mr-principal);
+ --dsw-alias-border-l1:#282c30; --dsw-alias-border-l2:#353a3d;
+ --dsw-alias-border-l3:#464d52; --dsw-alias-border-l4:#626b70;
+ --dsw-alias-state-success-primary:var(--mr-detalle); --dsw-alias-state-warn-primary:var(--mr-detalle);
+ --dsw-alias-markdown-code-block:#15171a; --dsw-alias-markdown-code-block-banner:#222529;
+ --dsw-alias-markdown-inline-code:#292d31; --dsh-state-ongoing:var(--mr-detalle);
+ background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);color-scheme:dark;
 }
-[class*='_sidebarCol']{background:#16181b!important;border-right:1px solid #353a3d}
-[class*='_logoRow']{position:relative;min-height:94px!important;border-bottom:1px solid #3a393a;margin-bottom:12px;background:linear-gradient(125deg,#ff268e12,transparent 48%,#e4f2260e),repeating-linear-gradient(115deg,transparent 0 17px,#ffffff02 17px 18px)}
-[class*='_logoRow']::after{content:'';position:absolute;bottom:0;left:16px;width:58px;height:3px;background:repeating-linear-gradient(125deg,#e4f226 0 5px,transparent 5px 9px);pointer-events:none}
+[class*='_sidebarCol']{background:#16181b!important;border-right:1px solid var(--dsw-alias-border-l2)}
+[class*='_logoRow']{position:relative;min-height:94px!important;border-bottom:1px solid #3a393a;margin-bottom:12px;background:linear-gradient(125deg,color-mix(in srgb,var(--mr-detalle) 8%,transparent),transparent 48%,color-mix(in srgb,var(--mr-principal) 8%,transparent)),repeating-linear-gradient(115deg,transparent 0 17px,#ffffff02 17px 18px)}
+[class*='_logoRow']::after{content:'';position:absolute;bottom:0;left:16px;width:58px;height:3px;background:repeating-linear-gradient(125deg,var(--mr-filo) 0 5px,transparent 5px 9px);pointer-events:none}
 button[class*='_brand']{height:72px!important;overflow:visible!important;max-width:none!important}
 [class*='_brandIdentity']{gap:10px!important;height:auto!important;overflow:visible!important;align-items:center!important}
 [class*='_brandMark']{display:block!important;width:48px!important;height:54px!important;flex:0 0 48px;background:var(--mr-emblema) center/contain no-repeat!important;overflow:visible!important}
 [data-slot='sidebar.brand.mark'],[data-slot='sidebar.brand.name']{display:none!important}
 [class*='_brandName']{display:flex!important;flex-direction:column!important;height:auto!important;overflow:visible!important;gap:5px}
 [class*='_brandName']::before,[class*='_brandName']::after{content:none!important}
-.mr-dsh-word{font:900 italic 25px/1 'Segoe UI',sans-serif;letter-spacing:-1.4px;white-space:nowrap;color:#e4f226}
-.mr-dsh-word b{color:#ff268e;font-weight:900}
+.mr-dsh-word{font:900 italic 25px/1 'Segoe UI',sans-serif;letter-spacing:-1.4px;white-space:nowrap;color:var(--mr-principal)}
+.mr-dsh-word b{color:var(--mr-detalle);font-weight:900}
 
 
 [class*='_brand'] [class*='badge'],[class*='_brand'] [class*='Badge']{display:none!important}
-button[class*='_newSession']{position:relative;background:#e4f226!important;color:#141612!important;border:1px solid #f4ff66!important;border-radius:4px!important;font-weight:750!important;box-shadow:3px 3px 0 #ff268e!important;min-height:38px;letter-spacing:.025em}
+button[class*='_newSession']{position:relative;background:var(--mr-principal)!important;color:#141612!important;border:1px solid color-mix(in srgb,var(--mr-principal) 70%,#fff)!important;border-radius:4px!important;font-weight:750!important;box-shadow:3px 3px 0 var(--mr-sombra)!important;min-height:38px;letter-spacing:.025em}
 [class*='_newSessionLabel']{background:transparent!important;box-shadow:none!important;border:0!important;color:#141612!important;height:auto!important}
-button[class*='_newSession']:hover{background:#f2ff4c!important;box-shadow:3px 3px 0 #ff268e!important}
+button[class*='_newSession']:hover{background:color-mix(in srgb,var(--mr-principal) 84%,#fff)!important;box-shadow:3px 3px 0 var(--mr-sombra)!important}
 /* La carpeta de cada espacio de trabajo. Antes apuntaba a `_folderIcon`, que
    YA NO EXISTE en DSH 0.1.5-rc.3 (medido: 0 apariciones en todo el árbol
    instalado). La clase de hoy es `_folder` / `_folderActive`, en
    `dsh-client-ui-workspace/lib/client.js`. */
-[class*='_sidebarCol'] [class*='_folder']{color:#26c6cc!important}
+[class*='_sidebarCol'] [class*='_folder']{color:var(--mr-acento)!important}
 [class*='_sidebarCol'] [class*='_row']:hover{background:#ffffff06}
-[class*='_sidebarCol'] [class*='_selected'],[class*='_sidebarCol'] [aria-current='page']{background:linear-gradient(90deg,#ff268e19,#28262a)!important;box-shadow:inset 3px 0 #ff268e;border-radius:3px!important;color:#f0eee6!important}
+[class*='_sidebarCol'] [class*='_selected'],[class*='_sidebarCol'] [aria-current='page']{background:linear-gradient(90deg,color-mix(in srgb,var(--mr-detalle) 12%,transparent),#28262a)!important;box-shadow:inset 3px 0 var(--mr-detalle);border-radius:3px!important;color:#f0eee6!important}
 [class*='_sidebarCol'] [class*='_sectionTitle']{color:#a8adae;font:10px Consolas,monospace;letter-spacing:1.2px;text-transform:uppercase}
 
 /* R12: aquí vivían «Copiar apretón» y «Claves», al pie de la barra lateral. Ya
@@ -50,37 +61,37 @@ button[class*='_newSession']:hover{background:#f2ff4c!important;box-shadow:3px 3
 /* La nota que la piel mete en la ventana nativa de DSH «Add an API key to get
    started» (sólo pide DeepSeek): una línea en español y un botón que lleva a
    Ajustes › Models, donde están los 8 proveedores de RATACODE. */
-.mr-guia{margin:14px 0 0;padding:10px 12px;border:1px solid #3a4046;border-left:3px solid #e4f226;border-radius:6px;
+.mr-guia{margin:14px 0 0;padding:10px 12px;border:1px solid #3a4046;border-left:3px solid var(--mr-principal);border-radius:6px;
  background:#ffffff05;color:#c9cfd1;font:12px/1.5 system-ui,Segoe UI,sans-serif}
-.mr-guia b{color:#e4f226}
+.mr-guia b{color:var(--mr-principal)}
 .mr-guia-boton{margin-top:8px;display:block;width:100%;padding:8px 10px;cursor:pointer;
- background:#e4f226;color:#16181b;border:0;border-radius:5px;font:600 12px/1 system-ui,Segoe UI,sans-serif}
-.mr-guia-boton:hover{background:#f0ff5c}
-header[class*='_header']{background:linear-gradient(110deg,#202124,#17191c 60%)!important;border-top:2px solid #e4f226;border-bottom:1px solid #353a3d!important}
+ background:var(--mr-principal);color:#16181b;border:0;border-radius:5px;font:600 12px/1 system-ui,Segoe UI,sans-serif}
+.mr-guia-boton:hover{background:color-mix(in srgb,var(--mr-principal) 84%,#fff)}
+header[class*='_header']{background:linear-gradient(110deg,#202124,#17191c 60%)!important;border-top:2px solid var(--mr-principal);border-bottom:1px solid var(--dsw-alias-border-l2)!important}
 header[class*='_header']::before{content:none!important}
 .mr-dsh-kicker{display:flex;align-items:center;gap:10px;margin-bottom:10px;color:#9ba3a5;font:9px/1.3 Consolas,monospace;letter-spacing:1.8px}
 .mr-dsh-kicker .mr-wordmark{font-size:12px;letter-spacing:.2px}
-.mr-dsh-kicker::after{content:'';margin-left:auto;display:block;width:48px;height:5px;background:repeating-linear-gradient(125deg,#e4f22670 0 4px,transparent 4px 8px)}
+.mr-dsh-kicker::after{content:'';margin-left:auto;display:block;width:48px;height:5px;background:repeating-linear-gradient(125deg,color-mix(in srgb,var(--mr-detalle) 44%,transparent) 0 4px,transparent 4px 8px)}
 [class*='_crumbCurrent']{color:#f0eee6!important;font-weight:750!important}
-[class*='_tabActive']{color:#ff268e!important;border-color:#ff268e!important}
-[class*='_tabActive']::after{background:#ff268e!important}
-[data-composer-card]{position:relative;background:#222529!important;border:1px solid #51564a!important;border-top:2px solid #e4f226!important;border-radius:8px!important;box-shadow:0 10px 32px #0005!important}
-[data-composer-card]::before{content:'';position:absolute;top:-2px;left:18px;width:54px;height:2px;background:#ff268e;pointer-events:none}
-[data-composer-card]:focus-within{border-color:#26c6cc!important;border-top-color:#e4f226!important;box-shadow:0 0 0 2px #26c6cc12,0 10px 32px #0005!important}
-[data-composer-input]{color:#f0eee6!important;caret-color:#e4f226}
+[class*='_tabActive']{color:var(--mr-detalle)!important;border-color:var(--mr-detalle)!important}
+[class*='_tabActive']::after{background:var(--mr-detalle)!important}
+[data-composer-card]{position:relative;background:#222529!important;border:1px solid #51564a!important;border-top:2px solid var(--mr-principal)!important;border-radius:8px!important;box-shadow:0 10px 32px #0005!important}
+[data-composer-card]::before{content:'';position:absolute;top:-2px;left:18px;width:54px;height:2px;background:var(--mr-detalle);pointer-events:none}
+[data-composer-card]:focus-within{border-color:var(--mr-acento)!important;border-top-color:var(--mr-principal)!important;box-shadow:0 0 0 2px color-mix(in srgb,var(--mr-acento) 12%,transparent),0 10px 32px #0005!important}
+[data-composer-input]{color:#f0eee6!important;caret-color:var(--mr-principal)}
 /* El elemento SÍ existe: medido el 21-sep-2026 en la superficie (1 en el DOM).
    El encargo decía que no, y por eso se quitó; se ha devuelto al comprobarlo. */
 [data-composer-placeholder]{color:#a6adae!important;font-size:13px!important}
-[data-composer-card] button[aria-label*='Send'],[data-composer-card] button[aria-label*='Enviar']{background:#e4f226!important;color:#141612!important;border-radius:6px!important}
+[data-composer-card] button[aria-label*='Send'],[data-composer-card] button[aria-label*='Enviar']{background:var(--mr-principal)!important;color:#141612!important;border-radius:6px!important}
 [data-composer-card] button:disabled{opacity:.45}
 /* El botón de acciones de la cabecera de sesión (ahí vive ahora el registro).
    Antes apuntaba a `_sessionLogButton`, que YA NO EXISTE en DSH 0.1.5-rc.3
    (medido: 0 apariciones). Hoy es `_moreButton`, en
    `dsh-session-log-export/lib/client.js`. */
 [class*='_moreButton']{font-size:11px!important;letter-spacing:.03em;color:#b1b8b8!important;border-color:#454b50!important;border-radius:4px!important}
-button:focus-visible,input:focus-visible,[role='button']:focus-visible{outline:2px solid #26c6cc!important;outline-offset:3px}
+button:focus-visible,input:focus-visible,[role='button']:focus-visible{outline:2px solid var(--mr-acento)!important;outline-offset:3px}
 pre{border:1px solid #353b3e!important;border-radius:6px!important}
-a{color:#26c6cc}
+a{color:var(--mr-acento)}
 @media(max-width:900px){.mr-dsh-kicker{letter-spacing:.8px}.mr-dsh-kicker::after{display:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important}}
 
@@ -96,44 +107,46 @@ a{color:#26c6cc}
  mask-image:linear-gradient(180deg,transparent,#000 12%,#000 88%,transparent)}
 .mr-vida-salida>[class*='_scrollBody']{position:relative;z-index:1}
 @media(prefers-reduced-motion:reduce){.mr-vida{display:none!important}}
+/* MINIMAL: sin ratitas de fondo (el lienzo se esconde y el fotograma se para). */
+html[data-ratacode-tema='minimal'] .mr-vida{display:none!important}
 
 /* RATACODE welcome: replace the upstream mascot, without touching history. */
 .mr-welcome{gap:20px!important;padding:24px 16px!important}.mr-welcome-mark{width:78px!important;height:88px;background:var(--mr-emblema) center/contain no-repeat!important}
 .mr-welcome-mark>*{display:none!important}
 .mr-welcome [class*='_titleGroup']{display:flex!important;flex-direction:column;align-items:flex-start!important;gap:10px!important}
-.mr-welcome-title{font:900 italic clamp(28px,3.4vw,48px)/1 'Segoe UI',sans-serif;letter-spacing:-1.8px;background:linear-gradient(90deg,#e4f226 0 48%,#ff268e 48%);background-clip:text;-webkit-text-fill-color:transparent}
+.mr-welcome-title{font:900 italic clamp(28px,3.4vw,48px)/1 'Segoe UI',sans-serif;letter-spacing:-1.8px;background:linear-gradient(90deg,var(--mr-principal) 0 48%,var(--mr-detalle) 48%);background-clip:text;-webkit-text-fill-color:transparent}
 .mr-welcome [class*='_previewBadge']{font:10px/1.5 Consolas,monospace!important;letter-spacing:2px;border:0!important;border-radius:0!important;background:none!important;color:#b4b9b6!important;padding:0!important}
-@media(max-width:800px){.mr-welcome{gap:12px!important}.mr-welcome-mark{width:52px!important;height:62px}.mr-welcome [class*='_previewBadge']{letter-spacing:.5px}}
+@media(max-width:800px){.mr-welcome{gap:12px!important}.mr-welcome-mark{width:52px;height:62px}.mr-welcome [class*='_previewBadge']{letter-spacing:.5px}}
 
 /* R17 · EL AVISO DE LA CLAVE QUE FALTA, encima de la caja de escribir. Mismo
    ancho y mismo sitio que la tarjeta del encargo (`--dsh-composer-card-max-width`,
    que es la del propio motor), para que no baile con la caja. Discreto: una
-   banda con el filo amarillo de la casa, sin gritar. */
+   banda con el filo de la casa, sin gritar. */
 .mr-clave{box-sizing:border-box;display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;
  max-width:var(--dsh-composer-card-max-width,780px);margin:0 0 6px;padding:7px 12px;border-radius:10px;
- border:1px solid #3a3f45;border-left:3px solid #e4f226;background:#181a1d;color:#f0eee6;
+ border:1px solid #3a3f45;border-left:3px solid var(--mr-principal);background:#181a1d;color:#f0eee6;
  font-size:13px;line-height:19px}
 .mr-clave-texto{flex:1 1 260px;min-width:0}
 .mr-clave-boton{cursor:pointer;white-space:nowrap;padding:4px 11px;border-radius:8px;border:1px solid #464d52;
  background:#222529;color:inherit;font:inherit;font-size:12px}
-.mr-clave-boton:hover{border-color:#e4f226}
+.mr-clave-boton:hover{border-color:var(--mr-principal)}
 
 /* R22 §4 · EL AVISO DE MIGRACIÓN DE CLAVES: también encima de la caja, en UNA
-   línea, con su botón de cerrar. Filo rosa (es un «haz esto», no un fallo). */
+   línea, con su botón de cerrar. Filo del detalle (es un «haz esto», no un fallo). */
 .mr-migracion{box-sizing:border-box;display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;
  max-width:var(--dsh-composer-card-max-width,780px);margin:0 0 6px;padding:7px 12px;border-radius:10px;
- border:1px solid #3a3f45;border-left:3px solid #ff268e;background:#181a1d;color:#f0eee6;
+ border:1px solid #3a3f45;border-left:3px solid var(--mr-detalle);background:#181a1d;color:#f0eee6;
  font-size:13px;line-height:19px}
 .mr-migracion-texto{flex:1 1 260px;min-width:0}
 .mr-migracion-cerrar{cursor:pointer;white-space:nowrap;padding:4px 11px;border-radius:8px;border:1px solid #464d52;
  background:#222529;color:inherit;font:inherit;font-size:12px}
-.mr-migracion-cerrar:hover{border-color:#ff268e}
+.mr-migracion-cerrar:hover{border-color:var(--mr-detalle)}
 
 /* R18 · LA NOTA DE AJUSTES › MODELS. Ahí ya sólo quedan las APIs con clave: los
    dos locales se esconden de esa lista (el frontend no tiene gancho para
    filtrarla) y esta nota lleva a su pestaña. Discreta, con el filo de la casa. */
 .mr-locales-nota{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 0;padding:8px 12px;
- border-radius:10px;border:1px solid #3a3f45;border-left:3px solid #e4f226;background:#181a1d;
+ border-radius:10px;border:1px solid #3a3f45;border-left:3px solid var(--mr-principal);background:#181a1d;
  color:#f0eee6;font-size:13px;line-height:19px}
 
 /* R23 · LOS MODOS, EN 3×3. La pestaña la pinta el plugin de presets del motor;
@@ -162,3 +175,43 @@ a{color:#26c6cc}
 .mr-modos .mr-modos-puntos:hover{color:#f0eee6;background:#222529}
 @media(max-width:1100px){.mr-modos [class*='_cards']{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 
+/* ── R21 · EL MENÚ DE AJUSTES, CON EL COLOR DE LA MARCA ─────────────────────
+   El menú de Ajustes lo pinta el motor (`.navCell` / `.navList`, en
+   `dsh-client-ui-settings-general`). Aquí se le da el toque de la casa: el
+   icono y la fila activa con el color que manda el tema, el realce al pasar por
+   encima, y una línea de color bajo la fila elegida. Todo con las tres palabras
+   del tema, así que los tres aspectos lo cambian a la vez. */
+[class*='_navList'] button{position:relative;transition:background .12s ease,color .12s ease}
+[class*='_navList'] button [class*='_navIcon'],
+[class*='_navList'] button svg{color:var(--mr-detalle)}
+[class*='_navList'] button:hover{background:color-mix(in srgb,var(--mr-principal) 10%,transparent)!important;color:#f0eee6}
+[class*='_navList'] button:hover svg{color:var(--mr-principal)}
+[class*='_navList'] button[aria-current='true'],
+[class*='_navList'] button[class*='_active']{background:color-mix(in srgb,var(--mr-principal) 14%,transparent)!important;color:#fff!important;font-weight:650}
+[class*='_navList'] button[aria-current='true'] svg,
+[class*='_navList'] button[class*='_active'] svg{color:var(--mr-principal)}
+[class*='_navList'] button[aria-current='true']::before,
+[class*='_navList'] button[class*='_active']::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:3px;
+ border-radius:0 3px 3px 0;background:var(--mr-principal)}
+[class*='_navTitle'],nav[class*='_nav'] :is(h1,h2){letter-spacing:.4px}
+
+/* ── R21 · EL ASPECTO, CON LOS TRES TEMAS DE LA CASA ────────────────────────
+   La fila nativa del motor (Claro · Oscuro · Sistema, `_themeCube`) se esconde y
+   en su sitio va la fila de RATACODE (`.mr-temas`, la monta
+   `piel\lib\cliente.js`), que ofrece los tres aspectos y los pinta con su propio
+   color para que se vea de un vistazo cuál es cuál. */
+[class*='_group']:has([class*='_themeCube']){display:none!important}
+.mr-temas{display:flex;flex-direction:column;gap:9px;padding:2px 0}
+.mr-temas-titulo{font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary,#f0eee6)}
+.mr-temas-fila{display:flex;gap:8px;flex-wrap:wrap}
+.mr-tema{display:flex;align-items:center;gap:7px;cursor:pointer;padding:7px 13px;border-radius:9px;
+ border:1px solid var(--dsw-alias-border-l2,#353a3d);background:transparent;
+ color:var(--dsw-alias-label-secondary,#b8bdbb);font:inherit;font-size:12px;line-height:1}
+.mr-tema:hover{border-color:var(--mr-principal);color:var(--dsw-alias-label-primary,#f0eee6)}
+.mr-tema[aria-pressed='true']{border-color:var(--mr-principal);color:#fff;
+ background:color-mix(in srgb,var(--mr-principal) 14%,transparent)}
+.mr-tema-punto{width:13px;height:13px;border-radius:50%;flex:none;border:1px solid #ffffff26;
+ box-shadow:inset -4px -4px 0 0 var(--punto-detalle)}
+.mr-tema[data-tema='ratacode-pink']{--punto-detalle:#e4f226}
+.mr-tema[data-tema='ratacode-yellow']{--punto-detalle:#ff268e}
+.mr-tema[data-tema='minimal']{--punto-detalle:#3c3c3d}

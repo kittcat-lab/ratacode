@@ -512,8 +512,314 @@ window.__ModuleLoader__.load({
       return puestos;
     }
 
+    // ── R21 · LOS TRES TEMAS, POR LA VÍA OFICIAL DE TEMAS DE DSH ───────────
+    // El motor tiene su registro de temas (`ctx.theme`, paquete
+    // `@deepseek-ai/dsh-client-ui-theme`): un tema es un id, un `colorScheme` y
+    // una ficha de tokens `--dsw-*` que el presentador del propio DSH escribe
+    // como estilo en línea en el `body`. Con eso cambia TODO el panel —fondos,
+    // textos, botones y su reacción, bordes, iconos— sin repintar nada a mano:
+    // los componentes del motor ya leen esos tokens. La paleta de partida es la
+    // oscura de verdad del motor (`trabajo\R21\sacar-paleta.mjs`), así que sólo
+    // se cambia lo que tiene que cambiar.
+    //
+    // Lo que el motor NO da (y por eso lo pone la piel, y se dice):
+    //   · la fila «Aspecto» nativa está fija a Claro/Oscuro/Sistema
+    //     (`AppearanceRow.js`: `CUBES`), sin ranura para sustituirla. Se esconde
+    //     por CSS y en su sitio va la fila de RATACODE;
+    //   · un id de tema de fuera NO se guarda en los ajustes del motor (su
+    //     esquema sólo admite `light`/`dark`/`system`: `THEME_PREFERENCES`), así
+    //     que el aspecto elegido se recuerda en la casa (`<casa>\tema.txt`, por
+    //     `/ratacode/tema`) y se vuelve a aplicar al abrir.
+    const TEMAS = [
+      {
+        id: 'ratacode-pink',
+        etiqueta: 'RATACODE PINK',
+        // rosa principal · detalles en amarillo, negro y gris
+        principal: '#ff268e', detalle: '#e4f226', acento: '#e4f226',
+        // El rosa manda: el botón principal es rosa con texto negro.
+        textoDelBoton: '#141612',
+        hover: '#ff5aa8',
+        suave: '#4a1c33',
+        seleccion: '#33232d',
+        filoActivo: '#ff268e',
+        brillo: { 200: '#ffd6ea', 300: '#ffa8d2', 400: '#ff268e', 450: '#ff268e', 500: '#ff268e', 600: '#c01a68' },
+        marca: '#ff268e',
+      },
+      {
+        id: 'ratacode-yellow',
+        etiqueta: 'RATACODE YELLOW',
+        // amarillo principal · secundarios en rosa, negro y gris
+        principal: '#e4f226', detalle: '#ff268e', acento: '#ff268e',
+        textoDelBoton: '#141612',
+        hover: '#f1ff45',
+        suave: '#3a3320',
+        seleccion: '#382333',
+        filoActivo: '#e4f226',
+        brillo: { 200: '#f7ffb0', 300: '#eef86a', 400: '#e4f226', 450: '#e4f226', 500: '#cddb16', 600: '#9aa50f' },
+        marca: '#e4f226',
+      },
+      {
+        id: 'minimal',
+        etiqueta: 'MINIMAL',
+        // todo negro y gris: sólo líneas y pequeños detalles (y sin ratitas)
+        principal: '#e8e6df', detalle: '#8c9396', acento: '#b8bdbb',
+        textoDelBoton: '#101113',
+        hover: '#f5f4ef',
+        suave: '#26282b',
+        seleccion: '#2a2d31',
+        filoActivo: '#8c9396',
+        brillo: { 200: '#e8e6df', 300: '#b8bdbb', 400: '#9ba3a5', 450: '#8c9396', 500: '#6f7679', 600: '#545a5d' },
+        marca: '#e8e6df',
+      },
+    ];
+    /** El tema de fábrica de RATACODE (el primero de la lista). */
+    const TEMA_POR_DEFECTO = TEMAS[0].id;
+
+    /** Los grises de la casa: los mismos en los tres temas (negro y gris). */
+    const GRISES = {
+      '--dsw-alias-bg-base': '#101113',
+      '--dsw-alias-bg-layer-1': '#181a1d',
+      '--dsw-alias-bg-layer-2': '#222529',
+      '--dsw-alias-bg-layer-3': '#2a2d31',
+      '--dsw-alias-bg-overlay': '#26282c',
+      '--dsw-alias-bg-module-platform': '#2a2d31',
+      '--dsw-alias-bg-multi-select': '#212123',
+      '--dsw-alias-bg-skeleton': '#ffffff14',
+      '--dsw-alias-border-l1': '#282c30',
+      '--dsw-alias-border-l2': '#353a3d',
+      '--dsw-alias-border-l3': '#464d52',
+      '--dsw-alias-border-l4': '#626b70',
+      '--dsw-alias-label-primary': '#f0eee6',
+      '--dsw-alias-label-secondary': '#b8bdbb',
+      '--dsw-alias-label-tertiary': '#9ba3a5',
+      '--dsw-alias-label-dimmed': '#818a8e',
+      '--dsw-alias-markdown-code-block': '#15171a',
+      '--dsw-alias-markdown-code-block-banner': '#222529',
+      '--dsw-alias-markdown-inline-code': '#292d31',
+      '--dsw-alias-markdown-placeholder': '#222529',
+      '--dsw-alias-markdown-tag': '#222529',
+      '--dsw-alias-scrollbar-bg-l1': '#3c3c3d',
+      '--dsw-alias-scrollbar-bg-l2': '#545557',
+      '--dsw-alias-scrollbar-hover-l1': '#545557',
+      '--dsw-alias-scrollbar-hover-l2': '#65676b',
+      '--dsw-specific-bubble': '#222529',
+      '--dsw-specific-bubble-highlight': '#464d52',
+      '--dsw-specific-input-major': '#222529',
+      '--dsw-specific-selector': '#2a2d31',
+      '--dsw-specific-tip': '#2a2d31',
+      '--dsw-specific-menu': '#2a2d31',
+      '--dsw-specific-sidebar-fill': '#16181b',
+      '--dsw-static-neutral-900': '#0f0f0f',
+      '--dsw-static-neutral-850': '#212123',
+      '--dsw-static-neutral-800': '#292929',
+      '--dsw-static-neutral-bluish-950': '#101113',
+      '--dsw-static-neutral-bluish-900': '#181a1d',
+      '--dsw-static-neutral-bluish-875': '#181a1d',
+      '--dsw-static-neutral-bluish-850': '#222529',
+      '--dsw-static-neutral-bluish-800': '#2a2d31',
+      '--dsw-static-neutral-bluish-750': '#3a3d42',
+      '--dsw-static-neutral-bluish-700': '#464d52',
+      '--dsw-static-neutral-bluish-600': '#818a8e',
+      '--dsw-static-neutral-bluish-500': '#9ba3a5',
+      '--dsw-static-neutral-bluish-400': '#b8bdbb',
+      '--dsw-static-neutral-bluish-300': '#c9ced3',
+      '--dsw-static-neutral-bluish-200': '#dfe3e6',
+      '--dsw-static-neutral-bluish-150': '#e9ecf2',
+      '--dsw-static-neutral-bluish-100': '#f0eee6',
+      '--dsw-static-neutral-bluish-75': '#f4f2ec',
+      '--dsw-static-neutral-bluish-60': '#f7f5ef',
+      '--dsw-static-neutral-bluish-50': '#f0eee6',
+      '--dsw-static-neutral-600': '#545557',
+      '--dsw-static-neutral-550': '#65676b',
+      '--dsw-static-neutral-500': '#7f8287',
+      '--dsw-static-neutral-400': '#a2a4a6',
+      '--dsw-static-neutral-300': '#d4d4d4',
+      '--dsw-static-neutral-250': '#dcdcdc',
+      '--dsw-static-neutral-200': '#e5e5e5',
+      '--dsw-static-neutral-150': '#ededed',
+      '--dsw-static-neutral-100': '#f5f5f5',
+      '--dsw-static-neutral-50': '#fafafa',
+    };
+
+    /**
+     * La ficha de tokens de un tema: los grises de la casa + lo que cambia con
+     * el color de la marca (marca, botones y su reacción, enlaces, estados,
+     * realces, barra lateral y el brillo de «trabajando», que en DSH es azul).
+     * @param nivel - una ficha de {@link TEMAS}.
+     * @returns el mapa `--dsw-*` → valor.
+     */
+    function tokensDelTema(nivel) {
+      return {
+        ...GRISES,
+        '--dsw-alias-brand-primary': nivel.principal,
+        '--dsw-alias-brand-text': nivel.principal,
+        '--dsw-alias-brand-primary-invert': nivel.principal,
+        '--dsw-alias-button-primary-fill': nivel.principal,
+        '--dsw-alias-button-primary-hover': nivel.hover,
+        '--dsw-alias-button-primary-dimmed': nivel.suave,
+        '--dsw-alias-label-primary-foreground': nivel.textoDelBoton,
+        '--dsw-alias-button-ghost-active-fill': nivel.suave,
+        '--dsw-alias-button-ghost-active-border': nivel.principal,
+        '--dsw-alias-button-ghost-active-hover': nivel.seleccion,
+        '--dsw-alias-button-elevated-fill': '#222529',
+        '--dsw-alias-button-floating-fill': '#222529',
+        '--dsw-alias-button-floating-hover': '#2a2d31',
+        '--dsw-alias-button-contrast-fill': '#f0eee6',
+        '--dsw-alias-button-tool-bar-fill': '#222529',
+        '--dsw-alias-button-tool-bar-hover': '#30353a',
+        '--dsw-alias-interactive-bg-hover': '#292c30',
+        '--dsw-alias-interactive-bg-active': nivel.seleccion,
+        '--dsw-alias-interactive-bg-hover-solid': '#2a2d31',
+        '--dsw-alias-interactive-bg-hover-accent': nivel.suave,
+        '--dsw-alias-state-success-primary': nivel.detalle,
+        '--dsw-alias-state-success-secondary': nivel.detalle,
+        '--dsw-alias-state-success-tertiary': nivel.suave,
+        '--dsw-alias-state-warn-primary': nivel.detalle,
+        '--dsw-alias-state-warn-secondary': nivel.detalle,
+        '--dsw-alias-state-warn-tertiary': nivel.suave,
+        '--dsw-alias-state-warn-label': nivel.detalle,
+        // El error SÍ tiene que leerse como error en los tres temas: en MINIMAL
+        // es un rojo apagado, que es lo más «negro y gris» que sigue avisando.
+        '--dsw-alias-state-error-primary': nivel.id === 'minimal' ? '#c9707a' : '#ff5c7a',
+        '--dsw-alias-state-error-secondary': nivel.id === 'minimal' ? '#c9707a' : '#ff5c7a',
+        '--dsw-alias-state-business-primary': nivel.detalle,
+        '--dsw-alias-state-business-tertiary': nivel.suave,
+        '--dsw-alias-link': nivel.acento,
+        '--dsw-alias-toast-bg': '#2a2d31',
+        '--dsw-alias-tooltip-bg': '#2a2d31',
+        '--dsw-specific-sidebar-nav-item-active': nivel.suave,
+        '--dsw-specific-sidebar-nav-item-active-accent': nivel.filoActivo,
+        '--dsw-specific-sidebar-nav-item-hover': '#202225',
+        '--dsw-specific-login-input': '#181a1d',
+        // El brillo de «trabajando» del motor es azul DeepSeek puro
+        // (`--dsw-static-deepseek-*`): aquí pasa a ser el color de la casa.
+        '--dsw-static-deepseek-200': nivel.brillo[200],
+        '--dsw-static-deepseek-300': nivel.brillo[300],
+        '--dsw-static-deepseek-400': nivel.brillo[400],
+        '--dsw-static-deepseek-450': nivel.brillo[450],
+        '--dsw-static-deepseek-500': nivel.brillo[500],
+        '--dsw-static-deepseek-600': nivel.brillo[600],
+      };
+    }
+
+    /** ¿Es uno de los tres temas de RATACODE? */
+    function esTemaNuestro(id) {
+      return TEMAS.some((t) => t.id === id);
+    }
+
+    /**
+     * Registra los tres temas y deja puesto el que la casa recuerde.
+     * @param ctx - contexto del plugin de navegador (con `theme`).
+     * @returns el id que ha quedado activo.
+     */
+    function paqueteDeTemas(ctx) {
+      for (const nivel of TEMAS) {
+        ctx.effect(
+          () => ctx.theme.register({ id: nivel.id, colorScheme: 'dark', tokens: tokensDelTema(nivel) }),
+          'ratacode-piel: tema ' + nivel.id,
+        );
+      }
+      // El que la casa recuerde. Mientras llega la respuesta se pone el de
+      // fábrica, para que no haya un parpadeo con el tema del motor.
+      const estado = { activo: TEMA_POR_DEFECTO };
+      const pon = (id) => {
+        const bueno = esTemaNuestro(id) ? id : TEMA_POR_DEFECTO;
+        estado.activo = bueno;
+        try { ctx.theme.setTheme(bueno); } catch { /* tema no registrado: se queda el que haya */ }
+        marcarEnElDocumento(bueno);
+        pintarFilaDeTemas(ctx, estado);
+      };
+      pon(TEMA_POR_DEFECTO);
+      pedir('/ratacode/tema', 'GET').then((r) => {
+        if (r.ok === true && typeof r.tema === 'string') pon(r.tema);
+      });
+      // El motor re-adopta SU preferencia durable (`light`/`dark`/`system`) cada
+      // vez que su ámbito de ajustes cambia —y cambia al tocar el tamaño de
+      // letra—, y como un id de tema de fuera NO cabe en su esquema, al adoptar
+      // se cae el nuestro. Por eso, cuando el que llega es uno de los suyos, se
+      // vuelve a poner el nuestro; cuando el que llega es uno de los tres de la
+      // casa, es que lo hemos puesto nosotros y sólo hay que apuntarlo. Termina
+      // solo: `setTheme` con el mismo valor no publica nada, así que esto no
+      // puede quedarse girando.
+      ctx.on('theme/change', (instantanea) => {
+        const suyo = instantanea?.preference;
+        if (suyo === 'light' || suyo === 'dark' || suyo === 'system') { pon(estado.activo); return; }
+        if (esTemaNuestro(suyo)) estado.activo = suyo;
+        marcarEnElDocumento(estado.activo);
+        pintarFilaDeTemas(ctx, estado);
+      });
+      // La fila del aspecto la repinta el motor al re-renderizar: se vuelve a
+      // poner sin prisa, y sólo si de verdad falta.
+      setInterval(() => pintarFilaDeTemas(ctx, estado), 900);
+      return estado.activo;
+    }
+
+    /**
+     * Apunta el tema en el documento: `<html data-ratacode-tema="…">`. De ahí
+     * tiran el CSS de la casa (los colores de la marca y las ratitas de fondo) y
+     * `ratacode-vida.js`, que para su fotograma en MINIMAL.
+     * @param id - el tema activo.
+     */
+    function marcarEnElDocumento(id) {
+      if (typeof document === 'undefined') return;
+      if (document.documentElement.dataset.ratacodeTema !== id) document.documentElement.dataset.ratacodeTema = id;
+    }
+
+    /**
+     * La fila «Aspecto» de RATACODE, en su sitio: la nativa (Claro · Oscuro ·
+     * Sistema) la esconde el CSS (`.mr-temas` la sustituye) y aquí se monta la
+     * nuestra, con los tres temas EN SU ORDEN y su color a la vista. Se vuelve a
+     * montar si el motor repinta la sección.
+     * @param ctx - contexto del plugin (para el servicio de temas).
+     * @param estado - `{activo}`: el tema que está puesto (se actualiza aquí al pulsar).
+     */
+    function pintarFilaDeTemas(ctx, estado) {
+      if (typeof document === 'undefined') return;
+      const cuboNativo = document.querySelector('[class*="_themeCube"]');
+      if (cuboNativo === null) return; // Ajustes no está abierto
+      const grupo = cuboNativo.closest('[class*="_group"]');
+      if (grupo === null) return;
+      let fila = grupo.parentElement?.querySelector(':scope > .mr-temas');
+      if (!fila) {
+        fila = document.createElement('div');
+        fila.className = 'mr-temas';
+        const titulo = document.createElement('div');
+        titulo.className = 'mr-temas-titulo';
+        titulo.textContent = 'Aspecto';
+        const filaCubos = document.createElement('div');
+        filaCubos.className = 'mr-temas-fila';
+        for (const nivel of TEMAS) {
+          const boton = document.createElement('button');
+          boton.type = 'button';
+          boton.className = 'mr-tema';
+          boton.dataset.tema = nivel.id;
+          const punto = document.createElement('span');
+          punto.className = 'mr-tema-punto';
+          punto.style.background = nivel.principal;
+          boton.append(punto, document.createTextNode(nivel.etiqueta));
+          boton.addEventListener('click', () => {
+            estado.activo = nivel.id;
+            try { ctx.theme.setTheme(nivel.id); } catch { /* sin servicio: se apunta igual */ }
+            marcarEnElDocumento(nivel.id);
+            pintarFilaDeTemas(ctx, estado);
+            fetch('/ratacode/tema', {
+              method: 'POST', credentials: 'same-origin', cache: 'no-store',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ tema: nivel.id }),
+            }).catch(() => { /* sin casa que apunte: el tema sigue puesto en esta ventana */ });
+          });
+          filaCubos.append(boton);
+        }
+        fila.append(titulo, filaCubos);
+        grupo.after(fila);
+      }
+      for (const boton of fila.querySelectorAll('.mr-tema')) {
+        boton.setAttribute('aria-pressed', boton.dataset.tema === estado.activo ? 'true' : 'false');
+      }
+    }
+
     /** Servicios que necesita el plugin de cliente. */
-    const inject = ['slots', 'locale'];
+    const inject = ['slots', 'locale', 'theme'];
 
     /**
      * Monta las secciones de la piel en el menú de Ajustes: «Modelos locales» (R18,
@@ -524,6 +830,10 @@ window.__ModuleLoader__.load({
       // R21 · el español, por la vía oficial de idiomas. Va LO PRIMERO: cuanto
       // antes esté el diccionario, antes sale la pantalla en cristiano.
       const idiomas = paqueteDeIdioma(ctx);
+      // R21 · los tres temas, por la vía oficial de temas, y el que la casa
+      // recuerde puesto. Va detrás del idioma a propósito: el tema se apunta en
+      // `<html data-ratacode-tema>`, que es de donde tira el CSS de la casa.
+      const tema = paqueteDeTemas(ctx);
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
         id: 'modelos-locales',
@@ -538,7 +848,8 @@ window.__ModuleLoader__.load({
       }, SeccionConexiones));
       if (typeof console !== 'undefined') {
         console.info('RATACODE · Ajustes › General › Language: ' + IDIOMA_ETIQUETA
-          + ' (' + IDIOMA + ', ' + idiomas.length + ' diccionarios)');
+          + ' (' + IDIOMA + ', ' + idiomas.length + ' diccionarios)'
+          + ' · Aspecto: ' + tema);
       }
     }
 

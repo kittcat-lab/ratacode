@@ -200,6 +200,9 @@ const MARCAS_DEL_INDEX = [
   ['R23: los Modos, marcados por la piel para la cuadrícula 3×3', 'mr-modos'],
   ['R23: el título de la pestaña de modos', "const MODOS_TITULO='Modos'"],
   ['R23: el aviso de migración de claves (una vez)', '/ratacode/migracion'],
+  ['R21: el paquete de español va en el index, antes del módulo de la piel', 'window.__RATACODE_ES'],
+  ['R21: y trae los textos de verdad (la portada, en español)', '"Describe lo que quieres construir'],
+  ['R21: el tema activo se apunta en el documento', 'data-ratacode-tema'],
 ];
 
 // ── C · la piel contra el frontend instalado ────────────────────────────────
@@ -376,6 +379,21 @@ async function main() {
         'el bundle no deja el botón «Copiar comando» cuando no puede encender el runtime');
       comprobar(textoBundle.includes('A mano'),
         'el bundle no trae el comando plegado («A mano») de la tarjeta de Conexiones');
+      // R21 · el idioma español y los tres temas, por las vías OFICIALES.
+      comprobar(textoBundle.includes('addLanguage'), 'el bundle no declara el idioma por la vía oficial (ctx.locale.addLanguage)');
+      comprobar(textoBundle.includes("ctx.locale.register(ns, IDIOMA, dict)"),
+        'el bundle no registra los diccionarios por la vía oficial (ctx.locale.register)');
+      comprobar(textoBundle.includes('ratacode-yellow') && textoBundle.includes("id: 'minimal'"),
+        'el bundle no registra los TRES temas (ratacode-pink, ratacode-yellow, minimal)');
+      comprobar(textoBundle.includes('ctx.theme.register'), 'el bundle no registra los temas por la vía oficial (ctx.theme.register)');
+      comprobar(textoBundle.includes("const inject = ['slots', 'locale', 'theme']"),
+        'el bundle no pide los servicios locale/theme además de slots');
+      comprobar(textoBundle.includes("'/ratacode/tema'"),
+        'el bundle no pregunta a la casa por el aspecto recordado (/ratacode/tema)');
+      comprobar(textoBundle.includes("id: 'ratacode-pink'") && textoBundle.includes('RATACODE PINK'),
+        'el bundle no trae el tema RATACODE PINK (el primero de la lista)');
+      di('      ' + (textoBundle.includes('addLanguage') ? 'OK   ' : 'MAL  ') + '  el español va por la vía oficial de idiomas');
+      di('      ' + (textoBundle.includes('ctx.theme.register') ? 'OK   ' : 'MAL  ') + '  los tres temas van por la vía oficial de temas');
       di('      ' + (textoBundle.includes('settings.section') ? 'OK   ' : 'MAL  ') + '  la sección se registra por el slot oficial');
     }
 
@@ -447,8 +465,39 @@ async function main() {
     comprobar(fuenteDeLaPiel.includes('no llegó a encenderse'),
       'la ruta de los botones tiene que decir cuándo un runtime no llegó a encenderse');
 
-    // B7 · sin cookie, ni el apretón ni el MCP ni la clave ni los runtimes: el cerco del motor
-    for (const ruta of ['/ratacode/handshake', '/ratacode/mcp', '/ratacode/clave', '/ratacode/runtimes']) {
+    // B10 · R21: el ASPECTO que la casa recuerda. La casa se estrena sin
+    // `tema.txt`… pero `bin/ratacode.js` lo deja apuntado al arrancar, así que
+    // aquí sale el de fábrica; se cambia a otro de los tres y se comprueba que
+    // queda escrito; y un tema que no existe NO se acepta (y no rompe nada).
+    const estadoTema = await fetch(new URL('/ratacode/tema', destino), conGalleta);
+    const cuerpoTema = await estadoTema.json().catch(() => ({}));
+    di('  B10 · GET /ratacode/tema → ' + estadoTema.status + ' · tema:' + cuerpoTema.tema
+      + ' · temas:' + JSON.stringify(cuerpoTema.temas));
+    comprobar(estadoTema.status === 200 && cuerpoTema.ok === true, '/ratacode/tema contestó ' + estadoTema.status);
+    const TEMAS = ['ratacode-pink', 'ratacode-yellow', 'minimal'];
+    comprobar(JSON.stringify(cuerpoTema.temas) === JSON.stringify(TEMAS),
+      'los tres temas, en su orden: ' + JSON.stringify(cuerpoTema.temas));
+    comprobar(TEMAS.includes(cuerpoTema.tema), 'el tema de la casa es uno de los tres: ' + cuerpoTema.tema);
+    const maloTema = await fetch(new URL('/ratacode/tema', destino), {
+      ...conGalleta, method: 'POST', headers: { cookie: cabeceraGalleta, 'content-type': 'application/json' },
+      body: JSON.stringify({ tema: 'light' }),
+    });
+    comprobar(maloTema.status === 400, 'un tema que no es de la casa se rechaza (' + maloTema.status + ')');
+    const buenTema = await fetch(new URL('/ratacode/tema', destino), {
+      ...conGalleta, method: 'POST', headers: { cookie: cabeceraGalleta, 'content-type': 'application/json' },
+      body: JSON.stringify({ tema: 'minimal' }),
+    });
+    const cuerpoBuenTema = await buenTema.json().catch(() => ({}));
+    comprobar(buenTema.status === 200 && cuerpoBuenTema.tema === 'minimal', 'elegir MINIMAL se acepta (' + buenTema.status + ')');
+    const ficheroTema = join(args.casa, 'tema.txt');
+    comprobar(existsSync(ficheroTema) && readFileSync(ficheroTema, 'utf8').trim() === 'minimal',
+      'la casa apunta el aspecto elegido en tema.txt');
+    di('      ' + (existsSync(ficheroTema) ? 'OK   ' : 'MAL  ') + '  <casa>\\tema.txt = '
+      + (existsSync(ficheroTema) ? readFileSync(ficheroTema, 'utf8').trim() : '(no está)'));
+
+    // B7 · sin cookie, ni el apretón ni el MCP ni la clave ni los runtimes ni el
+    // aspecto: el cerco del motor
+    for (const ruta of ['/ratacode/handshake', '/ratacode/mcp', '/ratacode/clave', '/ratacode/runtimes', '/ratacode/tema']) {
       const sinGalleta = await fetch(new URL(ruta, destino), { redirect: 'manual' });
       comprobar(sinGalleta.status === 401, ruta + ' sin cookie contestó ' + sinGalleta.status + ' (debía ser 401)');
       di('      ' + (sinGalleta.status === 401 ? 'OK   ' : 'MAL  ') + '  ' + ruta + ' sin cookie contesta 401');
