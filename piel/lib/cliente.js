@@ -27,6 +27,17 @@
  * Así Ajustes › Models queda SÓLO para las APIs con clave, que es lo que pidió
  * Patxi.
  *
+ * R21 · Añade, por la vía OFICIAL de idiomas de DSH (`ctx.locale`), el IDIOMA
+ * ESPAÑOL: `addLanguage({id:'es', label:'Español', fallback:'en'})` y un
+ * diccionario `es` por CADA espacio de nombres de la interfaz (38 espacios,
+ * 1038 textos, medidos del motor instalado). Los textos llegan en
+ * `window.__RATACODE_ES`, que deja el index antes que este módulo. El inglés y
+ * el chino siguen donde estaban.
+ *
+ * R21 · Y registra los TRES TEMAS de la casa por la vía OFICIAL de temas
+ * (`ctx.theme.register`), con sus fichas de color (los tokens `--dsw-*`); el
+ * aspecto se cambia desde Ajustes › General › Appearance y se recuerda.
+ *
  * Este fichero NO es un módulo ES: es un bundle en el formato del cargador de
  * módulos del navegador de DSH (`window.__ModuleLoader__.load({id, factory})`),
  * que sólo REGISTRA una fábrica; el cuerpo se materializa al importarlo.
@@ -464,8 +475,45 @@ window.__ModuleLoader__.load({
       } catch { return false; }
     }
 
+    // ── R21 · EL ESPAÑOL, POR LA VÍA OFICIAL DE IDIOMAS DE DSH ─────────────
+    // DSH tiene su propio servicio de idiomas (`ctx.locale`, paquete
+    // `@deepseek-ai/dsh-client-locale`) y su fila en Ajustes › General ›
+    // Language. Añadir un idioma es EXACTAMENTE esto: declararlo con
+    // `addLanguage` y registrar un diccionario por espacio de nombres con
+    // `register(ns, 'es', {…})` (README del paquete: «Registering a language
+    // pack»). Aquí no se traduce nada sobre la pantalla: eso sería deuda, y
+    // cada clave nueva del motor volvería a salir en inglés.
+    //
+    // Los textos los deja el index en `window.__RATACODE_ES` (activo
+    // `piel\activos\ratacode-es.js`, medido del motor instalado). Si no
+    // estuviera —una instalación vieja, o el index sin vestir—, se declara el
+    // idioma igual y los textos caen al inglés por la cadena de respaldo.
+    const IDIOMA = 'es';
+    const IDIOMA_ETIQUETA = 'Español';
+
+    /**
+     * Declara el español y registra todos sus diccionarios.
+     * @param ctx - contexto del plugin de navegador (con `locale`).
+     * @returns la lista de espacios de nombres registrados.
+     */
+    function paqueteDeIdioma(ctx) {
+      const diccionarios = (typeof window === 'undefined' ? null : window.__RATACODE_ES) ?? null;
+      ctx.effect(
+        () => ctx.locale.addLanguage({ id: IDIOMA, label: IDIOMA_ETIQUETA, fallback: 'en' }),
+        'ratacode-piel: idioma español',
+      );
+      if (diccionarios === null) return [];
+      const puestos = [];
+      for (const [ns, dict] of Object.entries(diccionarios)) {
+        if (typeof ns !== 'string' || ns === '' || dict === null || typeof dict !== 'object') continue;
+        ctx.effect(() => ctx.locale.register(ns, IDIOMA, dict), 'ratacode-piel: diccionario es · ' + ns);
+        puestos.push(ns);
+      }
+      return puestos;
+    }
+
     /** Servicios que necesita el plugin de cliente. */
-    const inject = ['slots'];
+    const inject = ['slots', 'locale'];
 
     /**
      * Monta las secciones de la piel en el menú de Ajustes: «Modelos locales» (R18,
@@ -473,6 +521,9 @@ window.__ModuleLoader__.load({
      * @param ctx - contexto del plugin de navegador.
      */
     function apply(ctx) {
+      // R21 · el español, por la vía oficial de idiomas. Va LO PRIMERO: cuanto
+      // antes esté el diccionario, antes sale la pantalla en cristiano.
+      const idiomas = paqueteDeIdioma(ctx);
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
         id: 'modelos-locales',
@@ -485,6 +536,10 @@ window.__ModuleLoader__.load({
         order: 25,
         label: () => 'Conexiones',
       }, SeccionConexiones));
+      if (typeof console !== 'undefined') {
+        console.info('RATACODE · Ajustes › General › Language: ' + IDIOMA_ETIQUETA
+          + ' (' + IDIOMA + ', ' + idiomas.length + ' diccionarios)');
+      }
     }
 
     exports.apply = apply;

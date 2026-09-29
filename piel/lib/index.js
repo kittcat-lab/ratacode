@@ -22,7 +22,8 @@
  * ninguna clave: no queda ni una ruta de claves.
  *
  * ── LO QUE SÍ SIRVE ESTA PIEL (R12) ────────────────────────────────────────
- *   · el CSS y los guiones de la cara (identidad, piel, vida), y
+ *   · el CSS y los guiones de la cara (identidad, piel, vida, y el ESPAÑOL de
+ *     RATACODE como paquete de idioma oficial; ver `activos/ratacode-es.js`), y
  *   · el TEXTO DE LA CONEXIÓN de ESTA casa, que vive en Ajustes > Conexiones:
  *       GET  /ratacode/handshake  → el texto corto, con la URL de esta casa.
  *       POST /ratacode/handshake  → además lo deja en `<casa>\handshake.md`.
@@ -114,7 +115,12 @@ const TITULO_AJENO = /<title[^>]*>[\s\S]*?<\/title>/i;
 export function vestir(html) {
   if (html.includes(MARCA)) return html;
   const estilo = '<style ' + MARCA + '>' + cssDeLaPiel() + '</style>';
-  const guiones = '<script>' + dentroDeScript(leer('ratacode-piel.js')) + '</script>'
+  // El español va PRIMERO: deja los diccionarios en `window.__RATACODE_ES` antes
+  // de que arranque el módulo de la piel, que es quien los registra por la vía
+  // oficial de idiomas de DSH (`ctx.locale`). Así no se ve ni un parpadeo en
+  // inglés al abrir el panel.
+  const guiones = '<script>' + dentroDeScript(leer('ratacode-es.js')) + '</script>'
+    + '<script>' + dentroDeScript(leer('ratacode-piel.js')) + '</script>'
     + '<script>' + dentroDeScript(leer('ratacode-vida.js')) + '</script>';
   let salida = html;
   if (TITULO_AJENO.test(salida)) salida = salida.replace(TITULO_AJENO, '<title>RATACODE</title>');

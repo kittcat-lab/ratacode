@@ -102,6 +102,12 @@ const CAPA_PRESETS = `# RATACODE · los 9 modos de la casa, y NINGUNO de los que
 `;
 /** El preset de RATACODE que una casa usa si no dice otra cosa. */
 const PRESET_POR_DEFECTO = 'modo-rata';
+/**
+ * El idioma de RATACODE (R21): español. Los otros dos que trae el motor
+ * (inglés y chino) siguen donde estaban: se eligen en Ajustes › General ›
+ * Language. Aquí sólo se apunta el de la casa cuando no hay ninguno apuntado.
+ */
+const IDIOMA_POR_DEFECTO = 'es';
 /** Los presets que salieron en versiones anteriores de RATACODE y ya no existen. */
 const PRESETS_VIEJOS = ['enlazador', 'promptista', 'escritor'];
 /**
@@ -508,6 +514,41 @@ function ponerPresetPorDefecto(casa, preset = PRESET_POR_DEFECTO) {
   else nuevo = (texto.trim() === '' ? '' : texto.replace(/\s*$/, '\n')) + '\n' + bloque;
   writeFileSync(ruta, nuevo, { mode: 0o600 });
   return { cambiado: true, antes: actual ?? '(no estaba)', motivo: (actual ?? '(no estaba)') + ' → ' + preset };
+}
+
+/**
+ * El IDIOMA de la casa: español (R21). DSH guarda el idioma elegido en
+ * `settings.yaml` → `locale.preference` (esquema del paquete
+ * `@deepseek-ai/dsh-client-locale`: `{preference: <etiqueta BCP 47>}`) y, si no
+ * hay nada apuntado, se lo pregunta al navegador. RATACODE es una casa en
+ * español, así que se apunta «es» —pero SÓLO si la casa no ha elegido ya otro
+ * idioma: la elección del usuario no se toca nunca—. Se escribe sobre el TEXTO,
+ * como `ponerPresetPorDefecto`, para no llevarse por delante comentarios ni el
+ * orden del documento.
+ * @param casa - la casa de RATACODE.
+ * @returns `{cambiado, motivo}`.
+ */
+function ponerIdiomaPorDefecto(casa, idioma = IDIOMA_POR_DEFECTO) {
+  const ruta = join(casa, 'settings.yaml');
+  if (!existsSync(ruta)) return { cambiado: false, motivo: 'la casa no tiene settings.yaml' };
+  const texto = readFileSync(ruta, 'utf8');
+  let actual;
+  try {
+    actual = (yaml.load(texto) ?? {})?.locale?.preference;
+  } catch {
+    return { cambiado: false, motivo: 'el settings.yaml de la casa no se puede leer como YAML: no lo toco' };
+  }
+  if (actual === idioma) return { cambiado: false, motivo: 'ya estaba en ' + idioma };
+  if (typeof actual === 'string' && actual.trim() !== '') {
+    return { cambiado: false, motivo: 'la casa tiene «' + actual + '» puesto a mano: se respeta' };
+  }
+  const bloque = 'locale:\n  preference: ' + idioma + '\n';
+  const bloqueActual = /^locale:[ \t]*\n(?:[ \t]+[^\n]*\n)*/m;
+  let nuevo;
+  if (bloqueActual.test(texto)) nuevo = texto.replace(bloqueActual, bloque);
+  else nuevo = (texto.trim() === '' ? '' : texto.replace(/\s*$/, '\n')) + '\n' + bloque;
+  writeFileSync(ruta, nuevo, { mode: 0o600 });
+  return { cambiado: true, antes: actual ?? '(no estaba)', motivo: (actual ?? '(no estaba)') + ' → ' + idioma };
 }
 
 /**
@@ -1082,6 +1123,10 @@ async function main() {
   // (enlazador, promptista, escritor) y deja `agent-presets.default` en
   // modo-rata; los presets del USUARIO no se rozan.
   const modos = asegurarModos(casa);
+  // R21 · el español de la casa: se apunta `locale.preference: es` si la casa no
+  // ha elegido ya otro idioma (el inglés y el chino siguen en Ajustes › General ›
+  // Language, y la elección del usuario se respeta siempre).
+  const idioma = ponerIdiomaPorDefecto(casa);
 
   const carpeta = exigirCarpeta(ordenes.carpeta ?? process.cwd());
   const espacio = registrarEspacio(casa, carpeta);
@@ -1114,6 +1159,10 @@ async function main() {
     ? 'Ajustes › Models: las 8 APIs con clave (B.AI, OpenRouter, Groq, Google Gemini, NVIDIA NIM, SambaNova, Cloudflare Workers AI y DeepSeek nativo) · Ajustes › Modelos locales: Ollama y LM Studio, sin clave'
     : 'los que ya tuviera la casa (no se toca settings.yaml): añade a mano los que falten de las 8 APIs') + '\n');
   process.stdout.write('RATACODE · manos: el texto de la conexión y el MCP viven en Ajustes › Conexiones\n');
+  process.stdout.write('RATACODE · idioma: ' + (idioma.cambiado
+    ? 'español puesto por defecto (' + idioma.motivo + ')'
+    : 'el que ya tuviera la casa (' + idioma.motivo + ')')
+    + ' · inglés y chino siguen en Ajustes › General › Language\n');
 
   if (ordenes.modo === 'headless') {
     // Antes de arrancar el motor, mira si hay con qué: si el modelo por defecto
