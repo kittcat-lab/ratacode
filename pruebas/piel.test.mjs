@@ -392,6 +392,22 @@ async function main() {
         'el bundle no pregunta a la casa por el aspecto recordado (/ratacode/tema)');
       comprobar(textoBundle.includes("id: 'ratacode-pink'") && textoBundle.includes('RATACODE PINK'),
         'el bundle no trae el tema RATACODE PINK (el primero de la lista)');
+      // R24 · los TRES avisos de una línea, en los tres idiomas, por la vía oficial.
+      comprobar(textoBundle.includes("const AVISOS_NS = 'ratacode-avisos'"),
+        'el bundle no declara el espacio de nombres de los avisos (ratacode-avisos)');
+      comprobar(/AVISOS = \{[^]*?es: \{[^]*?en: \{[^]*?zh: \{/.test(textoBundle),
+        'los avisos no están en los TRES idiomas (es, en, zh)');
+      comprobar(textoBundle.includes("ctx.locale.register(AVISOS_NS, AVISOS)"),
+        'los avisos no van por la vía oficial de idiomas (ctx.locale.register)');
+      comprobar(textoBundle.includes('El agente actúa sin pedirte permiso. Úsalo solo en carpetas tuyas.'),
+        'el bundle no trae el aviso de «A rienda suelta» (Ajustes › General y la caja)');
+      comprobar(textoBundle.includes('Lo que envías va al proveedor que elijas y se rige por sus condiciones.'),
+        'el bundle no trae el aviso de Ajustes › Modelos');
+      comprobar(textoBundle.includes("permiso('preset.fullAccess')") && textoBundle.includes("conversacion('access.preset.fullAccess')"),
+        'el aviso del permiso no se cuelga del rótulo del motor (así sale en los tres idiomas)');
+      const dondeSePintan = ['mr-aviso-permiso', 'mr-aviso-modelos', 'mr-aviso-caja'].filter((c) => textoBundle.includes(c));
+      comprobar(dondeSePintan.length === 3,
+        'el bundle no pinta los tres avisos en sus tres sitios: ' + JSON.stringify(dondeSePintan));
       di('      ' + (textoBundle.includes('addLanguage') ? 'OK   ' : 'MAL  ') + '  el español va por la vía oficial de idiomas');
       di('      ' + (textoBundle.includes('ctx.theme.register') ? 'OK   ' : 'MAL  ') + '  los tres temas van por la vía oficial de temas');
       di('      ' + (textoBundle.includes('settings.section') ? 'OK   ' : 'MAL  ') + '  la sección se registra por el slot oficial');

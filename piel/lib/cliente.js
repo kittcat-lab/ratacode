@@ -38,6 +38,13 @@
  * (`ctx.theme.register`), con sus fichas de color (los tokens `--dsw-*`); el
  * aspecto se cambia desde Ajustes › General › Appearance y se recuerda.
  *
+ * R24 · Añade TRES AVISOS de una línea, en los tres idiomas: bajo el permiso de
+ * Ajustes › General (sólo con «A rienda suelta» puesto), arriba en
+ * Ajustes › Modelos y bajo la caja del encargo. Los textos van por la vía
+ * oficial de idiomas (`ctx.locale.register` de `es`, `en` y `zh` en un espacio
+ * de nombres propio) y se pintan en el sitio que les toca; no se toca ningún
+ * componente del motor ni ningún ajuste.
+ *
  * Este fichero NO es un módulo ES: es un bundle en el formato del cargador de
  * módulos del navegador de DSH (`window.__ModuleLoader__.load({id, factory})`),
  * que sólo REGISTRA una fábrica; el cuerpo se materializa al importarlo.
@@ -99,6 +106,11 @@ window.__ModuleLoader__.load({
       'font-size:12px;line-height:17px;white-space:pre-wrap;word-break:break-word}',
       '.mr-ml-avanzado{margin-top:2px}',
       '.mr-ml-avanzado>summary{cursor:pointer;font-size:12px;color:var(--dsw-alias-text-secondary,#9aa0a6)}',
+      // R24 · los tres avisos de una línea (permiso, proveedores y adjuntos).
+      '.mr-aviso-permiso{margin:0;color:var(--dsw-alias-label-tertiary,#9aa0a6);font-size:12px;font-weight:400;line-height:18px}',
+      '.mr-aviso-modelos{margin:0 0 4px;color:var(--dsw-alias-label-tertiary,#9aa0a6);font-size:13px;font-weight:400;line-height:20px}',
+      '.mr-aviso-caja{box-sizing:border-box;width:100%;max-width:var(--dsh-composer-card-max-width,780px);',
+      'margin:0 auto;padding:2px 12px 0;color:var(--dsw-alias-label-tertiary,#9aa0a6);font-size:12px;line-height:18px}',
     ].join('');
 
     if (typeof document !== 'undefined') {
@@ -111,6 +123,30 @@ window.__ModuleLoader__.load({
         document.head.appendChild(tag);
       }
     }
+
+    // ── R24 · LOS TRES AVISOS DE LA CASA, EN LOS TRES IDIOMAS ───────────────
+    // Una línea llana cada uno (como los textos de OpenAI y Anthropic), por la
+    // vía OFICIAL de idiomas: se registran los diccionarios de `es`, `en` y `zh`
+    // en un espacio de nombres propio y el texto que se pinta sale de
+    // `ctx.locale.bind`, así que cambia solo al cambiar el idioma en
+    // Ajustes › General › Language. El español NO va en `ratacode-es.js`: ese
+    // fichero es el diccionario del MOTOR, medido del motor instalado, y aquí
+    // son textos nuestros.
+    const AVISOS_NS = 'ratacode-avisos';
+    const AVISOS = {
+      es: {
+        'permiso.fullAccess': 'El agente actúa sin pedirte permiso. Úsalo solo en carpetas tuyas.',
+        'modelos.proveedor': 'Lo que envías va al proveedor que elijas y se rige por sus condiciones.',
+      },
+      en: {
+        'permiso.fullAccess': 'The agent acts without asking your permission. Use it only in folders of your own.',
+        'modelos.proveedor': 'What you send goes to the provider you choose and is governed by its terms.',
+      },
+      zh: {
+        'permiso.fullAccess': '智能体不经你许可就会直接操作。请只在属于你自己的文件夹里使用。',
+        'modelos.proveedor': '你发送的内容会交给你选择的提供商，并受其条款约束。',
+      },
+    };
 
     /** Un pedido a las rutas de la piel; nunca revienta: devuelve el error. */
     async function pedir(ruta, metodo) {
@@ -818,6 +854,99 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /**
+     * R24 · Registra los avisos en los tres idiomas y los pinta (y los vuelve a
+     * pintar si el motor repinta la pantalla, cada 900 ms, como la fila
+     * «Aspecto»): no se toca ningún componente del motor ni ningún fichero de
+     * ajustes, sólo se añade una línea donde toca.
+     * @param ctx - contexto del plugin de navegador (con `locale`).
+     */
+    function avisosDeLaCasa(ctx) {
+      ctx.effect(() => ctx.locale.register(AVISOS_NS, AVISOS), 'ratacode-piel: los avisos, en los tres idiomas');
+      const t = ctx.locale.bind(AVISOS_NS);
+      const pintar = () => { try { pintarAvisos(ctx, t); } catch { /* un aviso nunca tumba la pantalla */ } };
+      pintar();
+      setInterval(pintar, 900);
+    }
+
+    /**
+     * Las tres líneas, cada una en su sitio:
+     *   A · bajo el permiso de Ajustes › General, SÓLO si está «A rienda suelta»
+     *       (con los otros dos modos la frase no sería verdad);
+     *   B · arriba en Ajustes › Modelos, bajo su rótulo y su intro, encima de
+     *       todos los proveedores;
+     *   C · bajo la caja del encargo, alineada con ella, SÓLO si su selector de
+     *       permiso está en «A rienda suelta».
+     * El texto lo pone el servicio de idiomas del motor: aquí no se traduce nada.
+     * @param ctx - contexto del plugin (para los diccionarios del motor).
+     * @param t - el traductor de {@link AVISOS_NS}.
+     */
+    function pintarAvisos(ctx, t) {
+      if (typeof document === 'undefined') return;
+      const permiso = ctx.locale.bind('settings.permission');
+      const conversacion = ctx.locale.bind('conversation');
+      const modelos = ctx.locale.bind('settings.models');
+      const riendaSuelta = permiso('preset.fullAccess');
+      const enLaCaja = conversacion('access.preset.fullAccess');
+
+      // A · Ajustes › General: la fila del permiso, por su rótulo (en el idioma puesto).
+      const texto = [...document.querySelectorAll('[class*="_rowText"]')]
+        .find((c) => (c.querySelector('[class*="_title"]')?.textContent ?? '').trim() === permiso('title'));
+      if (texto !== undefined) {
+        const fila = texto.parentElement;
+        const puesto = (fila?.querySelector('[class*="_selector"]')?.textContent ?? '').trim();
+        let linea = texto.querySelector(':scope > .mr-aviso-permiso');
+        if (puesto !== riendaSuelta) {
+          if (linea !== null) linea.remove();
+        } else {
+          if (linea === null) {
+            linea = document.createElement('p');
+            linea.className = 'mr-aviso-permiso';
+            texto.append(linea);
+          }
+          if (linea.textContent !== t('permiso.fullAccess')) linea.textContent = t('permiso.fullAccess');
+        }
+      }
+
+      // B · Ajustes › Modelos: arriba del todo lo que se lee del proveedor.
+      const rotulo = [...document.querySelectorAll('h2[class*="_title"]')]
+        .find((h) => (h.textContent ?? '').trim() === modelos('title'));
+      const seccion = rotulo?.parentElement;
+      if (seccion !== undefined && seccion !== null) {
+        const intro = seccion.querySelector(':scope > [class*="_intro"]');
+        if (intro !== null) {
+          let linea = seccion.querySelector(':scope > .mr-aviso-modelos');
+          if (linea === null) {
+            linea = document.createElement('p');
+            linea.className = 'mr-aviso-modelos';
+            intro.after(linea);
+          }
+          if (linea.textContent !== t('modelos.proveedor')) linea.textContent = t('modelos.proveedor');
+        }
+      }
+
+      // C · La caja del encargo: el mismo aviso, bajo ella, si su selector está
+      //     en «A rienda suelta». Se busca el rótulo del selector (el del motor),
+      //     nunca se pulsa nada.
+      for (const caja of document.querySelectorAll('[data-composer-card]')) {
+        const padre = caja.parentElement;
+        if (padre === null) continue;
+        const suyo = [...caja.querySelectorAll('[class*="_triggerLabel"]')]
+          .some((s) => (s.textContent ?? '').trim() === enLaCaja);
+        let linea = padre.querySelector(':scope > .mr-aviso-caja');
+        if (!suyo) {
+          if (linea !== null) linea.remove();
+          continue;
+        }
+        if (linea === null) {
+          linea = document.createElement('div');
+          linea.className = 'mr-aviso-caja';
+          padre.insertBefore(linea, caja.nextSibling);
+        }
+        if (linea.textContent !== t('permiso.fullAccess')) linea.textContent = t('permiso.fullAccess');
+      }
+    }
+
     /** Servicios que necesita el plugin de cliente. */
     const inject = ['slots', 'locale', 'theme'];
 
@@ -834,6 +963,10 @@ window.__ModuleLoader__.load({
       // recuerde puesto. Va detrás del idioma a propósito: el tema se apunta en
       // `<html data-ratacode-tema>`, que es de donde tira el CSS de la casa.
       const tema = paqueteDeTemas(ctx);
+      // R24 · los tres avisos de una línea (el permiso, los proveedores y los
+      // adjuntos), en los tres idiomas. Van detrás del idioma: los pinta el
+      // traductor, que tiene que estar puesto.
+      avisosDeLaCasa(ctx);
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
         id: 'modelos-locales',
