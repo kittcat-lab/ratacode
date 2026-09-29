@@ -10,8 +10,9 @@
  * lo que necesitan estas siete herramientas.
  *
  * Sólo escucha en loopback. La exposición a Internet es cosa del túnel
- * (tunel.mjs), que lo decide el usuario — y que exige `--acepto-lectura-total`,
- * porque el motor no sabe acotar la LECTURA (mira `lib/lectura.js`).
+ * (tunel.mjs), que lo decide el usuario. Y lo que se expone va encerrado: cada
+ * tarea lee y escribe sólo dentro de las carpetas autorizadas, sin terminal y
+ * sin red (mira `lib/lectura.js`), así que aquí no hay nada que aceptar.
  *
  * Cuatro reglas que se cumplen aquí, y todas se prueban:
  *   1 · LA CLAVE NO SE REGISTRA. Ni en los avisos ni en los errores: en el

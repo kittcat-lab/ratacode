@@ -93,24 +93,29 @@ está, se para y dice: `Falta la clave de B.AI. Pégala en RATACODE › Ajustes 
 
 ## Lo que una tarea puede LEER (y por qué el HTTP pide permiso)
 
-Escríbelo en tu cabeza antes de abrir el túnel: **una tarea MCP escribe solo dentro de su espacio
-autorizado, pero LEE lo que quiera**. No es un descuido de RATACODE: el motor no tiene ningún
+Escríbelo en tu cabeza antes de abrir el túnel: **una tarea MCP lee y escribe solo dentro de las
+carpetas que tú autorizas** (`mcp.workspaces`). No es un descuido del motor: DSH no tiene ningún
 modo que acote la lectura —`read-only`, `workspace-write` y `danger-full-access` son ejes de
 ESCRITURA, y su propio código lo dice: «Reads pass through untouched: every mode permits
 reading»—, y su encierre de Windows restringe el token a la escritura («`WRITE_RESTRICTED`
-intersects only write accesses»). Ni las herramientas de
-ficheros ni el shell tienen lista blanca de lectura.
+intersects only write accesses»). Por eso la lectura la encierra RATACODE, con el gancho
+`tools/pre-execute` del motor: cada herramienta que lleve una ruta fuera de tus carpetas se para
+y el agente ve una línea: «Fuera de la carpeta autorizada: `<ruta>`».
+
+Y no hay puertas por detrás: en una tarea del MCP no hay terminal, ni trabajos en segundo plano,
+ni red, ni subagentes, ni guiones.
 
 Consecuencias, claras:
 
-- Una tarea puede leer `<casa>\.credentials.yaml`, tu `.ssh` o tus documentos, y lo que lea **viaja al
-  proveedor del modelo** que hayas elegido. No le mandes encargos que vayan a buscar claves.
-- Por eso `ratacode mcp --http` y `node mcp/tunel.mjs` **no arrancan** sin `--acepto-lectura-total`:
-  abrir la URL (o el túnel) es abrir tu disco a quien tenga esa URL.
-- Por stdio la superficie la controlas tú (es tu propio cliente local el que arranca el servidor), y
-  no hace falta aceptar nada.
-- Si quieres cerrarlo de verdad, la frontera tiene que ser del sistema operativo (un usuario o una
-  máquina virtual solo para esto), no del motor.
+- Lo que la tarea lea **viaja al proveedor del modelo** que hayas elegido, así que la carpeta
+  autorizada es, de verdad, todo lo que ese chat puede ver. No pongas ahí claves de otros sitios.
+- `ratacode mcp --http` y `node mcp/tunel.mjs` **ya no piden nada**: antes exigían
+  `--acepto-lectura-total` porque la lectura no estaba encerrada; desde R25 sí lo está, y esa
+  bandera se acepta como no-op (para no romper los comandos viejos).
+- Por stdio, igual: la superficie la controlas tú (es tu propio cliente local el que arranca el
+  servidor).
+- Si además quieres aislarlo del sistema operativo (un usuario o una máquina virtual solo para
+  esto), mejor: son dos cierres, no uno.
 
 ## ChatGPT web (y cualquier app que hable MCP por HTTP): el túnel
 
@@ -119,10 +124,10 @@ ChatGPT web no arranca procesos: necesita una **URL** de MCP por HTTP. Por eso e
 
 ```sh
 # 1) el MCP por HTTP (local), con espacios declarados en `mcp.workspaces`
-ratacode mcp --http --acepto-lectura-total
+ratacode mcp --http
 
 # 2) el túnel, en otra ventana
-node mcp/tunel.mjs --home <casa> --acepto-lectura-total
+node mcp/tunel.mjs --home <casa>
 ```
 
 `tunel.mjs` te imprime la **URL pública completa** (dominio + `/mcp/<clave>`): esa es la que se
@@ -136,9 +141,9 @@ Si tienes dado de alta el túnel nombrado `mcp.mod-rat.com` en tu Cloudflare, lo
 hostname fijo (por fichero de configuración, nunca pasando la URL por argumentos); si no, abre un
 quick tunnel con URL efímera.
 
-**Lo que implica abrirlo, y por eso hace falta `--acepto-lectura-total`:** el motor no sabe
-encerrar la LECTURA (mira el apartado de arriba). Mientras el túnel esté abierto, quien tenga esa
-URL puede pedir una tarea que lea cualquier fichero que pueda leer tu usuario. No lo dejes abierto
+**Lo que implica abrirlo:** el túnel expone el MCP a Internet, así que quien tenga esa URL puede
+mandar tareas. Lo que **no** puede es salirse de tus carpetas: la tarea lee y escribe solo dentro
+de `mcp.workspaces` y no tiene terminal ni red (mira el apartado de arriba). No lo dejes abierto
 más de lo que dure el trabajo, y cámbiale la clave (basta con volver a lanzar `tunel.mjs`) cuando
 cierres.
 

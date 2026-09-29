@@ -33,7 +33,8 @@
  *                                   RATACODE (entonces el botón puede apagarla).
  *       POST /ratacode/conexion/encender y /apagar → los botones del usuario.
  *       GET  /ratacode/mcp        → el MCP para chats web: estado del HTTP y
- *                                   del túnel, aviso de lectura total, los dos
+ *                                   del túnel, la carpeta autorizada (que es la
+ *                                   línea que enseña la tarjeta), los dos
  *                                   comandos y el texto para pegar en el chat.
  *       GET  /ratacode/clave      → (R17) si al modelo por DEFECTO de la casa le
  *                                   falta la clave, con el `describe` del

@@ -205,7 +205,7 @@ function uso() {
     '  también por Streamable HTTP. Todo lo que va detrás de «mcp» es suyo.',
     '',
     '    ratacode mcp                     MCP por stdio',
-    '    ratacode mcp --http --acepto-lectura-total   MCP por stdio Y por HTTP (puerto 3778; ver mcp/README.md)',
+    '    ratacode mcp --http             MCP por stdio Y por HTTP (puerto 3778; ver mcp/README.md)',
     '    ratacode mcp --status            enseña el estado de la casa y sale',
     '    ratacode mcp --help              la ayuda del MCP',
     '',

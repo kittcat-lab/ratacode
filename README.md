@@ -132,10 +132,11 @@ Para LM Studio el id de modelo lo pone la aplicación: míralo con
 
 Los dos lados de la mano están en **Ajustes → Conexiones**: el texto que se copia para
 los agentes con navegador (Claude Code, Codex, OpenClaw, Rowboat…) —lo copia y lo deja en
-`<casa>\handshake.md`— y el **MCP para chats web**, con el aviso de lectura total y el
-texto que se pega en el chat. **El MCP es la vía recomendada**: cuesta menos (dos llamadas
-y texto, sin capturas de pantalla), tiene estado explícito y **cada tarea sale en la barra
-lateral del panel** con su conversación, así que no es una caja negra.
+`<casa>\handshake.md`— y el **MCP para chats web**, con la carpeta autorizada («Este chat
+solo puede leer y escribir en `<carpeta>`.») y el texto que se pega en el chat.
+**El MCP es la vía recomendada**: cuesta menos (dos llamadas y texto, sin capturas de
+pantalla), tiene estado explícito y **cada tarea sale en la barra lateral del panel** con
+su conversación, así que no es una caja negra.
 
 **Las claves del MCP.** Están en UN solo sitio: **Ajustes → Models** (la casa). El servidor
 MCP no mira las variables de entorno del cliente ni abre ficheros de claves: le pregunta al
@@ -170,8 +171,8 @@ motor**; el de por defecto es **MODO-RATA**:
    por stdio para Claude Code, Codex, ChatGPT web, Rowboat u OpenClaw. Siete herramientas:
    `list_providers` → `list_models` → `run_task` → `get_task_status` → `get_task_result` →
    `cancel_task` y `ratacode_status`. Por HTTP (para ChatGPT web) hace falta
-   `ratacode mcp --http --acepto-lectura-total` y `mcp.workspaces` declarado; el túnel es
-   `node mcp/tunel.mjs --home <casa> --acepto-lectura-total` (puerto por defecto del MCP: 3778).
+   `ratacode mcp --http` y `mcp.workspaces` declarado; el túnel es
+   `node mcp/tunel.mjs --home <casa>` (puerto por defecto del MCP: 3778).
 
 > Los rótulos propios y las secciones **Conexiones**, **Modelos locales** y **Modos** están en
 > español, pero Ajustes → Models y los menús del motor siguen en inglés (los pone el motor, y
@@ -185,22 +186,25 @@ están en la carpeta [`apreton`](https://github.com/kittcat-lab/ratacode) del re
 ## Seguridad
 
 - **Casa propia y cerrada.** Todo vive en `%USERPROFILE%\.ratacode`, **su** carpeta (nunca
-  la de ajustes de ningún otro programa). Una tarea MCP **solo ESCRIBE** dentro de su
-  `working_directory`: el sandbox lo impone el core (`workspace-write` fijado) y lo que
-  intenta escribir fuera falla.
-- **Pero puede LEER todo tu PC.** El motor no tiene ningún modo que acote la lectura: el
-  vocabulario del sandbox (`read-only` · `workspace-write` · `danger-full-access`) es de
-  ESCRITURA, y el propio código del motor lo dice con todas las letras —
-  *«Reads pass through untouched: every mode permits reading»*. Una tarea MCP puede leer
-  cualquier fichero que puedas leer tú (incluido `<casa>\.credentials.yaml` y tu `.ssh`), y
-  lo que lea viaja al proveedor del modelo. Por eso `ratacode mcp --http` y `mcp/tunel.mjs`
-  **no arrancan** sin `--acepto-lectura-total`: abrir esa URL a Internet es abrir tu disco a
-  quien tenga la URL.
+  la de ajustes de ningún otro programa). Una tarea MCP trabaja **solo dentro de las
+  carpetas autorizadas** (`mcp.workspaces`): escribe y lee ahí, y ni una cosa ni la otra
+  fuera. Lo impone el core (sandbox fijado en `workspace-write`) más el cerco de lectura
+  del MCP, y la tarea se para con una línea: «Fuera de la carpeta autorizada: `<ruta>`».
+- **Y sin puertas por detrás.** En una tarea del MCP no hay terminal, ni trabajos en
+  segundo plano, ni red, ni subagentes, ni guiones: se apagan una a una en el parche de
+  cada tarea. Lo que la tarea lea viaja al proveedor del modelo, así que la carpeta
+  autorizada es, de verdad, todo lo que ese chat puede ver.
+- **La lectura, encerrada desde R25.** El motor sigue sin saber acotarla (su sandbox es de
+  ESCRITURA: *«Reads pass through untouched: every mode permits reading»*), así que
+  RATACODE la encierra con el gancho `tools/pre-execute` del motor: cada herramienta con
+  una ruta fuera de `mcp.workspaces` se deniega. Antes, `ratacode mcp --http` y
+  `mcp/tunel.mjs` **no arrancaban** sin `--acepto-lectura-total`; ya no hace falta nada de
+  eso (la bandera se acepta como no-op, por no romper comandos viejos).
 - **Las claves no salen.** Nunca van dentro del paquete. El servidor MCP no lee ficheros
   de credenciales (le pregunta al motor si la credencial está puesta en la casa), las usa
   y no las devuelve ni las escribe en el cuaderno. El motor, además, lava el entorno de
-  los shells de sus agentes (`/KEY|PASSWORD|SECRET|TOKEN/i`). Ojo: eso no impide que una
-  tarea LEA el fichero de claves (punto anterior).
+  los shells de sus agentes (`/KEY|PASSWORD|SECRET|TOKEN/i`). Y con el cerco de lectura,
+  una tarea MCP tampoco puede abrir `<casa>\.credentials.yaml`.
 - **Lo que adjuntes viaja al proveedor del modelo, igual que el texto.** El panel deja
   adjuntar ficheros e imágenes, y eso también sale de tu PC.
 - **Nada hacia fuera por sí solo:** sin telemetría, sin cuentas; de tu PC solo sale lo que
@@ -273,11 +277,11 @@ and get the result back in your agent or chat.
   and MCP (`ratacode mcp`) so ChatGPT web, Claude Code, Codex, Rowboat or OpenClaw can
   delegate tasks (`list_models`, `run_task`, `get_task_status`, `get_task_result`, `cancel_task`).
 - **Security:** its own locked home (`%USERPROFILE%\.ratacode`, never any other program's settings
-  folder); MCP tasks can only
-  **WRITE** inside their `working_directory` but can **READ** any file your user can read (the engine
-  cannot fence reads: *"Reads pass through untouched: every mode permits reading"*),
-  so the HTTP transport and the tunnel refuse to start without `--acepto-lectura-total`; and the keys
-  never travel inside the package.
+  folder); MCP tasks work only inside the folders you authorise (`mcp.workspaces`) — they **read
+  and write there and nowhere else** — with no terminal, no network, no subagents and no scripts,
+  and the read fence is the engine's own `tools/pre-execute` hook, so the HTTP transport and the
+  tunnel no longer need `--acepto-lectura-total` (it is a no-op now); and the keys never travel
+  inside the package.
 - **Uninstall:** `npm uninstall -g ratacode`, then delete the home folder
   (`%USERPROFILE%\.ratacode`; `rm -rf ~/.ratacode` on Mac/Linux). That folder holds your keys
   (`.credentials.yaml`), the MCP key (`mcp\http-secret.txt`) and the panel URL with its token

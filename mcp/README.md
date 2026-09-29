@@ -25,13 +25,13 @@ Es un **subcomando del binario principal**, así que no hay que buscar rutas:
 ```sh
 ratacode mcp                              # habla MCP por stdio (lo que espera un cliente)
 ratacode mcp --status                     # estado y sale, sin arrancar el motor
-ratacode mcp --http --acepto-lectura-total   # además, Streamable HTTP en 127.0.0.1:<puerto>/mcp/<clave>
+ratacode mcp --http                       # además, Streamable HTTP en 127.0.0.1:<puerto>/mcp/<clave>
 ratacode mcp --help                       # la ayuda del MCP
 ```
 
 El puerto por defecto del HTTP es **3778** (se cambia con `--port`). `--http` exige
-`--acepto-lectura-total` (abajo se explica por qué) y `mcp.workspaces` declarado. Con
-`--nueva-clave` se estrena una clave nueva en vez de reutilizar la guardada.
+`mcp.workspaces` declarado. Con `--nueva-clave` se estrena una clave nueva en vez de
+reutilizar la guardada.
 
 Si `ratacode` no está en el PATH (o trabajas desde el repositorio), vale la ruta
 directa: `node <ruta>\bin\ratacode.js mcp`.
@@ -77,8 +77,8 @@ ChatGPT web (y cualquier app que hable MCP por URL) necesita HTTP. El túnel es 
 transporte**: expone el MCP local con Cloudflare mientras corre y no cambia nada del servidor.
 
 ```sh
-ratacode mcp --http --acepto-lectura-total                 # el MCP por HTTP (local)
-node mcp/tunel.mjs --home <casa> --acepto-lectura-total     # el túnel, en otra ventana
+ratacode mcp --http                        # el MCP por HTTP (local)
+node mcp/tunel.mjs --home <casa>           # el túnel, en otra ventana
 ```
 
 `tunel.mjs` imprime la **URL pública completa** (dominio + `/mcp/<clave>`) para pegar en el
@@ -89,9 +89,10 @@ no viaja en los argumentos de ningún proceso. Si el túnel nombrado `mcp.mod-ra
 Cloudflare, lo usa con hostname fijo mediante un fichero de configuración
 (`<casa>\mcp\cloudflared.yml`); si no, un quick tunnel con URL efímera. Ctrl+C lo cierra.
 
-Y **sí, `--acepto-lectura-total` es obligatorio** aquí y en `--http`: mientras el túnel esté
-abierto, quien tenga esa URL puede pedir una tarea que lea cualquier fichero que pueda leer tu
-usuario (más abajo, «La LECTURA no se puede cerrar»).
+Y **ya no hay nada que aceptar**: cada tarea va encerrada en las carpetas de
+`mcp.workspaces` (lee y escribe sólo ahí, sin terminal y sin red), así que la
+bandera `--acepto-lectura-total` de antes es un no-op: se acepta para no romper
+los comandos viejos, y no hace nada (más abajo, «La LECTURA, encerrada»).
 
 ## Las herramientas
 
@@ -123,28 +124,36 @@ agente deciden el modelo; esta capa no elige por nadie.
 
 ## Seguridad
 
-- **Espacio cerrado (para ESCRIBIR).** Una tarea sólo **escribe** dentro de las raíces
-  autorizadas. Si la casa no declara `mcp.workspaces`, la única raíz permitida es el
-  espacio por defecto (o la carpeta desde la que arrancó el servidor). Cualquier otra
-  ruta se rechaza con un error que dice qué hacer.
-- **La LECTURA no se puede cerrar (por eso el HTTP pide permiso).** El motor no tiene
-  ningún modo que acote lo que se lee: `read-only` deniega toda MUTACIÓN, no toda
-  lectura, y el vocabulario del sandbox es de efectos sobre ficheros
-  (`dsh-fs-sandbox/lib/types/index.d.ts:7-8`: «Reads pass through untouched: every mode
-  permits reading»; `dsh-sandbox/lib/types/roots.d.ts:28-36`: la única lista de raíces
-  que existe es la de ESCRITURA). Una tarea MCP puede leer cualquier fichero que pueda
-  leer tu usuario —incluida `<casa>\.credentials.yaml`— y lo que lea viaja al proveedor
-  del modelo. Por eso `--http` **no arranca** sin `--acepto-lectura-total`, y
-  `tunel.mjs` tampoco. Por stdio no hace falta: la superficie la controla quien arranca
-  su propio cliente local.
-- **El sandbox lo impone el core.** Cada tarea arranca en `workspace-write` con
-  su cwd como frontera de escritura, y el MCP le pasa al hijo un parche que
-  **fija** el modo, para que ni un `DSH_PERMISSION_MODE` heredado del entorno
-  pueda aflojarlo.
+- **Espacio cerrado, para LEER y para ESCRIBIR.** Una tarea trabaja sólo dentro de las
+  raíces autorizadas (`mcp.workspaces`). Si la casa no las declara, la única raíz
+  permitida es el espacio por defecto (o la carpeta desde la que arrancó el servidor).
+  Cualquier otra ruta se rechaza, y el agente ve una línea: **«Fuera de la carpeta
+  autorizada: `<ruta>`».**
+- **La LECTURA, encerrada con un gancho.** El motor no sabe acotar la lectura (`read-only`
+  deniega toda MUTACIÓN, no toda lectura: `dsh-fs-sandbox/lib/types/index.d.ts:7-8`,
+  «Reads pass through untouched: every mode permits reading»; y la única lista de raíces
+  que existe es la de ESCRITURA, `dsh-sandbox/lib/types/roots.d.ts:28-36`). Se acota con
+  el gancho de permiso por herramienta `tools/pre-execute` (`dsh-tools`), que ve cada
+  llamada antes de ejecutarse y puede denegarla. El plugin que lo engancha es
+  `mcp/lib/lectura.js`, y el MCP lo monta en cada tarea por parche. Normaliza de verdad:
+  rutas relativas, `..`, mayúsculas/minúsculas de Windows, enlaces (realpath del trozo que
+  existe), UNC y el prefijo `\\?\`.
+- **Sin vías de escape.** En la tarea no hay terminal (`tool-pwsh`, `tool-bash`), ni
+  trabajos en segundo plano (`tool-jobs`), ni red (`tool-web`), ni subagentes
+  (`tool-subagent*`), ni guiones (`tool-workflow`) ni bucles de agentes (`tool-ralph`).
+  Se apagan una a una en el parche de cada tarea, con su motivo escrito al lado.
+- **El sandbox lo impone el core.** Cada tarea arranca en `workspace-write` con su cwd
+  como frontera de escritura, y el MCP le pasa al hijo un parche que **fija** el modo.
+  Ojo con el detalle que costó una ronda: la casa de fábrica trae
+  `permission.defaultPreset: danger-full-access` (es lo que el panel necesita), y ese
+  ajuste se aplica AL CREAR la sesión, así que ganaba al parche. Por eso el parche apaga
+  la fila `permission` en el hijo del MCP: sin ese servicio, manda el modo del MCP. El
+  panel del usuario no se toca: sigue con el preset que él elija.
 - **Lo peligroso se pide dos veces.** `allow_dangerous` en la llamada **no
   basta**: hace falta que el humano haya puesto `mcp.permitir_peligroso: true`.
   Si no, se deniega y se explica. Nunca se queda esperando una aprobación que
-  en un servidor MCP no existe: falla cerrado.
+  en un servidor MCP no existe: falla cerrado. Y aun con `allow_dangerous`, la
+  lectura sigue encerrada en `mcp.workspaces`: lo que se abre es la ESCRITURA.
 - **Claves.** Nunca se devuelven, nunca se escriben en el cuaderno, nunca van
   al agente cliente. El servidor las usa y hace la llamada. Además, el propio
   DSH lava el entorno de los shells de sus agentes
@@ -236,7 +245,9 @@ y que `cancel_task` deja la tarea en `cancelled` de verdad.
 - **Del lanzador:** arranque/parada del MCP desde el panel con `MCP: ON/OFF`, la sección
   **Connections** en Ajustes (puerto, clientes, última actividad) y el botón que explique el MCP
   dentro de la web. Hoy eso se hace por línea de órdenes y se mira en `<casa>\mcp\`.
-- **Y una frontera que no es nuestra:** la LECTURA de las tareas. DSH no la sabe acotar
-  (mira «La LECTURA no se puede cerrar»), así que quien quiera encerrarla de verdad tiene que
-  hacerlo por fuera del motor (un usuario de Windows distinto, una máquina virtual, permisos
-  NTFS). Si algún día DSH trae raíces de lectura, esto se aprieta.
+- **Y una frontera que ya SÍ está puesta (R25):** la LECTURA de las tareas. DSH no la
+  sabe acotar (mira «La LECTURA, encerrada con un gancho»), así que RATACODE la encierra
+  con el gancho `tools/pre-execute`: cada herramienta con una ruta fuera de
+  `mcp.workspaces` se para y lo dice. Lo que queda fuera de nuestras manos es lo que DSH
+  no exponga por una herramienta (no hay ninguna: sin terminal, sin red y sin subagentes,
+  no hay puerta). Si algún día DSH trae raíces de lectura, esto se aprieta todavía más.

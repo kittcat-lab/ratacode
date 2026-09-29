@@ -153,7 +153,7 @@ footer .marca svg{width:22px;height:22px}
       <p><code>ratacode mcp</code>: ChatGPT web, Claude Code, Codex, Rowboat u OpenClaw
       le mandan tareas (<code>list_models</code> → <code>run_task</code> →
       <code>get_task_result</code>). Para ChatGPT web, el túnel:
-      <code>node mcp/tunel.mjs --acepto-lectura-total</code>.</p>
+      <code>node mcp/tunel.mjs</code>.</p>
     </div>
   </div>
 
@@ -167,19 +167,18 @@ footer .marca svg{width:22px;height:22px}
 
   <h2>Seguridad</h2>
   <ul class="seguridad">
-    <li><b>Carpeta cerrada:</b> todo vive en <code>%USERPROFILE%\.ratacode</code>, nunca en la
-      carpeta de ajustes de otro programa. Las tareas MCP solo <b>ESCRIBEN</b> dentro de su
-      <code>working_directory</code>: lo que intentan escribir fuera, falla.</li>
-    <li><b>Pero pueden LEER todo tu PC.</b> El motor no tiene ningún modo que acote la
-      lectura —<code>read-only</code>, <code>workspace-write</code> y <code>danger-full-access</code>
-      son ejes de <i>escritura</i>—, así que una tarea MCP puede leer cualquier fichero que puedas
-      leer tú (incluido <code>%USERPROFILE%\.ratacode\.credentials.yaml</code> y tu <code>.ssh</code>)
-      y lo que lea viaja al proveedor del modelo. Por eso el MCP por HTTP y el túnel no se abren sin
-      <code>--acepto-lectura-total</code>, y por eso no le mandes tareas sobre ficheros que no quieras
-      enseñar.</li>
+    <li><b>Carpeta cerrada, para leer y para escribir:</b> todo vive en
+      <code>%USERPROFILE%\.ratacode</code>, nunca en la carpeta de ajustes de otro programa. Una
+      tarea MCP trabaja solo dentro de las carpetas que tú autorizas
+      (<code>mcp.workspaces</code>), y fuera de ahí la herramienta se para y lo dice
+      («Fuera de la carpeta autorizada»).</li>
+    <li><b>Y sin puertas por detrás.</b> En una tarea MCP no hay terminal, ni red, ni subagentes,
+      ni guiones: se apagan una a una. El motor sigue sin saber acotar la lectura —su sandbox es de
+      <i>escritura</i>—, así que la encierra RATACODE con el gancho <code>tools/pre-execute</code>
+      del motor. Lo que la tarea lea viaja al proveedor del modelo, así que la carpeta autorizada
+      es, de verdad, todo lo que ese chat puede ver.</li>
     <li><b>Las claves no viajan</b> en el paquete ni se devuelven por MCP: el servidor las usa y hace la
-      llamada. Pero están en un fichero de tu PC que una tarea SÍ puede leer (punto anterior): no le
-      pidas tareas que vayan a buscar claves.</li>
+      llamada. Y con el cerco de lectura, una tarea no puede abrir el fichero de claves de la casa.</li>
     <li><b>Se borra todo de una vez:</b> <code>npm uninstall -g ratacode</code> y luego la carpeta
       <code>%USERPROFILE%\.ratacode</code> (PowerShell: <code>Remove-Item -Recurse -Force "$env:USERPROFILE\.ratacode"</code>).
       Ahí dentro van tus claves (<code>.credentials.yaml</code>), la clave del MCP
