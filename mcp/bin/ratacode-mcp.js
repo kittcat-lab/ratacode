@@ -54,6 +54,14 @@ function uso() {
     'Sin opciones, habla MCP por stdio (lo que espera cualquier cliente MCP local).',
     'Con --http, habla por los dos a la vez; la clave de la URL se genera y se',
     'guarda en la casa (en <casa>\\mcp\\http-secret.txt), nunca en el repositorio.',
+    'La clave se puede presentar de tres formas: en la ruta (/mcp/<clave>, la de',
+    'siempre), en la consulta (/mcp?clave=<clave>) o en `Authorization: Bearer',
+    '<clave>`. Las dos últimas están ahí por si un cliente no admite la ruta.',
+    '',
+    'R26 · TRES HERRAMIENTAS DE SÓLO LECTURA, para ChatGPT (plan Pro sólo puede',
+    'usar las que no cambian nada): ratacode_status, list_files y read_file. Van',
+    'marcadas con readOnlyHint y leen sólo dentro de las carpetas autorizadas: el',
+    'cerco se comprueba en el servidor, con mcp/lib/lectura.js.',
     '',
     'CADA TAREA VA ENCERRADA en las carpetas de `mcp.workspaces`: lee y escribe',
     'sólo ahí, sin terminal, sin red, sin subagentes y sin guiones. Fuera de esas',
@@ -164,7 +172,7 @@ async function main() {
 
   aviso('en marcha · casa: ' + casa);
   aviso('en marcha · motor: ' + dshBin);
-  aviso('en marcha · herramientas: list_providers, list_models, run_task, get_task_status, get_task_result, cancel_task, ratacode_status');
+  aviso('en marcha · herramientas: list_providers, list_models, run_task, get_task_status, get_task_result, cancel_task, ratacode_status, list_files, read_file');
   aviso('en marcha · tope de tareas: ' + ordenes.tareasPorHora + '/h');
   tareas.resumir();
 
@@ -184,6 +192,9 @@ async function main() {
       clave,
       rutaClave,
       alRotar: guardarUrl,
+      // Quién llama, para el cuaderno y para `ratacode_status`: en modo sin
+      // estado el nombre sólo se puede leer de la petición `initialize`.
+      alPresentarse: (nombre) => tareas.verCliente(nombre),
       host: '127.0.0.1',
     });
     // La clave NO se escribe en stderr: los clientes MCP guardan ese stderr en

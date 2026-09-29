@@ -28,6 +28,17 @@
  * del fichero de la clave, este módulo la relee cada pocos segundos y adopta la
  * nueva. Así `tunel.mjs` puede estrenar clave al abrir el túnel y el servidor
  * que ya está en marcha la acepta.
+ *
+ * R26 · DOS COSAS MÁS, por ChatGPT:
+ *   · LA CLAVE SE PUEDE PRESENTAR DE TRES FORMAS: en la ruta (`/mcp/<clave>`,
+ *     lo de siempre), en la consulta (`/mcp?clave=<clave>`) o en la cabecera
+ *     `Authorization: Bearer <clave>`. Sin dato de si ChatGPT acepta la clave
+ *     dentro de la ruta, se dejan preparadas las otras dos: la ruta sigue
+ *     siendo la forma que se le da a Patxi.
+ *   · EL `Origin` DE OTRA WEB SE CORTA CON UN 403. Un navegador con una página
+ *     abierta no tiene por qué hablarle a este servidor. Se permite el origen
+ *     propio (loopback, cualquier puerto: el inspector de MCP vive en otro) y
+ *     los de OpenAI (por si su backend mandara `Origin` alguna vez).
  */
 import { timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -41,6 +52,35 @@ const TOPE_CUERPO = 5_000_000;
 const SIMULTANEAS_DEFECTO = 8;
 /** Cada cuánto se mira si la clave del fichero ha cambiado. */
 const MS_REVISION_CLAVE = 2000;
+
+/** Los nombres del parámetro de la clave en la consulta, para los clientes que no puedan usar la ruta. */
+const CLAVES_EN_CONSULTA = ['clave', 'key'];
+
+/**
+ * ¿Este `Origin` es de casa (loopback) o de OpenAI? Cualquier otra web: no.
+ * @param {string|undefined} origen - la cabecera `Origin`.
+ * @returns {boolean} true si se admite.
+ */
+export function origenAdmitido(origen) {
+  if (typeof origen !== 'string' || origen.trim() === '') return true; // sin cabecera: un cliente, no un navegador
+  let anfitrion;
+  try {
+    anfitrion = new URL(origen).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  if (anfitrion === '127.0.0.1' || anfitrion === 'localhost' || anfitrion === '::1' || anfitrion === '[::1]') return true;
+  if (anfitrion === 'chatgpt.com' || anfitrion.endsWith('.chatgpt.com')) return true;
+  if (anfitrion === 'openai.com' || anfitrion.endsWith('.openai.com')) return true;
+  return false;
+}
+
+/** El valor de un `Authorization: Bearer <clave>`, si lo hay. */
+function portador(cabecera) {
+  if (typeof cabecera !== 'string') return null;
+  const trozos = cabecera.trim().split(/\s+/);
+  return trozos.length === 2 && trozos[0].toLowerCase() === 'bearer' ? trozos[1] : null;
+}
 
 /** Leer el cuerpo JSON de una petición, con tope. */
 function leerCuerpo(req) {
@@ -84,10 +124,10 @@ function claveValida(recibida, buena) {
 
 /**
  * Arrancar el servidor HTTP.
- * @param {{fabricaServidor: () => import('@modelcontextprotocol/sdk/server/mcp.js').McpServer, puerto: number, clave: string, rutaClave?: string, alRotar?: (nueva: string) => void, host?: string, simultaneas?: number}} opciones
+ * @param {{fabricaServidor: () => import('@modelcontextprotocol/sdk/server/mcp.js').McpServer, puerto: number, clave: string, rutaClave?: string, alRotar?: (nueva: string) => void, host?: string, simultaneas?: number, alPresentarse?: (nombre: string) => void}} opciones
  * @returns {Promise<{servidor: import('node:http').Server, claveActual: () => string, parar: () => void}>} ya escuchando.
  */
-export function iniciarServidorHttp({ fabricaServidor, puerto, clave, rutaClave, alRotar, host = '127.0.0.1', simultaneas = SIMULTANEAS_DEFECTO }) {
+export function iniciarServidorHttp({ fabricaServidor, puerto, clave, rutaClave, alRotar, host = '127.0.0.1', simultaneas = SIMULTANEAS_DEFECTO, alPresentarse }) {
   /** La clave viva: puede cambiar si `tunel.mjs` estrena una. */
   let claveViva = clave;
   let atendiendose = 0;
@@ -117,9 +157,21 @@ export function iniciarServidorHttp({ fabricaServidor, puerto, clave, rutaClave,
   });
 
   async function manejar(req, res) {
+    // El origen, lo PRIMERO: una web ajena no llega ni a probar la clave.
+    if (!origenAdmitido(req.headers.origin)) {
+      res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' })
+        .end('Origen no permitido: sólo se atiende desde esta máquina (o desde OpenAI).');
+      return;
+    }
+
     const url = new URL(req.url ?? '/', 'http://' + (req.headers.host ?? 'localhost'));
     const partes = url.pathname.split('/').filter(Boolean); // ['mcp', '<clave>']
-    if (partes[0] !== 'mcp' || !claveValida(partes[1], claveViva)) {
+    // La clave vale por la ruta (lo de siempre), por la consulta o por la
+    // cabecera `Authorization: Bearer`. Ninguna de las tres se registra.
+    const candidatas = [partes[1], ...CLAVES_EN_CONSULTA.map((n) => url.searchParams.get(n)), portador(req.headers.authorization)];
+    // Una sola pieza de ruta después de `/mcp`: si hay más (`/mcp/<clave>/otra`),
+    // es una URL equivocada y se dice, en vez de atenderla como si fuera la buena.
+    if (partes[0] !== 'mcp' || partes.length > 2 || !candidatas.some((c) => claveValida(c, claveViva))) {
       res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('Not found');
       return;
     }
@@ -144,6 +196,14 @@ export function iniciarServidorHttp({ fabricaServidor, puerto, clave, rutaClave,
       }
       atendiendose += 1;
       try {
+        // Quién llama, del propio `initialize`: sin estado, el servidor que
+        // atiende el `notifications/initialized` es OTRO distinto del que vio el
+        // `initialize`, así que allí no hay nombre que preguntar y el cuaderno se
+        // quedaba en «MCP». Se apunta aquí, de la petición que sí lo trae.
+        const nombre = cuerpo?.params?.clientInfo?.name;
+        if (cuerpo?.method === 'initialize' && typeof nombre === 'string' && nombre.trim() !== '' && typeof alPresentarse === 'function') {
+          alPresentarse(nombre.trim().slice(0, 80));
+        }
         const transporte = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
         const servidor = fabricaServidor();
         await servidor.connect(transporte);
