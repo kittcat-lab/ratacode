@@ -1,5 +1,5 @@
 /**
- * servidor — las siete herramientas MCP de RATACODE.
+ * servidor — las herramientas MCP de RATACODE.
  *
  * Esto es una capa FINA: aquí no se decide qué modelo usar (salvo el que la
  * casa ya tiene por defecto, y se dice cuál), no se habla con ningún proveedor
@@ -10,6 +10,13 @@
  * nada de acciones peligrosas sin autorización, ni una clave en ninguna
  * respuesta, y un tope de tareas por hora para no gastar de más cuando el
  * servidor está expuesto (sobre todo por el túnel de Cloudflare).
+ *
+ * R26 · Y TRES HERRAMIENTAS DE SOLO LECTURA, porque ChatGPT (plan Pro) sólo
+ * puede usar las que no cambian nada: `ratacode_status`, `list_files` y
+ * `read_file`. Las tres van marcadas con `readOnlyHint: true` (es la marca que
+ * documenta OpenAI para que el cliente sepa que no cambian estado), no gastan
+ * tokens ni claves, y leen SÓLO dentro de las carpetas autorizadas, con el
+ * cerco de `lib/lectura.js` comprobado aquí, en el servidor.
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -20,10 +27,36 @@ import { catalogo, credencialDeProveedor, resolverRuta } from './modelos.js';
 import { faltaLaClave } from './claves.js';
 import { aviso } from './registro.js';
 import { resolverEspacio, resolverModo } from './seguridad.js';
+import { listarCarpeta, leerFichero, raicesDeLaCasa, TOPE_ENTRADAS } from './carpeta.js';
 import { Tareas } from './tareas.js';
+import { VERSION } from './version.js';
 
 /** La ventana del tope de tareas. */
 const VENTANA_MS = 3600_000;
+
+/**
+ * Las marcas de un herramienta de SOLO LECTURA, tal y como las documenta OpenAI
+ * (`developers.openai.com/plugins/build/mcp-server`): `readOnlyHint: true` sólo
+ * cuando la herramienta NO puede cambiar estado, `destructiveHint: false` y
+ * `openWorldHint: false` (lo que se mira es una carpeta acotada de esta
+ * máquina, no Internet).
+ */
+const SOLO_LECTURA = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
+/** Y las de una que SÍ cambia cosas (lanza trabajo o lo cancela). */
+const ESCRIBE = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
+
+/** Las herramientas que publica este servidor, con si son de sólo lectura. */
+const HERRAMIENTAS = [
+  ['list_providers', true],
+  ['list_models', true],
+  ['run_task', false],
+  ['get_task_status', true],
+  ['get_task_result', true],
+  ['cancel_task', false],
+  ['ratacode_status', true],
+  ['list_files', true],
+  ['read_file', true],
+];
 
 /** El envoltorio de toda respuesta: JSON legible para cualquier agente. */
 function comoTexto(dato) {
@@ -77,6 +110,8 @@ function instrucciones() {
   return [
     'RATACODE está disponible como servidor MCP: úsalo para delegar trabajos a los modelos configurados en esta máquina.',
     '',
+    'SI SÓLO PUEDES LEER (ChatGPT con conector propio en modo desarrollador: las herramientas de escritura no están disponibles en todos los planes), usa estas tres: `ratacode_status` (estado del servidor, versión, carpetas autorizadas y herramientas), `list_files` (lista una carpeta autorizada) y `read_file` (lee un fichero de una carpeta autorizada). Las tres están marcadas como de sólo lectura y no gastan tokens ni claves.',
+    '',
     'Antes de ejecutar una tarea:',
     '1. consulta list_models',
     '2. lanza run_task con el modelo que te hayan pedido',
@@ -125,6 +160,7 @@ export function registrarHerramientas(servidor, ctx) {
       title: 'Proveedores de RATACODE',
       description: 'Los proveedores configurados en RATACODE, con si tienen la credencial puesta en la casa (RATACODE › Ajustes › Models). Nunca devuelve ninguna clave.',
       inputSchema: {},
+      annotations: SOLO_LECTURA,
     },
     conRed(async () => {
       const { proveedores, porDefecto, avisos } = await catalogo(casa);
@@ -156,6 +192,7 @@ export function registrarHerramientas(servidor, ctx) {
       inputSchema: {
         provider: z.string().optional().describe('Filtra por proveedor (por ejemplo "b-ai").'),
       },
+      annotations: SOLO_LECTURA,
     },
     conRed(async ({ provider }) => {
       const { modelos, porDefecto, avisos } = await catalogo(casa);
@@ -189,6 +226,7 @@ export function registrarHerramientas(servidor, ctx) {
         timeout: z.number().int().positive().optional().describe('Tiempo máximo en milisegundos antes de cancelar la tarea. Por defecto ' + ajustes.timeoutPorDefectoMs + ' ms (' + Math.round(ajustes.timeoutPorDefectoMs / 60000) + ' min); máximo ' + ajustes.timeoutMaximoMs + ' ms.'),
         allow_dangerous: z.boolean().optional().describe('Pedir acceso total al disco. Requiere que el humano lo haya permitido en la casa; si no, se deniega.'),
       },
+      annotations: ESCRIBE,
     },
     conRed(async (args) => {
       // Tope del encargo: un prompt enorme es un gasto enorme y una espera peor.
@@ -308,6 +346,7 @@ export function registrarHerramientas(servidor, ctx) {
       title: 'Estado de una tarea',
       description: 'Estado de una tarea: queued, running, completed, failed o cancelled.',
       inputSchema: { task_id: z.string().min(1).describe('El task_id que devolvió run_task.') },
+      annotations: SOLO_LECTURA,
     },
     conRed(async ({ task_id }) => comoTexto(tareas.estado(task_id))),
   );
@@ -319,6 +358,7 @@ export function registrarHerramientas(servidor, ctx) {
       title: 'Resultado de una tarea',
       description: 'La respuesta de una tarea terminada, con modelo, proveedor, tokens, coste (si está declarado), duración y errores.',
       inputSchema: { task_id: z.string().min(1).describe('El task_id que devolvió run_task.') },
+      annotations: SOLO_LECTURA,
     },
     conRed(async ({ task_id }) => comoTexto(tareas.resultado(task_id))),
   );
@@ -330,6 +370,7 @@ export function registrarHerramientas(servidor, ctx) {
       title: 'Cancelar una tarea',
       description: 'Detiene una tarea en marcha de inmediato (se mata el proceso que la ejecuta).',
       inputSchema: { task_id: z.string().min(1).describe('El task_id que devolvió run_task.') },
+      annotations: ESCRIBE,
     },
     conRed(async ({ task_id }) => comoTexto(await tareas.cancelar(task_id))),
   );
@@ -339,19 +380,25 @@ export function registrarHerramientas(servidor, ctx) {
     'ratacode_status',
     {
       title: 'Estado de RATACODE MCP',
-      description: 'Estado del propio servidor: tareas vivas, tope por hora y espacios autorizados. No devuelve la casa ni la actividad de otros clientes.',
+      description: 'Estado del propio servidor: si está vivo, su versión, las herramientas que publica, las carpetas autorizadas, las sesiones (clientes) que han hablado con él y los topes. No devuelve la casa, ni las claves, ni la actividad de otros clientes. Úsalo al empezar, para saber con qué cuentas.',
       inputSchema: {},
+      annotations: SOLO_LECTURA,
     },
     conRed(async () => {
       const resumen = tareas.resumir();
+      const { raices, raiz, avisos } = raicesDeLaCasa({ casa, cwdPorDefecto, http: ctx.http === true });
       // Ni la casa (el dato que sirve en bandeja para ir a leer
-      // `.credentials.yaml`), ni el cuaderno de actividad (lleva los encargos de
-      // TODOS los clientes), ni las últimas tareas de otros: cada cliente ve lo
-      // suyo y el estado del servidor.
+      // `.credentials.yaml`), ni el motor, ni el cuaderno de actividad (lleva los
+      // encargos de TODOS los clientes): cada cliente ve lo suyo, lo que puede
+      // tocar y cómo está el servidor.
+      const { casa: _casa, motor: _motor, ...servidor } = resumen.mcp;
       return comoTexto({
-        mcp: resumen.mcp,
-        actualizado: resumen.actualizado,
-        espacios_autorizados: ajustes.workspaces.length > 0 ? ajustes.workspaces : ['(sin lista; sólo el espacio por defecto)'],
+        vivo: true,
+        version: VERSION,
+        servidor: { ...servidor, transporte: ctx.http === true ? ['stdio', 'http'] : ['stdio'] },
+        herramientas: HERRAMIENTAS.map(([nombre, soloLectura]) => ({ nombre, solo_lectura: soloLectura })),
+        carpeta_autorizada: { raiz, raices },
+        sesiones: { clientes: resumen.clientes, tareas_totales: resumen.tareas_totales, tareas_activas: resumen.tareas_activas },
         permitir_peligroso: ajustes.permitirPeligroso,
         topes: {
           tareas_por_hora: ctx.tareasPorHora,
@@ -360,15 +407,55 @@ export function registrarHerramientas(servidor, ctx) {
           timeout_por_defecto_ms: ajustes.timeoutPorDefectoMs,
           timeout_maximo_ms: ajustes.timeoutMaximoMs,
           prompt_max_caracteres: ajustes.promptMaxCaracteres,
+          entradas_por_listado: TOPE_ENTRADAS,
         },
-        nota: 'Para ver el cuaderno de actividad y las tareas de todos los clientes, míralo en la casa (o en el panel), no por MCP.',
+        avisos,
+        nota: 'Esta herramienta es de SÓLO LECTURA, como list_files y read_file. Para ver el cuaderno de actividad y las tareas de todos los clientes, míralo en la casa (o en el panel), no por MCP.',
       });
+    }),
+  );
+
+  // ── list_files (R26 · sólo lectura, para ChatGPT) ─────────────────────────
+  servidor.registerTool(
+    'list_files',
+    {
+      title: 'Listar una carpeta autorizada',
+      description: 'Lista lo que hay en una carpeta de las autorizadas (por defecto, la primera). Sólo lectura: no cambia nada. Si la ruta se sale de las carpetas autorizadas, la herramienta se para y lo dice. Devuelve nombre, tipo, tamaño y fecha de cada entrada.',
+      inputSchema: {
+        ruta: z.string().optional().describe('Carpeta a listar: relativa a la carpeta autorizada, o absoluta pero DENTRO de ella. Por defecto, la carpeta autorizada.'),
+      },
+      annotations: SOLO_LECTURA,
+    },
+    conRed(async ({ ruta }) => {
+      const { raices, raiz, avisos } = raicesDeLaCasa({ casa, cwdPorDefecto, http: ctx.http === true });
+      if (raices.length === 0) throw new Error('esta casa no tiene ninguna carpeta autorizada: mira los avisos en ratacode_status');
+      const listado = listarCarpeta({ ruta: ruta ?? raiz, raices, cwd: raiz });
+      return comoTexto({ ...listado, avisos });
+    }),
+  );
+
+  // ── read_file (R26 · sólo lectura, para ChatGPT) ──────────────────────────
+  servidor.registerTool(
+    'read_file',
+    {
+      title: 'Leer un fichero autorizado',
+      description: 'Devuelve el texto de un fichero que esté DENTRO de las carpetas autorizadas. Sólo lectura: no cambia nada. Si la ruta se sale, la herramienta se para y lo dice; si es binario o muy grande, también (y en ese caso devuelve el principio y avisa).',
+      inputSchema: {
+        ruta: z.string().min(1).describe('Fichero a leer: relativo a la carpeta autorizada, o absoluto pero DENTRO de ella.'),
+      },
+      annotations: SOLO_LECTURA,
+    },
+    conRed(async ({ ruta }) => {
+      const { raices, raiz, avisos } = raicesDeLaCasa({ casa, cwdPorDefecto, http: ctx.http === true });
+      if (raices.length === 0) throw new Error('esta casa no tiene ninguna carpeta autorizada: mira los avisos en ratacode_status');
+      const leido = leerFichero({ ruta, raices, cwd: raiz });
+      return comoTexto({ ...leido, raices, avisos });
     }),
   );
 }
 
 /**
- * Montar el servidor MCP con sus siete herramientas.
+ * Montar el servidor MCP con sus herramientas.
  * @param {{casa: string, dshBin: string, cwdPorDefecto: string, tareasPorHora?: number, http?: boolean}} opciones - la casa, el motor, el cwd, el tope y si se habla por HTTP.
  * @returns {{servidor: McpServer, tareas: Tareas, fabricaServidor: () => McpServer}}
  */
@@ -385,7 +472,7 @@ export function montarServidor({ casa, dshBin, cwdPorDefecto, tareasPorHora = 30
    * un mismo servidor a varios transportes a la vez) sin perder el estado. */
   function fabricaServidor() {
     const servidor = new McpServer(
-      { name: 'ratacode', version: '0.1.0' },
+      { name: 'ratacode', version: VERSION },
       { instructions: instrucciones() },
     );
     registrarHerramientas(servidor, { casa, dshBin, cwdPorDefecto, tareas, marcasTarea, tareasPorHora, http });
