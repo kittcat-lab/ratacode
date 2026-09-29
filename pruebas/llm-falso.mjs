@@ -56,21 +56,21 @@ function etiquetaDe(mensajes) {
  */
 export function transcripcion(peticiones) {
   const llamadas = new Map();
-  const salida = [];
   for (const peticion of peticiones) {
     for (const mensaje of peticion.messages ?? []) {
       if (mensaje.role === 'assistant' && Array.isArray(mensaje.tool_calls)) {
         for (const llamada of mensaje.tool_calls) {
-          const entrada = {
+          // Cada petición repite la conversación entera: una llamada ya vista no
+          // se apunta dos veces (sólo se le completa el resultado).
+          if (llamadas.has(llamada.id)) continue;
+          llamadas.set(llamada.id, {
             id: llamada.id,
             nombre: llamada.function?.name ?? '',
             argumentos: (() => {
               try { return JSON.parse(llamada.function?.arguments ?? '{}'); } catch { return {}; }
             })(),
             resultado: null,
-          };
-          llamadas.set(entrada.id, entrada);
-          salida.push(entrada);
+          });
         }
       }
       if (mensaje.role === 'tool' && llamadas.has(mensaje.tool_call_id)) {
@@ -78,7 +78,7 @@ export function transcripcion(peticiones) {
       }
     }
   }
-  return salida;
+  return [...llamadas.values()];
 }
 
 /** Las peticiones de UNA etiqueta, en orden, con lo que llevaban dentro. */
