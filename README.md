@@ -197,10 +197,12 @@ están en la carpeta [`apreton`](https://github.com/kittcat-lab/ratacode) del re
   **no arrancan** sin `--acepto-lectura-total`: abrir esa URL a Internet es abrir tu disco a
   quien tenga la URL.
 - **Las claves no salen.** Nunca van dentro del paquete. El servidor MCP no lee ficheros
-  de credenciales (solo mira el entorno que le entrega su cliente), las usa y no las
-  devuelve ni las escribe en el cuaderno. El motor, además, lava el entorno de los shells
-  de sus agentes (`/KEY|PASSWORD|SECRET|TOKEN/i`). Ojo: eso no impide que una tarea LEA el
-  fichero de claves (punto anterior).
+  de credenciales (le pregunta al motor si la credencial está puesta en la casa), las usa
+  y no las devuelve ni las escribe en el cuaderno. El motor, además, lava el entorno de
+  los shells de sus agentes (`/KEY|PASSWORD|SECRET|TOKEN/i`). Ojo: eso no impide que una
+  tarea LEA el fichero de claves (punto anterior).
+- **Lo que adjuntes viaja al proveedor del modelo, igual que el texto.** El panel deja
+  adjuntar ficheros e imágenes, y eso también sale de tu PC.
 - **Nada hacia fuera por sí solo:** sin telemetría, sin cuentas; de tu PC solo sale lo que
   tus llamadas a tu proveedor de modelos.
 
@@ -229,6 +231,9 @@ día exportaste `B_AI_API_KEY` en tu shell, eso se quita de tu perfil de shell).
 
 MIT © 2026 **Patxi** (ver [`LICENSE`](LICENSE)). Créditos y licencias de terceros, con su
 texto completo, en [`CREDITS.md`](CREDITS.md).
+
+**RATACODE no está afiliado ni avalado por DeepSeek, OpenAI, Anthropic ni Google.** Los
+nombres de sus productos y modelos se usan solo para decir con qué se puede trabajar.
 
 ---
 

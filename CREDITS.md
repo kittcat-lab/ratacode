@@ -40,6 +40,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## sharp y libvips (LGPL-3.0-or-later)
+
+`sharp` (Apache-2.0) trae dentro los binarios de **libvips**, que son
+**LGPL-3.0-or-later**: `@img/sharp-win32-x64` se declara `Apache-2.0 AND
+LGPL-3.0-or-later` y en su carpeta viajan `libvips-42.dll` y
+`libvips-cpp-8.18.6.dll`. Su texto está en
+<https://www.gnu.org/licenses/lgpl-3.0.html>. No se modifica nada de libvips: se
+usa el binario tal y como lo publica el paquete, y por eso la licencia se cumple
+con este aviso y con el enlace a su texto.
+
+El resto del árbol (587 paquetes, casi todos MIT, Apache-2.0, BSD o ISC) lo
+instala **npm** al instalar RATACODE, con las licencias que declara cada paquete
+y sus ficheros de licencia dentro de `node_modules`; RATACODE no los copia ni los
+modifica, y en el `.tgz` sólo viaja lo que declara `files` en su `package.json`.
+
 ## RATACODE
 
 MIT License
