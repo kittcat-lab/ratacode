@@ -215,3 +215,6 @@ html[data-ratacode-tema='minimal'] .mr-vida{display:none!important}
 .mr-tema[data-tema='ratacode-pink']{--punto-detalle:#e4f226}
 .mr-tema[data-tema='ratacode-yellow']{--punto-detalle:#ff268e}
 .mr-tema[data-tema='minimal']{--punto-detalle:#3c3c3d}
+
+/* R28 §2 · «GPT WEB →»: el rótulo del mensaje que entró desde un chat web. */
+.mr-gptweb{margin:0 0 3px;font-size:11px;font-weight:600;letter-spacing:.03em;color:#e4f226}

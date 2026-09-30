@@ -65,10 +65,21 @@
  */
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  cargarCerco,
+  devolverPermiso,
+  enviarMensaje,
+  leerAbiertas,
+  leerEnviados,
+  listarSesiones,
+  marcarAbierta,
+  montarCerco,
+  respuestaDe,
+} from './sesiones.js';
 
 /** Nombre estable del plugin de cordis. */
 export const name = 'ratacode-piel';
@@ -1576,6 +1587,83 @@ function json(res, codigo, objeto) {
 }
 
 /**
+ * R28 · Leer el cuerpo JSON de una petición, con tope. Igual que el `leerCuerpo`
+ * del MCP (`mcp/lib/http.js:86`): al pasarse se rechaza, no se come la memoria.
+ * @param {object} req - el pedido.
+ * @param {number} tope - bytes máximos.
+ * @returns {Promise<object>}
+ */
+function leerPedido(req, tope) {
+  return new Promise((listo, rechaza) => {
+    const trozos = [];
+    let total = 0;
+    let pasado = false;
+    req.on('data', (t) => {
+      if (pasado) return;
+      total += t.length;
+      if (total > tope) { pasado = true; trozos.length = 0; rechaza(new Error('cuerpo demasiado grande')); return; }
+      trozos.push(t);
+    });
+    req.on('end', () => {
+      if (pasado) return;
+      const texto = Buffer.concat(trozos).toString('utf8').trim();
+      if (texto === '') return listo({});
+      try { listo(JSON.parse(texto)); } catch { rechaza(new Error('cuerpo JSON inválido')); }
+    });
+    req.on('error', rechaza);
+  });
+}
+
+/**
+ * R28 · El estado del cerco en ESTE proceso: el módulo del gancho de rutas
+ * (`mcp/lib/lectura.js`, cargado por `cargarCerco`) vive aquí porque el gancho
+ * se monta al arrancar la piel y el módulo se carga en paralelo.
+ */
+const CERCO = { cerco: null };
+
+/** R28 · Una línea al cuaderno de Actividad por cada herramienta que se para. */
+function anotarCerco(casa, juicio) {
+  try {
+    appendFileSync(join(casa, 'mcp', 'actividad.jsonl'), JSON.stringify({
+      tipo: 'lectura',
+      hora: new Date().toISOString(),
+      cliente: 'ChatGPT (sesión abierta)',
+      herramienta: juicio.herramienta ?? 'herramienta',
+      ruta: juicio.fuera ?? (juicio.session_id ?? ''),
+      permitido: false,
+      motivo: 'sesión abierta a ChatGPT: ' + (juicio.motivo ?? 'bloqueado'),
+      detalle: null,
+    }) + '\n');
+  } catch { /* el cuaderno no puede tumbar el turno */ }
+}
+
+/**
+ * R28 §2 · Una línea al cuaderno por cada mensaje que entra desde un chat web.
+ * Sale en Actividad con hora, cliente, sesión y permitido/bloqueado.
+ */
+function anotarSesion(casa, fila) {
+  try {
+    mkdirSync(join(casa, 'mcp'), { recursive: true });
+    appendFileSync(join(casa, 'mcp', 'actividad.jsonl'), JSON.stringify({
+      tipo: 'sesion',
+      hora: fila.hora ?? new Date().toISOString(),
+      cliente: fila.cliente ?? 'MCP',
+      herramienta: fila.herramienta ?? 'send_to_session',
+      ruta: fila.sesion ?? '',
+      permitido: fila.permitido === true,
+      motivo: fila.permitido === true ? null : (fila.motivo ?? 'no permitido'),
+      detalle: fila.detalle ?? null,
+    }) + '\n');
+  } catch { /* el cuaderno no puede tumbar el panel */ }
+}
+
+/** R28 · Devolver el permiso que tenía una sesión (best effort; se dice qué pasó). */
+function devolverPermisoDeLaSesion(c, sessionId, previo) {
+  try { return devolverPermiso(c, sessionId, previo); }
+  catch (e) { return { devuelto: false, motivo: 'no pude devolver el permiso: ' + (e?.message ?? e) }; }
+}
+
+/**
  * Monta las rutas del texto de la conexión, del MCP, de la conexión con botón,
  * de la clave que falta y de los runtimes locales sobre el `webServer`,
  * autenticadas con el mismo cerco que el motor aplica a sus canales
@@ -1842,6 +1930,178 @@ function montarRutas(c) {
   };
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/runtimes/encender', handler: accionRuntime('encender') }), 'ratacode-piel.runtimes-encender');
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/runtimes/apagar', handler: accionRuntime('apagar') }), 'ratacode-piel.runtimes-apagar');
+
+  // ── R28 · CHATGPT HABLA CON UNA SESIÓN YA ABIERTA DEL PANEL ─────────────
+  // Estas cuatro rutas son la puerta por la que el MCP (otro proceso) llega a
+  // ESTE proceso, que es el único que puede escribir en una sesión del panel
+  // por la vía de verdad (`sessionController.prompt`). Van con el mismo cerco
+  // que las demás (`autorizada`: Host/Origin + cookie de sesión del navegador),
+  // así que desde fuera de esta máquina no se llega: la cookie es de la sesión
+  // del navegador de ESTA casa y se firma con un secreto que vive en
+  // `<casa>\.credentials.yaml`.
+  const sesiones = (req, res) => {
+    if (!autorizada(req, res)) return;
+    if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'Usa GET.' }); return; }
+    const casa = casaDeEstaCasa();
+    const raices = ajustesDeLaCasa().workspaces;
+    listarSesiones({ ctx: c, casa, raices }).then(
+      (lista) => json(res, 200, { ok: true, casa, sesiones: lista, total: lista.length }),
+      (e) => json(res, 500, { ok: false, error: String(e?.message ?? e) }),
+    );
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/sesiones', handler: sesiones }), 'ratacode-piel.sesiones');
+
+  // GET /ratacode/sesiones/marcas → las marcas «GPT WEB →» de una sesión: el
+  // turno y la hora de cada mensaje que entró por aquí. Sin texto de nadie.
+  const marcas = (req, res) => {
+    if (!autorizada(req, res)) return;
+    if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'Usa GET.' }); return; }
+    const pedido = new URL(req.url ?? '/', 'http://localhost');
+    const sessionId = pedido.searchParams.get('session_id');
+    const casa = casaDeEstaCasa();
+    const todas = leerEnviados(casa, 500).filter((f) => f.permitido === true);
+    const suyas = sessionId === null ? todas : todas.filter((f) => f.session_id === sessionId);
+    const abiertas = leerAbiertas(casa).sesiones;
+    json(res, 200, {
+      ok: true,
+      marcas: suyas.map((f) => ({
+        turn_id: f.request_id,
+        session_id: f.session_id,
+        turno: f.turno ?? null,
+        hora: f.hora,
+        sender: f.sender ?? 'openai-mcp',
+        source: f.source ?? 'chatgpt-web',
+        etiqueta: 'GPT WEB →',
+      })),
+      abiertas: Object.keys(abiertas),
+      cerco: {
+        montado: CERCO.cerco !== null,
+        motivo: CERCO.cerco === null ? 'el gancho de rutas del MCP todavía no está cargado' : null,
+      },
+    });
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/sesiones/marcas', handler: marcas }), 'ratacode-piel.sesiones-marcas');
+
+  // POST /ratacode/sesiones/abierta → EL INTERRUPTOR de la cabecera del chat.
+  // Es lo único que abre una sesión a ChatGPT, y lo enciende Patxi a mano.
+  const abierta = (req, res) => {
+    if (!autorizada(req, res)) return;
+    if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'Usa POST.' }); return; }
+    leerPedido(req, 8192).then(async (pedido) => {
+      const casa = casaDeEstaCasa();
+      const raices = ajustesDeLaCasa().workspaces;
+      const sessionId = typeof pedido.session_id === 'string' ? pedido.session_id : '';
+      if (sessionId === '') { json(res, 400, { ok: false, error: 'hace falta `session_id`' }); return; }
+      if (pedido.abierta !== true) {
+        // Cerrar: se le devuelve el permiso que tenía, si se le cambió.
+        const previo = leerAbiertas(casa).sesiones[sessionId]?.permiso_previo ?? null;
+        marcarAbierta(casa, sessionId, false);
+        const devuelto = devolverPermisoDeLaSesion(c, sessionId, previo);
+        json(res, 200, { ok: true, session_id: sessionId, abierta: false, permiso_devuelto: devuelto });
+        return;
+      }
+      // Abrir: la carpeta TIENE que estar en `mcp.workspaces` (R28 §3a).
+      let lista;
+      try { lista = await listarSesiones({ ctx: c, casa, raices }); }
+      catch (e) { json(res, 500, { ok: false, error: String(e?.message ?? e) }); return; }
+      const suya = lista.find((s) => s.session_id === sessionId);
+      if (suya === undefined) { json(res, 404, { ok: false, error: 'no hay ninguna sesión con ese id' }); return; }
+      if (suya.en_espacio_autorizado !== true) {
+        json(res, 403, {
+          ok: false,
+          error: 'SESSION_NOT_ALLOWED',
+          motivo: 'la carpeta de esta sesión (' + (suya.carpeta ?? '(sin carpeta)') + ') no está en `mcp.workspaces` de la casa: añádela allí antes de abrirla a ChatGPT',
+        });
+        return;
+      }
+      marcarAbierta(casa, sessionId, true, { titulo: suya.titulo, carpeta: suya.carpeta });
+      json(res, 200, {
+        ok: true,
+        session_id: sessionId,
+        abierta: true,
+        encierro: {
+          aviso: 'Mientras esté abierta a ChatGPT, los turnos de esta sesión van encerrados en su carpeta: sin terminal, sin procesos, sin red y sin subagentes, y con el gancho de rutas del MCP. Vale para toda la sesión, no sólo para los mensajes del chat (el motor no deja separarlo).',
+          cerco_montado: CERCO.cerco !== null,
+          motivo: CERCO.cerco === null ? 'el gancho de rutas del MCP todavía no está cargado: hasta que lo esté, esta sesión no deja pasar ninguna herramienta' : null,
+        },
+      });
+    }, () => json(res, 400, { ok: false, error: 'cuerpo JSON inválido' }));
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/sesiones/abierta', handler: abierta }), 'ratacode-piel.sesiones-abierta');
+
+  // POST /ratacode/sesiones/enviar → el mensaje de ChatGPT, a ESA sesión.
+  const enviar = (req, res) => {
+    if (!autorizada(req, res)) return;
+    if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'Usa POST.' }); return; }
+    leerPedido(req, 262_144).then(async (pedido) => {
+      const casa = casaDeEstaCasa();
+      const raices = ajustesDeLaCasa().workspaces;
+      const cliente = typeof pedido.cliente === 'string' && pedido.cliente !== '' ? pedido.cliente : 'MCP';
+      const dicho = await enviarMensaje({
+        ctx: c,
+        casa,
+        raices,
+        sessionId: typeof pedido.session_id === 'string' ? pedido.session_id : undefined,
+        titulo: typeof pedido.titulo === 'string' ? pedido.titulo : undefined,
+        mensaje: typeof pedido.mensaje === 'string' ? pedido.mensaje : '',
+        esperarSegundos: typeof pedido.esperar_segundos === 'number' ? pedido.esperar_segundos : undefined,
+        cliente,
+      });
+      // R28 §2 · y queda en Actividad: hora, cliente, sesión y permitido/bloqueado.
+      anotarSesion(casa, {
+        cliente,
+        herramienta: 'send_to_session',
+        sesion: dicho.session_id ?? (typeof pedido.session_id === 'string' ? pedido.session_id : (pedido.titulo ?? '')),
+        permitido: dicho.ok === true,
+        motivo: dicho.ok === true ? null : (dicho.error ?? 'no permitido'),
+        detalle: dicho.ok === true
+          ? ('turno ' + (dicho.turno ?? '?') + ' · ' + (dicho.estado ?? ''))
+          : (dicho.motivo ?? null),
+      });
+      // Un «no» de negocio (AMBIGUOUS_SESSION, SESSION_NOT_ALLOWED…) sale con
+      // 200 a propósito: el cliente MCP lo lee como la respuesta de la
+      // herramienta y puede corregir. Lo que NO se hace es enviar nada.
+      json(res, 200, dicho);
+    }, () => json(res, 400, { ok: false, error: 'cuerpo JSON inválido' }));
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/sesiones/enviar', handler: enviar }), 'ratacode-piel.sesiones-enviar');
+
+  // GET /ratacode/sesiones/respuesta → la respuesta de un mensaje ya mandado.
+  const respuesta = (req, res) => {
+    if (!autorizada(req, res)) return;
+    if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'Usa GET.' }); return; }
+    const pedido = new URL(req.url ?? '/', 'http://localhost');
+    respuestaDe({
+      ctx: c,
+      casa: casaDeEstaCasa(),
+      turnId: pedido.searchParams.get('turn_id') ?? undefined,
+      sessionId: pedido.searchParams.get('session_id') ?? undefined,
+    }).then((dicho) => json(res, 200, dicho), (e) => json(res, 500, { ok: false, error: String(e?.message ?? e) }));
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/sesiones/respuesta', handler: respuesta }), 'ratacode-piel.sesiones-respuesta');
+
+  // ── R28 §3c · EL CERCO DE LAS SESIONES ABIERTAS ─────────────────────────
+  // Se monta UNA vez, al arrancar la piel, y no hace nada mientras no haya
+  // ninguna sesión abierta a ChatGPT. El módulo del gancho (`mcp/lib/lectura.js`
+  // de la instalación) se carga en paralelo: hasta que esté, una sesión abierta
+  // falla cerrada (`montarCerco` lo dice).
+  const raizInstalacion = raizDeLaInstalacion();
+  cargarCerco(raizInstalacion).then((modulo) => {
+    CERCO.cerco = modulo;
+    c.logger?.[modulo === null ? 'warn' : 'info']?.(
+      modulo === null
+        ? 'ratacode-piel: no encuentro el gancho de rutas del MCP en ' + join(raizInstalacion, 'mcp', 'lib', 'lectura.js')
+          + ': las sesiones abiertas a ChatGPT no dejarán pasar ninguna herramienta'
+        : 'ratacode-piel: cerco de sesiones abiertas montado con el gancho de rutas del MCP (mcp/lib/lectura.js)',
+    );
+  });
+  c.effect(() => montarCerco(c, {
+    casa: casaDeEstaCasa(),
+    raices: () => ajustesDeLaCasa().workspaces,
+    cerco: () => CERCO.cerco,
+    alDenegar: (juicio) => anotarCerco(casaDeEstaCasa(), juicio),
+  }), 'ratacode-piel.cerco-sesiones');
+
   c.logger?.info?.('ratacode-piel: el texto de la conexión se sirve en /ratacode/handshake, el MCP en /ratacode/mcp, la conexión con botón en /ratacode/conexion, la clave que falta en /ratacode/clave, los runtimes locales en /ratacode/runtimes y el aspecto en /ratacode/tema');}
 
 /**

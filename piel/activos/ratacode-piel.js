@@ -397,6 +397,47 @@
    }
   }
  }
+ // ── R28 §2 · «GPT WEB →»: los mensajes que entraron desde un chat web ───────
+ // El motor escribe el mensaje de ChatGPT como un mensaje de usuario NORMAL:
+ // su `source` es `{kind:'user', rpcId}` (`dsh-api-session-controller/lib/
+ // index.js:747-751`), así que lo ÚNICO que lo distingue es su `rpcId`. Ese
+ // `rpcId` lo apunta la piel en `<casa>\mcp\enviados.jsonl` junto a
+ // `sender=openai-mcp` y `source=chatgpt-web`, y su ruta lo sirve con el TURNO
+ // en el que cayó. Aquí NO se lee ni un carácter de ninguna conversación: se
+ // busca la fila por `data-chat-flow-kind="user"` y `data-chat-turn` (los pone
+ // el motor: `dsh-client-ui-chat/lib/client.js:1608-1609`) y se le pone el
+ // rótulo delante. Sin marca, no se toca NADA.
+ let marcasGpt=new Set(), marcasDe='';
+ function mirarMarcas(){
+  const id=document.documentElement.dataset.ratacodeSesion||'';
+  if(id===''){marcasGpt=new Set();marcasDe='';return;}
+  fetch('/ratacode/sesiones/marcas?session_id='+encodeURIComponent(id),{credentials:'same-origin',cache:'no-store'})
+   .then(r=>r.ok?r.json():null)
+   .then(d=>{
+    if(!d||d.ok!==true)return;
+    marcasDe=id;
+    marcasGpt=new Set((Array.isArray(d.marcas)?d.marcas:[])
+     .filter(m=>m.turno!==null&&m.turno!==undefined)
+     .map(m=>String(m.turno)));
+   })
+   .catch(()=>{/* sin servidor de piel: ni una marca de más */});
+ }
+ function pintarMarcasGpt(){
+  for(const fila of document.querySelectorAll('[data-chat-flow-kind="user"]')){
+   const turno=String(fila.getAttribute('data-chat-turn')??'');
+   const suya=marcasDe!==''&&marcasGpt.has(turno);
+   // Se busca entre los HIJOS directos, no en cualquier parte de dentro.
+   const puesta=fila.querySelector(':scope > .mr-gptweb');
+   if(suya&&!puesta){
+    const marca=document.createElement('div');
+    marca.className='mr-gptweb';
+    marca.textContent='GPT WEB →';
+    fila.prepend(marca);
+   }else if(!suya&&puesta){
+    puesta.remove();
+   }
+  }
+ }
  function apply(){
   const title=document.title.replace(/DeepSeek Harness/gi,'RATACODE');if(title!==document.title)document.title=title;
   // Sólo el saludo nativo del motor: nunca mensajes, nombres de modelo ni errores.
@@ -439,6 +480,10 @@
   });
   // La caja: se traduce el texto que ponga el frontend, no se fuerza uno fijo.
   traducirCajas();
+  // R28 §2: el rótulo «GPT WEB →» de los mensajes que entraron desde un chat
+  // web. Se pinta con lo ÚLTIMO que dijo la ruta (sin pedidos de más); quien
+  // pregunta es el reloj de abajo.
+  pintarMarcasGpt();
   // R17: el aviso de la clave que falta y el error del motor, en español. Se
   // repintan aquí porque React reescribe el cuadro de la caja al re-renderizar.
   pintarAvisoClave();
@@ -484,4 +529,10 @@
  mirarMigracion();
  setInterval(mirarMigracion,5000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)mirarMigracion();});
+ // R28 §2: las marcas «GPT WEB →», al abrir, cada 2 s y al volver a la pestaña.
+ // Es un pedido corto (el cuaderno de envíos, sin texto de nadie) y sólo se
+ // pregunta por la sesión que está delante.
+ mirarMarcas();
+ setInterval(mirarMarcas,2000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)mirarMarcas();});
 })();

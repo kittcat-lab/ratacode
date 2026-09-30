@@ -114,6 +114,16 @@ window.__ModuleLoader__.load({
       'margin:0 auto;padding:2px 12px 0;color:var(--dsw-alias-label-tertiary,#9aa0a6);font-size:12px;line-height:18px}',
       // R27 §4 · Conexiones: el gasto, los ejemplos y la fila de acciones.
       '.mr-cx-gasto{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary,#9aa0a6)}',
+      // R28 §3b · el interruptor «Abierta a ChatGPT» de la cabecera del chat.
+      '.mr-chatgpt{display:flex;align-items:center;gap:7px;font-size:12px;line-height:17px}',
+      '.mr-chatgpt-rotulo{color:var(--dsw-alias-label-tertiary,#9aa0a6);white-space:nowrap}',
+      '.mr-chatgpt-boton{cursor:pointer;border-radius:999px;padding:1px 8px;font:inherit;font-size:11px;',
+      'border:1px solid var(--dsw-alias-border-secondary,#3a3f45);background:var(--dsw-alias-bg-secondary,#1b1e21);color:inherit}',
+      '.mr-chatgpt-boton[data-abierta="si"]{border-color:#a6e22e;color:#a6e22e}',
+      '.mr-chatgpt-boton:disabled{cursor:not-allowed;opacity:.55}',
+      '.mr-chatgpt-aviso{color:#ffb4b4;font-size:11px}',
+      // R28 §2 · la marca «GPT WEB →» de un mensaje que entró desde un chat web.
+      '.mr-gptweb{margin:0 0 3px;font-size:11px;font-weight:600;letter-spacing:.03em;color:#e4f226}',
       '.mr-cx-ejemplo{margin:0;padding:8px 10px;border-radius:8px;background:#0e1012;color:#dfe3e6;',
       'font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:17px;white-space:pre-wrap;word-break:break-word}',
       '.mr-cx-acciones{display:flex;gap:8px;flex-wrap:wrap;align-items:center}',
@@ -131,6 +141,7 @@ window.__ModuleLoader__.load({
       '.mr-ac-tipo{border-radius:6px;padding:1px 7px;font-size:11px;white-space:nowrap}',
       '.mr-ac-tipo-tarea{background:rgba(228,242,38,.14);color:#e4f226}',
       '.mr-ac-tipo-lectura{background:rgba(154,160,166,.16);color:#c9ced3}',
+      '.mr-ac-tipo-sesion{background:rgba(255,38,142,.16);color:#ff7ab8}',
       '.mr-ac-ruta{font-family:ui-monospace,Consolas,monospace;font-size:11px;word-break:break-all}',
       '.mr-ac-pie{display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
       '.mr-ac-vivo{margin:0;font-size:11px;color:var(--dsw-alias-label-tertiary,#9aa0a6)}',
@@ -192,6 +203,7 @@ window.__ModuleLoader__.load({
         como: 'Estado',
         tarea: 'tarea',
         lectura: 'lectura',
+        sesion: 'chat web',
         permitido: 'permitido',
         bloqueado: 'bloqueado',
         vacio: 'Todavía no hay nada apuntado. En cuanto un chat lea algo o lance una tarea, sale aquí.',
@@ -209,6 +221,7 @@ window.__ModuleLoader__.load({
         como: 'State',
         tarea: 'task',
         lectura: 'read',
+        sesion: 'web chat',
         permitido: 'allowed',
         bloqueado: 'blocked',
         vacio: 'Nothing recorded yet. As soon as a chat reads something or runs a task, it shows up here.',
@@ -226,6 +239,7 @@ window.__ModuleLoader__.load({
         como: '状态',
         tarea: '任务',
         lectura: '读取',
+        sesion: '网页聊天',
         permitido: '允许',
         bloqueado: '已阻止',
         vacio: '还没有记录。聊天一读取或运行任务，就会出现在这里。',
@@ -454,23 +468,26 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * Una fila de la tabla de Actividad. Las dos clases de línea del cuaderno
-     * (`tarea` y `lectura`) se pintan con las mismas columnas, que es lo que
-     * hace que se lean de un vistazo.
+     * Una fila de la tabla de Actividad. Las tres clases de línea del cuaderno
+     * (`tarea`, `lectura` y —desde R28— `sesion`, que es un mensaje que entró
+     * desde un chat web a una sesión del panel) se pintan con las mismas
+     * columnas, que es lo que hace que se lean de un vistazo.
      */
     function FilaDeActividad(props) {
       const { fila, t } = props;
       const esTarea = fila.tipo === 'tarea' || fila.tipo === undefined;
+      const esSesion = fila.tipo === 'sesion';
       const permitido = fila.permitido === true;
       const bloqueada = esTarea ? (fila.estado === 'failed' || fila.estado === 'cancelled') : !permitido;
       const donde = esTarea
         ? (fila.tarea ?? fila.task_id ?? '')
         : (fila.ruta ?? '');
-      const clase = 'mr-ac-tipo mr-ac-tipo-' + (esTarea ? 'tarea' : 'lectura');
+      const etiqueta = esTarea ? t('tarea') : (esSesion ? t('sesion') : t('lectura'));
+      const clase = 'mr-ac-tipo mr-ac-tipo-' + (esTarea ? 'tarea' : (esSesion ? 'sesion' : 'lectura'));
       return e('tr', { className: 'mr-ac-fila' },
         e('td', { className: 'mr-ac-hora' }, horaCorta(fila.hora)),
         e('td', {}, fila.cliente ?? 'MCP'),
-        e('td', {}, e('span', { className: clase }, esTarea ? t('tarea') : t('lectura'))),
+        e('td', {}, e('span', { className: clase }, etiqueta)),
         e('td', { className: 'mr-ac-ruta', title: donde }, donde),
         e('td', { className: bloqueada ? 'mr-ac-no' : 'mr-ac-si' },
           esTarea ? (fila.estado ?? '?') : (permitido ? t('permitido') : t('bloqueado'))));
@@ -1333,6 +1350,81 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /**
+     * R28 §3b · EL INTERRUPTOR DE LA CABECERA DEL CHAT: «Abierta a ChatGPT».
+     *
+     * Por qué está aquí y no en Ajustes: porque es de UNA sesión, y la sesión
+     * que manda es la que Patxi tiene delante. Va en el asiento que el motor
+     * tiene para esto (`conversation.session.header.utilities`, un asiento
+     * «list» de ámbito de sesión: `dsh-client-ui-conversation/lib/client.js:
+     * 16695-16698` y `:15077`), así que el dueño de la cabecera nos pasa el
+     * `sessionId` (`dsh-client-ui-session/lib/client.js:64-69`).
+     *
+     * APAGADO POR DEFECTO, y se enciende A MANO: mientras esté encendido, los
+     * turnos de esa sesión van encerrados en su carpeta, sin terminal, sin
+     * procesos, sin red y sin subagentes. Eso se dice aquí mismo, en la
+     * cabecera, que es lo que pidió Patxi.
+     *
+     * Y deja el id de la sesión a la vista en `<html data-ratacode-sesion>`:
+     * de ahí tira el guion de la piel para pintar «GPT WEB →» en la fila que
+     * toca (por TURNO, nunca por el texto del mensaje).
+     */
+    function InterruptorSesion(props) {
+      const sessionId = typeof props.sessionId === 'string' ? props.sessionId : '';
+      const [estado, setEstado] = React.useState({ fase: 'cargando' });
+      const [enCurso, setEnCurso] = React.useState(false);
+      React.useEffect(() => {
+        if (sessionId !== '') document.documentElement.dataset.ratacodeSesion = sessionId;
+      }, [sessionId]);
+      const mirar = React.useCallback(() => {
+        if (sessionId === '') return;
+        pedir('/ratacode/sesiones', 'GET').then((r) => {
+          if (r.ok !== true) { setEstado({ fase: 'error', error: r.error ?? 'error' }); return; }
+          const suya = (Array.isArray(r.sesiones) ? r.sesiones : []).find((s) => s.session_id === sessionId);
+          setEstado(suya === undefined ? { fase: 'sin-sesion' } : { fase: 'listo', sesion: suya });
+        });
+      }, [sessionId]);
+      React.useEffect(() => {
+        mirar();
+        const reloj = setInterval(mirar, 3000);
+        return () => clearInterval(reloj);
+      }, [mirar]);
+      if (sessionId === '') return null;
+      const sesion = estado.fase === 'listo' ? estado.sesion : null;
+      const abierta = sesion?.abierta_a_chatgpt === true;
+      const puede = sesion !== null && sesion.en_espacio_autorizado === true;
+      const cambiar = () => {
+        if (enCurso || sesion === null) return;
+        setEnCurso(true);
+        pedir('/ratacode/sesiones/abierta', 'POST', { session_id: sessionId, abierta: !abierta }).then((r) => {
+          setEnCurso(false);
+          if (r.ok !== true) {
+            setEstado({ fase: 'listo', sesion: { ...sesion, aviso: r.motivo ?? r.error ?? 'no se pudo cambiar' } });
+            return;
+          }
+          mirar();
+        });
+      };
+      const hijos = [
+        e('span', { className: 'mr-chatgpt-rotulo', key: 'r' }, 'Abierta a ChatGPT'),
+        e('button', {
+          key: 'b',
+          type: 'button',
+          className: 'mr-chatgpt-boton',
+          'data-abierta': abierta ? 'si' : 'no',
+          'aria-pressed': abierta ? 'true' : 'false',
+          disabled: enCurso || (sesion !== null && !abierta && !puede),
+          title: puede || abierta
+            ? 'Mientras esté abierta, los turnos de esta sesión van encerrados en su carpeta: sin terminal, sin procesos, sin red y sin subagentes.'
+            : (sesion?.motivo ?? 'esta sesión todavía no se puede abrir'),
+          onClick: cambiar,
+        }, abierta ? 'Sí' : 'No'),
+      ];
+      if (sesion?.aviso !== undefined) hijos.push(e('span', { className: 'mr-chatgpt-aviso', key: 'a' }, sesion.aviso));
+      else if (sesion !== null && sesion.en_espacio_autorizado !== true) hijos.push(e('span', { className: 'mr-chatgpt-aviso', key: 'a' }, 'Su carpeta no está en `mcp.workspaces`.'));
+      return e('div', { className: 'mr-chatgpt' }, hijos);
+    }
+
     /** Servicios que necesita el plugin de cliente. */
     const inject = ['slots', 'locale', 'theme'];
 
@@ -1358,6 +1450,13 @@ window.__ModuleLoader__.load({
       // en la casa, la sesión sale sin recargar (por la vía oficial del motor,
       // `ctx.get('sessions').refresh()`).
       vigilarElMcp(ctx);
+      // R28 §3b · el interruptor «Abierta a ChatGPT», en la cabecera del chat,
+      // por la vía oficial de asientos del motor.
+      ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({
+        name: 'conversation.session.header.utilities',
+        id: 'ratacode-chatgpt',
+        order: 30,
+      }, InterruptorSesion));
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
         id: 'modelos-locales',

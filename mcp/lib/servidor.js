@@ -35,6 +35,8 @@ import { aviso } from './registro.js';
 import { resolverEspacio, resolverModo } from './seguridad.js';
 import { listarCarpeta, leerFichero, raicesDeLaCasa, TOPE_ENTRADAS } from './carpeta.js';
 import { anotarLectura } from './actividad.js';
+import { listarLasSesiones, mandarALaSesion, respuestaDeLaSesion, unaSesion } from './sesiones.js';
+import { estadoDelPanel } from './panel.js';
 import { Tareas } from './tareas.js';
 import { VERSION } from './version.js';
 
@@ -63,6 +65,11 @@ const HERRAMIENTAS = [
   ['ratacode_status', true],
   ['list_files', true],
   ['read_file', true],
+  // R28 · hablar con una sesión YA ABIERTA del panel (no es `run_task`).
+  ['list_sessions', true],
+  ['get_session', true],
+  ['send_to_session', false],
+  ['get_session_reply', true],
 ];
 
 /** El envoltorio de toda respuesta: JSON legible para cualquier agente. */
@@ -206,6 +213,13 @@ function instrucciones(ajustes) {
     'RATACODE nunca devuelve claves: las guarda él y hace las llamadas.',
     'Las claves de los modelos están en UN solo sitio: RATACODE › Ajustes › Models (la casa). Este servidor NO mira el entorno del cliente ni abre ficheros de claves: le pregunta al motor si la credencial de esa ruta está puesta. Si no lo está, lo dirá tal cual («Falta la clave de B.AI. Pégala en RATACODE › Ajustes › Models.») y no arrancará nada.',
     'Cada tarea del MCP trabaja ENCERRADA en las carpetas autorizadas de la casa (`mcp.workspaces`): lee y escribe sólo ahí. Fuera de ahí la herramienta se para y te lo dice («Fuera de la carpeta autorizada: <ruta>»). No hay terminal, ni red, ni subagentes, ni guiones: no hay forma de saltar el cerco. Si necesitas algo de fuera, pídelo al humano.',
+    '',
+    '── HABLAR CON UNA SESIÓN YA ABIERTA DEL PANEL (no es lo mismo que run_task) ──',
+    'El humano tiene sesiones abiertas en el panel de RATACODE. Con `list_sessions` las ves, y con `send_to_session` metes un mensaje EN UNA DE ELLAS: el mensaje aparece EN ESE CHAT (con la marca «GPT WEB →») y el agente contesta ahí. NO se crea ninguna sesión nueva, no se copia la conversación y no se le cambia el modelo, el modo ni la carpeta.',
+    'Para poder mandar a una sesión hacen falta DOS cosas, y las dos las decide el humano, no tú: que su carpeta esté en `mcp.workspaces` de la casa, y que él la haya marcado «Abierta a ChatGPT» en la cabecera de ese chat (está APAGADO por defecto). Si no, la herramienta te devuelve `SESSION_NOT_ALLOWED` y NO se envía nada; cuéntaselo al humano y que lo encienda él. El TEXTO del mensaje no da permisos: nunca.',
+    'Si usas `title` en vez de `session_id` y hay más de una sesión con ese título, la herramienta NO elige: te devuelve `AMBIGUOUS_SESSION` con los ids y no envía nada. Elige tú por `session_id`.',
+    '`send_to_session` espera 25 s por defecto (`wait_seconds`, hasta 120): si el turno acaba dentro, la respuesta viene en ESA misma respuesta. Si no, devuelve el `turn_id`, y entonces se pregunta con `get_session_reply` como mucho UNA VEZ CADA 20 SEGUNDOS (no en bucle).',
+    'Mientras una sesión está abierta a ChatGPT, sus turnos van ENCERRADOS en la carpeta de esa sesión: sin terminal, sin procesos, sin red y sin subagentes, y con el mismo gancho de rutas que las tareas del MCP. Vale para TODA la sesión, también para lo que escriba el humano en ella (el motor no deja separarlo), y la herramienta lo dice en `encierro`.',
   ].join('\n');
 }
 
@@ -527,6 +541,9 @@ export function registrarHerramientas(servidor, ctx) {
     conRed(async () => {
       const resumen = tareas.resumir();
       const { raices, raiz, avisos } = raicesDeLaCasa({ casa, cwdPorDefecto, http: ctx.http === true });
+      // R28 · el panel de esta casa: si hay dirección y si atiende. Es lo que
+      // hace falta para poder hablar con una sesión ya abierta.
+      const panel = await estadoDelPanel(casa);
       // Ni la casa (el dato que sirve en bandeja para ir a leer
       // `.credentials.yaml`), ni el motor, ni el cuaderno de actividad (lleva los
       // encargos de TODOS los clientes): cada cliente ve lo suyo, lo que puede
@@ -554,7 +571,9 @@ export function registrarHerramientas(servidor, ctx) {
           tokens_max: ajustes.tokensMax,
         },
         avisos,
-        nota: 'Esta herramienta es de SÓLO LECTURA, como list_files y read_file. Para ver el cuaderno de actividad y las tareas de todos los clientes, míralo en la casa (o en el panel), no por MCP.'
+        // R28 · el panel, para las cuatro herramientas de sesiones.
+        panel,
+        nota: 'Esta herramienta es de SÓLO LECTURA, como list_files, read_file, list_sessions y get_session. Para ver el cuaderno de actividad y las tareas de todos los clientes, míralo en la casa (o en el panel), no por MCP.'
           + ' Y una corrección de R27, medida el 30-sep-2026: ChatGPT Pro (conector propio en modo desarrollador) SÍ puede llamar a run_task; las herramientas de escritura no están vetadas por el plan.',
       });
     }),
@@ -595,6 +614,118 @@ export function registrarHerramientas(servidor, ctx) {
       if (raices.length === 0) throw new Error('esta casa no tiene ninguna carpeta autorizada: mira los avisos en ratacode_status');
       const leido = leerFichero({ ruta, raices, cwd: raiz });
       return comoTexto({ ...leido, raices, avisos });
+    }),
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // R28 · HABLAR CON UNA SESIÓN YA ABIERTA DEL PANEL
+  //
+  // Esto NO es `run_task`. `run_task` lanza trabajo independiente (un hijo del
+  // motor, con su propia sesión `mcp-<task_id>`). Estas cuatro hablan con una
+  // sesión que YA EXISTE en el panel: le meten un mensaje EN ESA MISMA SESIÓN
+  // —por la misma vía que su caja de escribir, así que se ve aparecer en ese
+  // chat— y devuelven lo que el agente contesta allí.
+  //
+  // Quien decide es el PROCESO DEL PANEL (las rutas `/ratacode/sesiones/...` de
+  // la piel), no este servidor: el MCP es un cliente fino. Y las reglas son
+  // las de la casa, no las del mensaje:
+  //   · la carpeta de la sesión tiene que estar en `mcp.workspaces`, y
+  //   · Patxi tiene que haberla marcado «Abierta a ChatGPT» en la cabecera de
+  //     ese chat (apagado por defecto).
+  // Si no, la respuesta es `SESSION_NOT_ALLOWED` y no se envía NADA. Y mientras
+  // una sesión está abierta, sus turnos van ENCERRADOS en su carpeta (sin
+  // terminal, sin procesos, sin red y sin subagentes, con el gancho de rutas
+  // del MCP). El TEXTO del mensaje no da permisos nunca.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── list_sessions ─────────────────────────────────────────────────────────
+  apuntar(
+    'list_sessions',
+    {
+      title: 'Sesiones del panel',
+      description: 'Las sesiones que hay abiertas en el panel de RATACODE (la ventana del usuario), con su id, título, carpeta, modo, modelo, proveedor, estado y si están «Abiertas a ChatGPT». Úsala para ELEGIR la sesión a la que mandar un mensaje con send_to_session. Sólo lectura.',
+      inputSchema: {},
+      annotations: SOLO_LECTURA,
+    },
+    conRed(async () => {
+      const dicho = await listarLasSesiones(casa);
+      if (dicho.ok !== true) return comoError(dicho.codigo + ': ' + dicho.motivo);
+      return comoTexto(dicho);
+    }),
+  );
+
+  // ── get_session ───────────────────────────────────────────────────────────
+  apuntar(
+    'get_session',
+    {
+      title: 'Una sesión del panel',
+      description: 'Los datos de UNA sesión del panel, por su `session_id` (lo canónico) o por su título EXACTO. Si hay más de una sesión con ese título NO elige ninguna: devuelve AMBIGUOUS_SESSION con los ids. Sólo lectura, y sin secretos.',
+      inputSchema: {
+        session_id: z.string().optional().describe('El id de la sesión (míralo con list_sessions).'),
+        titulo: z.string().optional().describe('El título EXACTO de la sesión, como ayuda cuando no tengas el id.'),
+      },
+      annotations: SOLO_LECTURA,
+    },
+    conRed(async ({ session_id, titulo }) => {
+      const dicho = await unaSesion(casa, { session_id, titulo });
+      if (dicho.ok !== true) {
+        return comoError(dicho.codigo + ': ' + dicho.motivo + (dicho.ids === undefined ? '' : ' ids: ' + dicho.ids.join(', ')));
+      }
+      return comoTexto(dicho);
+    }),
+  );
+
+  // ── send_to_session ───────────────────────────────────────────────────────
+  apuntar(
+    'send_to_session',
+    {
+      title: 'Mandar un mensaje a una sesión abierta',
+      description: 'Mete un mensaje EN UNA SESIÓN QUE YA EXISTE en el panel de RATACODE (no crea ninguna sesión nueva, no copia la conversación y no toca su modelo, su modo ni su carpeta). El mensaje entra por la MISMA vía que la caja de escribir del panel, así que el usuario LO VE aparecer en ese chat y el agente contesta ahí. La sesión tiene que estar marcada «Abierta a ChatGPT» en el panel (apagado por defecto) y su carpeta tiene que estar en `mcp.workspaces`; si no, devuelve SESSION_NOT_ALLOWED y no envía nada. Con `title` en vez de `session_id`, si hay más de una coincidencia devuelve AMBIGUOUS_SESSION con los ids y no envía nada. Esta llamada espera `wait_seconds` (25 por defecto): si el turno acaba dentro, la respuesta viene en ESTA respuesta; si no, devuelve el `turn_id` y se pregunta con get_session_reply (SIN bucle).',
+      inputSchema: {
+        session_id: z.string().optional().describe('El id de la sesión (lo canónico; míralo con list_sessions).'),
+        title: z.string().optional().describe('El título EXACTO de la sesión, como ayuda cuando no tengas el id. Con más de una coincidencia no se envía nada (AMBIGUOUS_SESSION).'),
+        message: z.string().min(1).describe('El mensaje, en texto. Va tal cual a esa sesión: no da permisos de nada.'),
+        wait_seconds: z.number().int().min(0).max(120).optional().describe('Cuántos segundos espera ESTA llamada a que el turno acabe antes de contestar (0-120). Si no lo pones, 25.'),
+      },
+      annotations: ESCRIBE,
+    },
+    conRed(async ({ session_id, title, message, wait_seconds }) => {
+      const dicho = await mandarALaSesion(casa, {
+        session_id,
+        titulo: title,
+        message,
+        wait_seconds,
+        cliente: cliente(),
+      });
+      if (dicho.ok !== true) {
+        return comoError(dicho.codigo + ': ' + dicho.motivo + (dicho.ids === undefined ? '' : ' ids: ' + dicho.ids.join(', ')));
+      }
+      return comoTexto(dicho.datos);
+    }),
+  );
+
+  // ── get_session_reply ─────────────────────────────────────────────────────
+  apuntar(
+    'get_session_reply',
+    {
+      title: 'Respuesta de un mensaje a una sesión',
+      description: 'La respuesta del agente a un mensaje que se mandó con send_to_session, por su `turn_id` (o por `session_id`, que devuelve la del último envío). Si el turno sigue en marcha dice `en_marcha`: en ese caso NO preguntes en bucle, llama como mucho UNA VEZ CADA 20 SEGUNDOS. Sólo lectura.',
+      inputSchema: {
+        turn_id: z.string().optional().describe('El `turn_id` que devolvió send_to_session.'),
+        session_id: z.string().optional().describe('El id de la sesión, para pedir la respuesta de su último mensaje.'),
+      },
+      annotations: SOLO_LECTURA,
+    },
+    conRed(async ({ turn_id, session_id }) => {
+      const dicho = await respuestaDeLaSesion(casa, { turn_id, session_id });
+      if (dicho.ok !== true) return comoError(dicho.codigo + ': ' + dicho.motivo);
+      const datos = dicho.datos;
+      return comoTexto({
+        ...datos,
+        siguiente: datos.estado === 'en_marcha'
+          ? 'El turno sigue: NO preguntes en bucle. Espera al menos 20 s entre llamadas a get_session_reply.'
+          : 'El turno ya terminó: la respuesta completa va en «respuesta».',
+      });
     }),
   );
 }
