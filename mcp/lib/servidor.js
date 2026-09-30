@@ -11,12 +11,18 @@
  * respuesta, y un tope de tareas por hora para no gastar de más cuando el
  * servidor está expuesto (sobre todo por el túnel de Cloudflare).
  *
- * R26 · Y TRES HERRAMIENTAS DE SOLO LECTURA, porque ChatGPT (plan Pro) sólo
- * puede usar las que no cambian nada: `ratacode_status`, `list_files` y
+ * R26 · Y TRES HERRAMIENTAS DE SOLO LECTURA, porque hay clientes y planes que
+ * sólo dejan usar las que no cambian nada: `ratacode_status`, `list_files` y
  * `read_file`. Las tres van marcadas con `readOnlyHint: true` (es la marca que
  * documenta OpenAI para que el cliente sepa que no cambian estado), no gastan
  * tokens ni claves, y leen SÓLO dentro de las carpetas autorizadas, con el
  * cerco de `lib/lectura.js` comprobado aquí, en el servidor.
+ *
+ * R27 · Y UNA CORRECCIÓN: con ChatGPT **Pro** y conector propio (modo
+ * desarrollador) `run_task` SÍ funciona —medido el 30-sep-2026, con la tarea
+ * `mcp-t-mun3aspp-7huh`—, así que el servidor ya no dice en sus instrucciones
+ * que la escritura esté vetada por el plan. Las de sólo lectura siguen ahí,
+ * porque son más baratas (no gastan nada) y siempre están.
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -28,6 +34,7 @@ import { faltaLaClave } from './claves.js';
 import { aviso } from './registro.js';
 import { resolverEspacio, resolverModo } from './seguridad.js';
 import { listarCarpeta, leerFichero, raicesDeLaCasa, TOPE_ENTRADAS } from './carpeta.js';
+import { anotarLectura } from './actividad.js';
 import { Tareas } from './tareas.js';
 import { VERSION } from './version.js';
 
@@ -80,6 +87,78 @@ function conRed(funcion) {
 }
 
 /**
+ * Envolver un manejador de SÓLO LECTURA para que ADEMÁS quede apuntado en el
+ * cuaderno (R27 §1): hora, cliente, herramienta, la ruta que se pidió y si se
+ * permitió o se bloqueó. Sin esto, el panel parecía muerto mientras ChatGPT
+ * sólo leía (y lo bloqueado —que es lo que el humano quiere ver— no quedaba en
+ * ninguna parte).
+ *
+ * La ruta se saca de los argumentos por las mismas claves que mira el cerco
+ * (`CLAVES_DE_RUTA` de `lib/lectura.js`): un texto libre (`prompt`, `context`)
+ * no es una ruta.
+ * @param {string} casa - la casa de RATACODE.
+ * @param {string} herramienta - el nombre de la herramienta.
+ * @param {() => string} cliente - el nombre del cliente que está al otro lado.
+ * @param {(args: object, extra: object) => Promise<object>} funcion - el manejador de verdad.
+ * @returns {Function} el manejador envuelto.
+ */
+function conCuaderno(casa, herramienta, cliente, funcion) {
+  return async (args, extra) => {
+    const quien = cliente();
+    let ruta = null;
+    try { ruta = rutasDeLectura(args ?? {})[0] ?? null; } catch { ruta = null; }
+    let respuesta;
+    try {
+      respuesta = await funcion(args, extra);
+    } catch (e) {
+      anotarLectura(casa, { cliente: quien, herramienta, ruta, permitido: false, motivo: 'la herramienta falló', detalle: e instanceof Error ? e.message : String(e) });
+      throw e;
+    }
+    const fallo = respuesta?.isError === true;
+    anotarLectura(casa, {
+      cliente: quien,
+      herramienta,
+      ruta,
+      permitido: !fallo,
+      motivo: fallo ? 'bloqueado por el cerco' : null,
+      detalle: fallo ? primeraLineaDe(respuesta) : null,
+    });
+    return respuesta;
+  };
+}
+
+/** El primer texto de una respuesta de herramienta, para el cuaderno. */
+function primeraLineaDe(respuesta) {
+  const texto = respuesta?.content?.find?.((b) => b?.type === 'text')?.text ?? '';
+  const linea = String(texto).split(/\r?\n/).map((l) => l.trim()).find((l) => l !== '') ?? '';
+  return linea.replace(/^ERROR:\s*/i, '').slice(0, 200) || null;
+}
+
+/**
+ * Las claves de los argumentos que llevan una ruta, las MISMAS que mira el
+ * cerco (`CLAVES_DE_RUTA` en `lib/lectura.js`, medido en las herramientas del
+ * motor) MÁS `ruta`, que es el nombre que usa este servidor en `list_files` y
+ * `read_file` (R26). Se repiten aquí a propósito: `lectura.js` viaja copiado al
+ * hijo por el parche y no se carga en el servidor. Lo que se apunta con esto es
+ * sólo para el cuaderno (la línea de Actividad); el cerco lo aplica el motor.
+ */
+const CLAVES_DE_RUTA = ['file_path', 'path', 'ruta', 'dir', 'directory', 'cwd', 'working_directory', 'root', 'workspace', 'files', 'paths'];
+
+/** Las rutas que lleva una llamada (primer nivel y objetos de dentro, nunca texto libre). */
+function rutasDeLectura(entrada, profundidad = 2) {
+  const salida = [];
+  if (entrada === null || typeof entrada !== 'object' || profundidad < 0) return salida;
+  for (const [clave, valor] of Object.entries(entrada)) {
+    if (CLAVES_DE_RUTA.includes(clave)) {
+      if (typeof valor === 'string' && valor.trim() !== '') salida.push(valor);
+      continue;
+    }
+    if (valor !== null && typeof valor === 'object' && !Array.isArray(valor)) salida.push(...rutasDeLectura(valor, profundidad - 1));
+  }
+  return salida;
+}
+
+/**
  * Las marcas del tope por hora, EN LA CASA (`<casa>\mcp\marcas.json`).
  * Antes vivían sólo en memoria: dos servidores, o un reinicio, multiplicaban el
  * tope. Al arrancar se cuentan las de la última hora; al lanzar una tarea se
@@ -106,22 +185,24 @@ function guardarMarcas(casa, marcas) {
 }
 
 /** El texto que el cliente MCP lee al conectar: cómo se usa esto. */
-function instrucciones() {
+function instrucciones(ajustes) {
   return [
     'RATACODE está disponible como servidor MCP: úsalo para delegar trabajos a los modelos configurados en esta máquina.',
     '',
-    'SI SÓLO PUEDES LEER (ChatGPT con conector propio en modo desarrollador: las herramientas de escritura no están disponibles en todos los planes), usa estas tres: `ratacode_status` (estado del servidor, versión, carpetas autorizadas y herramientas), `list_files` (lista una carpeta autorizada) y `read_file` (lee un fichero de una carpeta autorizada). Las tres están marcadas como de sólo lectura y no gastan tokens ni claves.',
+    'LEER ES GRATIS Y ESCRIBIR TAMBIÉN ESTÁ: ChatGPT Pro (conector propio en modo desarrollador) SÍ puede lanzar `run_task` —medido el 30-sep-2026, con la tarea `mcp-t-mun3aspp-7huh`—, además de las de sólo lectura. Si un plan o un cliente no deja usar `run_task`, quedan `ratacode_status`, `list_files` y `read_file`, que van marcadas como de sólo lectura y no gastan tokens ni claves.',
     '',
     'Antes de ejecutar una tarea:',
     '1. consulta list_models',
     '2. lanza run_task con el modelo que te hayan pedido',
-    '3. consulta get_task_status hasta que termine',
-    '4. recoge el resultado con get_task_result',
+    '3. si la respuesta ya trae el resultado, ya está; si trae un task_id, consulta get_task_status',
     '',
-    'Si no vas a poder volver (un chat de una sola vuelta, un `claude -p`, un `codex exec`), NO uses ese ciclo: lanza run_task con `esperar_segundos` (1-600) y la MISMA llamada te espera y te devuelve el resultado completo. Si no, no termines tu turno hasta que get_task_status diga `completed` o `failed`.',
+    'NO PREGUNTES EN BUCLE. `run_task` espera solo ' + ajustes.esperaPorDefectoSegundos + ' s: si la tarea acaba dentro, el resultado completo viene en ESA misma respuesta. Si no acaba, devuelve el task_id: entonces llama a get_task_status como mucho UNA VEZ CADA 20 SEGUNDOS (no en bucle), y recoge el resultado con get_task_result cuando diga `completed` o `failed`.',
+    'Si no vas a poder volver (un chat de una sola vuelta, un `claude -p`, un `codex exec`), lanza run_task con `esperar_segundos` (1-600) y la MISMA llamada te espera y te devuelve el resultado completo.',
     'Por stdio, las tareas viven lo que vive el cliente: si el cliente se cierra, el servidor se va y la tarea muere a medias. Por eso, con clientes de una sola vuelta, espera dentro de la llamada.',
     '',
-    'No cambies de modelo automáticamente si el usuario ha indicado uno.',
+    'Cada tarea lleva sus TOPES: ' + ajustes.pasosMax + ' pasos y ' + ajustes.tokensMax + ' tokens (se cambian en la casa, `mcp.pasos_max` y `mcp.tokens_max`). Al llegar a uno, la tarea se para sola y lo dice en `tope_alcanzado`: no la relances en bucle, cuéntaselo al humano.',
+    '',
+    'No cambies de modelo automáticamente si el usuario ha indicado uno. Si pides un modelo que esta casa no tiene, la herramienta te lo dirá y te dará la lista de los que sí hay.',
     'RATACODE nunca devuelve claves: las guarda él y hace las llamadas.',
     'Las claves de los modelos están en UN solo sitio: RATACODE › Ajustes › Models (la casa). Este servidor NO mira el entorno del cliente ni abre ficheros de claves: le pregunta al motor si la credencial de esa ruta está puesta. Si no lo está, lo dirá tal cual («Falta la clave de B.AI. Pégala en RATACODE › Ajustes › Models.») y no arrancará nada.',
     'Cada tarea del MCP trabaja ENCERRADA en las carpetas autorizadas de la casa (`mcp.workspaces`): lee y escribe sólo ahí. Fuera de ahí la herramienta se para y te lo dice («Fuera de la carpeta autorizada: <ruta>»). No hay terminal, ni red, ni subagentes, ni guiones: no hay forma de saltar el cerco. Si necesitas algo de fuera, pídelo al humano.',
@@ -140,10 +221,14 @@ export function registrarHerramientas(servidor, ctx) {
   const { casa, dshBin, cwdPorDefecto, tareas, marcasTarea } = ctx;
   const ajustes = ajustesMcp(casa);
 
-  /** El nombre del cliente que está al otro lado, para el cuaderno. */
+  /** El nombre del cliente que está al otro lado, para el cuaderno. Primero el
+   *  del protocolo (`getClientVersion`, que en stdio siempre está); si no, el que
+   *  se presentó por HTTP (R27: en modo sin estado el `initialize` viene en otra
+   *  petición, así que `lib/http.js` lo pasa al fabricar el servidor). */
   const cliente = () => {
     const quien = servidor.server.getClientVersion();
-    return typeof quien?.name === 'string' && quien.name.trim() !== '' ? quien.name : 'MCP';
+    if (typeof quien?.name === 'string' && quien.name.trim() !== '') return quien.name;
+    return typeof ctx.quien === 'string' && ctx.quien.trim() !== '' ? ctx.quien : 'MCP';
   };
 
   servidor.server.oninitialized = () => {
@@ -153,8 +238,25 @@ export function registrarHerramientas(servidor, ctx) {
     aviso('cliente conectado: ' + nombre);
   };
 
+  /**
+   * Registrar una herramienta. Si es de SÓLO LECTURA, además queda apuntada en
+   * el cuaderno de la casa (R27 §1): hora, cliente, herramienta, ruta y
+   * permitido/bloqueado. Las que escriben ya se apuntan al terminar la tarea.
+   * @param {string} nombre - el nombre de la herramienta.
+   * @param {object} ficha - título, descripción, esquema y marcas.
+   * @param {Function} manejador - el manejador.
+   */
+  const apuntar = (nombre, ficha, manejador) => {
+    const soloLectura = ficha?.annotations?.readOnlyHint === true;
+    servidor.registerTool(
+      nombre,
+      ficha,
+      soloLectura ? conCuaderno(casa, nombre, cliente, conRed(manejador)) : conRed(manejador),
+    );
+  };
+
   // ── list_providers ────────────────────────────────────────────────────────
-  servidor.registerTool(
+  apuntar(
     'list_providers',
     {
       title: 'Proveedores de RATACODE',
@@ -184,7 +286,7 @@ export function registrarHerramientas(servidor, ctx) {
   );
 
   // ── list_models ───────────────────────────────────────────────────────────
-  servidor.registerTool(
+  apuntar(
     'list_models',
     {
       title: 'Modelos de RATACODE',
@@ -210,14 +312,14 @@ export function registrarHerramientas(servidor, ctx) {
   );
 
   // ── run_task ──────────────────────────────────────────────────────────────
-  servidor.registerTool(
+  apuntar(
     'run_task',
     {
       title: 'Lanzar una tarea en RATACODE',
-      description: 'Manda un trabajo a un modelo de RATACODE. Sin `esperar_segundos` devuelve un task_id al momento y el trabajo sigue en segundo plano (consulta get_task_status y recoge con get_task_result). CON `esperar_segundos` (1-600) la llamada ESPERA hasta que la tarea termine o se agote ese tiempo, y si terminó devuelve el resultado completo en la MISMA respuesta, sin más llamadas: úsalo cuando no puedas volver después (una sola vuelta de chat). Por stdio, la tarea vive lo que vive el cliente: si cierras el cliente, se muere. Si no indicas modelo, se usa el de por defecto de la casa y se te dice cuál.',
+      description: 'Manda un trabajo a un modelo de RATACODE. La llamada ESPERA sola ' + ajustes.esperaPorDefectoSegundos + ' s (lo que diga la casa): si la tarea acaba dentro, el resultado completo va en ESTA respuesta y no hay que preguntar nada más. Si tarda más, devuelve el `task_id` y entonces se pregunta con get_task_status, SIN bucle (como mucho una vez cada 20 s). Con `esperar_segundos` (1-600) se espera lo que digas tú, hasta 600 s: úsalo para un encargo largo si no vas a poder volver. Si no indicas modelo, se usa el de por defecto de la casa y se te dice cuál; si indicas uno, tiene que estar en `list_models`. Cada tarea lleva topes de pasos y tokens (' + ajustes.pasosMax + ' pasos, ' + ajustes.tokensMax + ' tokens): al llegar, se para y lo dice.',
       inputSchema: {
         prompt: z.string().min(1).describe('El encargo, en texto. Tope: ' + ajustes.promptMaxCaracteres + ' caracteres (configurable en `mcp.prompt_max_caracteres`).'),
-        esperar_segundos: z.number().int().min(0).max(600).optional().describe('Si lo das, esta llamada espera hasta ese máximo (segundos, 0-600) a que la tarea termine y devuelve el resultado completo en la misma respuesta. Sin este parámetro, vuelve al momento con el task_id y hay que preguntar con get_task_status.'),
+        esperar_segundos: z.number().int().min(0).max(600).optional().describe('Cuántos segundos espera ESTA llamada a que la tarea acabe antes de contestar (0-600). Si no lo pones, se esperan ' + ajustes.esperaPorDefectoSegundos + ' s (lo que diga `mcp.espera_por_defecto_segundos`): si la tarea acaba dentro, el resultado va en la MISMA respuesta; si no, vuelve el task_id. Ponlo sólo si quieres esperar más (por ejemplo 300 para un encargo largo).'),
         provider: z.string().optional().describe('Proveedor (por ejemplo "b-ai"). Si lo omites, el de por defecto.'),
         model: z.string().optional().describe('Id del modelo (por ejemplo "deepseek-v4.1-flash").'),
         working_directory: z.string().optional().describe('Carpeta donde trabaja la tarea. Debe estar dentro de los espacios autorizados.'),
@@ -261,6 +363,23 @@ export function registrarHerramientas(servidor, ctx) {
       }
 
       const ruta = resolverRuta(casa, args.provider, args.model);
+      // R27 §7c · EL MODELO SE VALIDA CONTRA EL CATÁLOGO. Si el chat pide un
+      // modelo que esta casa no tiene, mejor decírselo AHORA (con la lista de
+      // los que sí hay) que lanzar un motor que va a fallar más tarde y peor.
+      // Si no pide ninguno, se usa el de la casa y se dice cuál (`ruta.origen`).
+      if (typeof args.model === 'string' && args.model.trim() !== '') {
+        const { modelos } = await catalogo(casa);
+        const suyos = modelos.filter((m) => m.provider === ruta.provider);
+        const pedido = args.model.trim();
+        const conocido = suyos.some((m) => m.id === pedido || m.model === pedido);
+        if (!conocido) {
+          return comoError(
+            'esta casa no tiene el modelo «' + pedido + '» en el proveedor «' + ruta.provider + '».'
+            + ' Los que sí hay: ' + (suyos.length === 0 ? '(ninguno declarado)' : suyos.slice(0, 20).map((m) => m.id).join(', '))
+            + '. Míralo con list_models (y no lo cambies por tu cuenta si el humano ha elegido uno).',
+          );
+        }
+      }
       // La credencial: la de la casa (Ajustes › Models), que es la única fuente.
       // Se le pregunta al motor. Si no está, se PARA aquí: nada de arrancar un
       // motor que va a fallar peor y más tarde.
@@ -295,6 +414,9 @@ export function registrarHerramientas(servidor, ctx) {
         modo,
         maxTokens: args.max_tokens,
         timeoutMs,
+        // R27 §7b · los topes de la tarea: al llegar, la tarea se para y lo dice.
+        pasosMax: ajustes.pasosMax,
+        tokensMax: ajustes.tokensMax,
         cliente: cliente(),
       });
       const comun = {
@@ -307,24 +429,34 @@ export function registrarHerramientas(servidor, ctx) {
           origen: timeoutPedido === null ? 'por_defecto_de_la_casa' : 'peticion',
           ...(timeoutRecortado ? { recortado_al_maximo_ms: ajustes.timeoutMaximoMs } : {}),
         },
+        topes: {
+          pasos_max: ajustes.pasosMax,
+          tokens_max: ajustes.tokensMax,
+          nota: 'Si la tarea llega a uno de estos topes, se para sola y lo dice en «tope_alcanzado».',
+        },
         avisos,
       };
 
-      // Sin `esperar_segundos`: recibo y a otra cosa (como siempre).
-      if (args.esperar_segundos === undefined) {
-        return comoTexto({
-          ...comun,
-          siguiente: 'Consulta get_task_status con este task_id y recoge el resultado con get_task_result. Si no vas a poder volver (una sola vuelta de chat), repite run_task con esperar_segundos (1-600) y te doy el resultado en la misma llamada.',
-        });
-      }
-
-      // Con `esperar_segundos`: se espera aquí, y si terminó se devuelve TODO.
-      const espera = await tareas.esperar(recibo.task_id, args.esperar_segundos * 1000);
+      // R27 §7a · LO QUE SE ESPERA, POR DEFECTO. Antes, sin `esperar_segundos`,
+      // esta llamada volvía al momento con el task_id y el chat tenía que
+      // preguntar en bucle (cuota y tiempo perdidos). Ahora se espera lo que
+      // diga la casa (`mcp.espera_por_defecto_segundos`, 25 s de fábrica): si la
+      // tarea acaba dentro, el resultado va en ESTA respuesta; si no, se devuelve
+      // el task_id y se dice que no pregunte en bucle.
+      const esperaSegundos = typeof args.esperar_segundos === 'number' && args.esperar_segundos > 0
+        ? args.esperar_segundos
+        : ajustes.esperaPorDefectoSegundos;
+      const espera = await tareas.esperar(recibo.task_id, esperaSegundos * 1000);
       if (espera.terminada) {
         return comoTexto({
           ...comun,
           estado: espera.estado,
-          espera: { pedida_segundos: args.esperar_segundos, esperada_ms: espera.esperada_ms, agotada: false },
+          espera: {
+            pedida_segundos: esperaSegundos,
+            por_defecto: args.esperar_segundos === undefined,
+            esperada_ms: espera.esperada_ms,
+            agotada: false,
+          },
           resultado: tareas.resultado(recibo.task_id),
           siguiente: 'La tarea ya terminó: el resultado completo va en «resultado». No hace falta get_task_status.',
         });
@@ -332,15 +464,22 @@ export function registrarHerramientas(servidor, ctx) {
       return comoTexto({
         ...comun,
         estado: espera.estado,
-        espera: { pedida_segundos: args.esperar_segundos, esperada_ms: espera.esperada_ms, agotada: true },
+        espera: {
+          pedida_segundos: esperaSegundos,
+          por_defecto: args.esperar_segundos === undefined,
+          esperada_ms: espera.esperada_ms,
+          agotada: true,
+        },
         resultado: null,
-        siguiente: 'Se agotaron los ' + args.esperar_segundos + ' s de espera y la tarea sigue en «' + espera.estado + '»: llama a get_task_status (o a get_task_result) hasta que diga completed o failed. Y por stdio la tarea vive lo que vive el cliente: no cierres hasta verla terminada.',
+        siguiente: 'Se agotaron los ' + esperaSegundos + ' s de espera y la tarea sigue en «' + espera.estado
+          + '». NO preguntes en bucle: espera al menos 20 s entre get_task_status (o usa get_task_status con la tarea ya cerrada).'
+          + ' Y por stdio la tarea vive lo que vive el cliente: no cierres hasta verla terminada.',
       });
     }),
   );
 
   // ── get_task_status ───────────────────────────────────────────────────────
-  servidor.registerTool(
+  apuntar(
     'get_task_status',
     {
       title: 'Estado de una tarea',
@@ -352,7 +491,7 @@ export function registrarHerramientas(servidor, ctx) {
   );
 
   // ── get_task_result ───────────────────────────────────────────────────────
-  servidor.registerTool(
+  apuntar(
     'get_task_result',
     {
       title: 'Resultado de una tarea',
@@ -364,7 +503,7 @@ export function registrarHerramientas(servidor, ctx) {
   );
 
   // ── cancel_task ───────────────────────────────────────────────────────────
-  servidor.registerTool(
+  apuntar(
     'cancel_task',
     {
       title: 'Cancelar una tarea',
@@ -376,7 +515,7 @@ export function registrarHerramientas(servidor, ctx) {
   );
 
   // ── ratacode_status (extra de casa, para no depender de la pantalla) ──────
-  servidor.registerTool(
+  apuntar(
     'ratacode_status',
     {
       title: 'Estado de RATACODE MCP',
@@ -408,15 +547,20 @@ export function registrarHerramientas(servidor, ctx) {
           timeout_maximo_ms: ajustes.timeoutMaximoMs,
           prompt_max_caracteres: ajustes.promptMaxCaracteres,
           entradas_por_listado: TOPE_ENTRADAS,
+          // R27 §7a/7b · la espera de fábrica y los topes de cada tarea.
+          espera_por_defecto_segundos: ajustes.esperaPorDefectoSegundos,
+          pasos_max: ajustes.pasosMax,
+          tokens_max: ajustes.tokensMax,
         },
         avisos,
-        nota: 'Esta herramienta es de SÓLO LECTURA, como list_files y read_file. Para ver el cuaderno de actividad y las tareas de todos los clientes, míralo en la casa (o en el panel), no por MCP.',
+        nota: 'Esta herramienta es de SÓLO LECTURA, como list_files y read_file. Para ver el cuaderno de actividad y las tareas de todos los clientes, míralo en la casa (o en el panel), no por MCP.'
+          + ' Y una corrección de R27, medida el 30-sep-2026: ChatGPT Pro (conector propio en modo desarrollador) SÍ puede llamar a run_task; las herramientas de escritura no están vetadas por el plan.',
       });
     }),
   );
 
   // ── list_files (R26 · sólo lectura, para ChatGPT) ─────────────────────────
-  servidor.registerTool(
+  apuntar(
     'list_files',
     {
       title: 'Listar una carpeta autorizada',
@@ -435,7 +579,7 @@ export function registrarHerramientas(servidor, ctx) {
   );
 
   // ── read_file (R26 · sólo lectura, para ChatGPT) ──────────────────────────
-  servidor.registerTool(
+  apuntar(
     'read_file',
     {
       title: 'Leer un fichero autorizado',
@@ -461,6 +605,8 @@ export function registrarHerramientas(servidor, ctx) {
  */
 export function montarServidor({ casa, dshBin, cwdPorDefecto, tareasPorHora = 30, http = false }) {
   const tareas = new Tareas({ casa, dshBin });
+  /** Los ajustes de la casa: los usan las herramientas y las instrucciones. */
+  const ajustes = ajustesMcp(casa);
   /** Marcas de tiempo de creación de tareas, para el tope por hora. Viven en la casa. */
   const marcasTarea = cargarMarcas(casa);
   if (marcasTarea.length > 0) {
@@ -469,13 +615,16 @@ export function montarServidor({ casa, dshBin, cwdPorDefecto, tareasPorHora = 30
 
   /** Crear un servidor MCP nuevo que COMPARTE el registro de tareas. Sirve para
    * atender cada sesión HTTP con su propio servidor (el SDK no permite conectar
-   * un mismo servidor a varios transportes a la vez) sin perder el estado. */
-  function fabricaServidor() {
+   * un mismo servidor a varios transportes a la vez) sin perder el estado.
+   * @param {string|null} [quien] - el cliente que se ha presentado (R27): en modo
+   *   sin estado el `initialize` viene en OTRA petición, así que el nombre llega
+   *   desde fuera (`lib/http.js`) y con él el cuaderno dice quién llamó. */
+  function fabricaServidor(quien = null) {
     const servidor = new McpServer(
       { name: 'ratacode', version: VERSION },
-      { instructions: instrucciones() },
+      { instructions: instrucciones(ajustes) },
     );
-    registrarHerramientas(servidor, { casa, dshBin, cwdPorDefecto, tareas, marcasTarea, tareasPorHora, http });
+    registrarHerramientas(servidor, { casa, dshBin, cwdPorDefecto, tareas, marcasTarea, tareasPorHora, http, quien });
     return servidor;
   }
 

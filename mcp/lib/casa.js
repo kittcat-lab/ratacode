@@ -77,8 +77,21 @@ function texto(valor) {
  * La sección `mcp:` de los ajustes, con sus valores por defecto.
  * Todo lo que limita el daño se lee de aquí, para que el humano lo pueda
  * cambiar sin tocar código.
+ *
+ * R27 · Y cuatro ajustes más, por lo que pidió Patxi («que vaya rápido y no
+ * gaste»):
+ *   · `espera_por_defecto_segundos` — lo que `run_task` espera dentro de la
+ *     MISMA llamada si el cliente no dice otra cosa (25 s de fábrica). Así el
+ *     chat normal recibe el resultado sin preguntar en bucle.
+ *   · `pasos_max` y `tokens_max` — el tope de una tarea: al llegar, la tarea se
+ *     para y lo dice. Sin tope, un encargo confuso puede dar vueltas gastando.
+ *   · `puerto` — el puerto del MCP por HTTP de esta casa (3778 de fábrica). La
+ *     piel lo usa para encender el MCP y el túnel, y así la dirección es
+ *     siempre la misma.
+ * Y dos para la DIRECCIÓN FIJA (el «túnel con nombre» de Cloudflare, que da de
+ * alta el humano en su cuenta): `tunel_nombre` y `tunel_host`.
  * @param {string} casa - la casa de RATACODE.
- * @returns {{workspaces: string[], workspacePorDefecto: string|undefined, permitirPeligroso: boolean, precios: object, timeoutPorDefectoMs: number, timeoutMaximoMs: number, tareasALaVez: number, promptMaxCaracteres: number, avisos: string[]}}
+ * @returns {{workspaces: string[], workspacePorDefecto: string|undefined, permitirPeligroso: boolean, precios: object, timeoutPorDefectoMs: number, timeoutMaximoMs: number, tareasALaVez: number, promptMaxCaracteres: number, esperaPorDefectoSegundos: number, pasosMax: number, tokensMax: number, puerto: number, tunelNombre: string|undefined, tunelHost: string|undefined, avisos: string[]}}
  */
 export function ajustesMcp(casa) {
   const { documento, error } = leerAjustes(casa);
@@ -97,6 +110,11 @@ export function ajustesMcp(casa) {
   }
   const porDefecto = texto(seccion.workspace_por_defecto);
   const precios = seccion.precios !== null && typeof seccion.precios === 'object' && !Array.isArray(seccion.precios) ? seccion.precios : {};
+  const tunelNombre = texto(seccion.tunel_nombre);
+  const tunelHost = texto(seccion.tunel_host);
+  if ((tunelNombre === undefined) !== (tunelHost === undefined)) {
+    avisos.push('mcp.tunel_nombre y mcp.tunel_host van juntos: hace falta el nombre del túnel Y su hostname. Sin los dos, se usa el túnel rápido');
+  }
   return {
     workspaces,
     workspacePorDefecto: porDefecto === undefined ? undefined : resolve(porDefecto),
@@ -106,6 +124,12 @@ export function ajustesMcp(casa) {
     timeoutMaximoMs: enteroPositivo(seccion.timeout_maximo_ms, TIMEOUT_MAXIMO_MS),
     tareasALaVez: enteroPositivo(seccion.tareas_a_la_vez, TAREAS_A_LA_VEZ),
     promptMaxCaracteres: enteroPositivo(seccion.prompt_max_caracteres, PROMPT_MAX_CARACTERES),
+    esperaPorDefectoSegundos: enteroPositivo(seccion.espera_por_defecto_segundos, ESPERA_POR_DEFECTO_SEGUNDOS),
+    pasosMax: enteroPositivo(seccion.pasos_max, PASOS_MAX),
+    tokensMax: enteroPositivo(seccion.tokens_max, TOKENS_MAX),
+    puerto: enteroPositivo(seccion.puerto, PUERTO_POR_DEFECTO),
+    tunelNombre: tunelNombre === undefined || tunelHost === undefined ? undefined : tunelNombre,
+    tunelHost: tunelNombre === undefined || tunelHost === undefined ? undefined : tunelHost,
     avisos,
   };
 }
@@ -119,6 +143,19 @@ export const TIMEOUT_MAXIMO_MS = 3_600_000;
 export const TAREAS_A_LA_VEZ = 3;
 /** Tope del encargo (caracteres). Un prompt de verdad no llega ni de lejos. */
 export const PROMPT_MAX_CARACTERES = 100_000;
+/**
+ * R27 · Lo que `run_task` espera DENTRO de la llamada si el cliente no dice
+ * otra cosa. 25 s es lo que tarda un «responde PONG» o un recado corto: con
+ * esto, el chat normal recibe el resultado sin preguntar en bucle (que es lo
+ * que gasta cuota y tiempo). Si la tarea no acaba, se devuelve el `task_id`.
+ */
+export const ESPERA_POR_DEFECTO_SEGUNDOS = 25;
+/** R27 · Tope de PASOS (vueltas del modelo) de una tarea. */
+export const PASOS_MAX = 40;
+/** R27 · Tope de TOKENS (entrada + salida) de una tarea. */
+export const TOKENS_MAX = 400_000;
+/** El puerto del MCP por HTTP de una casa. La piel lo usa para encenderlo. */
+export const PUERTO_POR_DEFECTO = 3778;
 
 /** Un entero positivo de los ajustes, o el valor de fábrica. */
 function enteroPositivo(valor, porDefecto) {

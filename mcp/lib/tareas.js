@@ -65,6 +65,11 @@ export class Tareas {
       modo: peticion.modo,
       max_tokens: peticion.maxTokens ?? null,
       timeout_ms: peticion.timeoutMs ?? null,
+      // R27 · los topes de la tarea (pasos y tokens): viajan con ella para que
+      // `get_task_result` pueda decir POR QUÉ se paró.
+      pasos_max: peticion.pasosMax ?? null,
+      tokens_max: peticion.tokensMax ?? null,
+      tope_alcanzado: null,
       cliente: peticion.cliente ?? 'MCP',
       creada: new Date().toISOString(),
       empezada: null,
@@ -95,6 +100,8 @@ export class Tareas {
       maxTokens: peticion.maxTokens,
       timeoutMs: peticion.timeoutMs,
       modo: peticion.modo,
+      pasosMax: peticion.pasosMax,
+      tokensMax: peticion.tokensMax,
     });
     registro._mando = mando;
     registro.estado = 'running';
@@ -112,6 +119,8 @@ export class Tareas {
         ? { input: salida.tokens.input, output: salida.tokens.output, total: salida.tokens.total, cache_read: salida.tokens.cache_read, cache_write: salida.tokens.cache_write, reasoning: salida.tokens.reasoning }
         : null;
       registro.motivo = salida.motivo;
+      // R27 · si la paró un tope (pasos o tokens), se apunta con la tarea.
+      registro.tope_alcanzado = salida.tope_alcanzado ?? null;
       registro.errores = salida.errores;
       registro.cancelada = salida.cancelada === true;
       registro.codigo_salida = salida.codigo_salida;
@@ -186,6 +195,7 @@ export class Tareas {
       pasos: registro.pasos,
       cancelada: registro.cancelada,
       motivo: registro.motivo,
+      tope_alcanzado: registro.tope_alcanzado ?? null,
       errores: registro.errores,
       coste: registro.coste,
       sesion_en_el_panel: registro.en_panel === true,
@@ -211,6 +221,7 @@ export class Tareas {
       duracion_ms: registro.duracion_ms,
       pasos: registro.pasos,
       motivo: registro.motivo,
+      tope_alcanzado: registro.tope_alcanzado ?? null,
       errores: registro.errores,
       cancelada: registro.cancelada,
       session_id: registro.session_id,

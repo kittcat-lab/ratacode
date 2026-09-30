@@ -48,6 +48,8 @@ export function lanzarTarea({
   maxTokens,
   timeoutMs,
   modo,
+  pasosMax,
+  tokensMax,
   alEvento,
 }) {
   const carpetaTemporal = join(casa, 'mcp', 'tmp');
@@ -83,6 +85,8 @@ export function lanzarTarea({
   let texto = '';
   let pasos = 0;
   let ultimoMotivo = null;
+  /** R27 · el tope por el que se paró la tarea (pasos o tokens), si se paró. */
+  let topeAlcanzado = null;
   const errores = [];
   const uso = { input: 0, output: 0, total: 0, cache_read: 0, cache_write: 0, reasoning: 0, informado: false };
   const empezado = Date.now();
@@ -109,6 +113,9 @@ export function lanzarTarea({
       errores,
       cancelada,
       motivo_cancelacion: motivoCancelacion,
+      // R27 · si la tarea se paró por un tope, aquí se dice cuál y con qué
+      // números: el chat tiene que poder contarlo sin adivinar.
+      tope_alcanzado: topeAlcanzado,
       codigo_salida: extra.codigoSalida ?? null,
       ...extra.extra,
     };
@@ -143,6 +150,21 @@ export function lanzarTarea({
     uso.reasoning += numeroSeguro(u.reasoningTokens);
   };
 
+  /**
+   * R27 · ¿se ha pasado la tarea de algún tope? Los topes se declaran en la casa
+   * (`mcp.pasos_max`, `mcp.tokens_max`) y llegan aquí ya resueltos.
+   * @returns {{tipo: string, motivo: string}|null} el tope que se ha pasado.
+   */
+  const topeSuperado = () => {
+    if (typeof pasosMax === 'number' && pasosMax > 0 && pasos >= pasosMax) {
+      return { tipo: 'pasos', motivo: 'tope de pasos alcanzado (' + pasos + ' de ' + pasosMax + '): la tarea se para para no gastar más' };
+    }
+    if (typeof tokensMax === 'number' && tokensMax > 0 && uso.informado === true && uso.total >= tokensMax) {
+      return { tipo: 'tokens', motivo: 'tope de tokens alcanzado (' + uso.total + ' de ' + tokensMax + '): la tarea se para para no gastar más' };
+    }
+    return null;
+  };
+
   const alEventoDeSesion = (evento) => {
     if (evento === null || typeof evento !== 'object') return;
     if (alEvento !== undefined) alEvento(evento);
@@ -151,6 +173,15 @@ export function lanzarTarea({
       const trozos = textoDeMensaje(evento.data?.message);
       if (trozos !== '') texto = trozos;
       anotarUso(evento.data?.usage);
+      // R27 · LOS TOPES DE LA TAREA. Se miran en cada vuelta del modelo, que es
+      // cuando crecen los dos contadores. Al llegar, la tarea SE PARA y se dice
+      // por qué: sin esto, un encargo confuso puede dar vueltas gastando sin
+      // que nadie lo note hasta la factura.
+      const tope = topeSuperado();
+      if (tope !== null) {
+        topeAlcanzado = tope;
+        cancelar(tope.motivo);
+      }
       return;
     }
     if (evento.type === 'turn/end') {
