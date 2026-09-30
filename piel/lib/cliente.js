@@ -362,12 +362,33 @@ window.__ModuleLoader__.load({
           if ((r.sello ?? '') === selloVisto) return;
           selloVisto = r.sello ?? '';
           const sesiones = ctx.get('sessions');
-          if (sesiones === undefined || typeof sesiones.refresh !== 'function') return;
+          // Un gancho de DIAGNÓSTICO en la propia ventana (`window.__RATACODE`):
+          // deja ver la lista de sesiones del motor y pedir un refresco desde la
+          // consola. Es la misma sesión del navegador que ya está mirando esto,
+          // así que no enseña nada que la pantalla no enseñe; sirve para poder
+          // comprobar la barra lateral SIN recargar (R27).
+          if (typeof window !== 'undefined' && sesiones !== undefined) {
+            window.__RATACODE = {
+              ...(window.__RATACODE ?? {}),
+              sesiones: () => sesiones.list?.getSnapshot?.() ?? null,
+              refrescarSesiones: () => sesiones.refresh?.(),
+            };
+          }
+          if (sesiones === undefined || typeof sesiones.refresh !== 'function') {
+            if (typeof console !== 'undefined') console.info('RATACODE · el MCP tiene una tarea nueva, pero este motor no da el servicio `sessions`: la barra se quedará como estaba hasta recargar');
+            return;
+          }
           // Se pide el refresco AHORA y OTRA VEZ dentro de unos segundos: la
           // tarea deja su registro al arrancar y su fichero de sesión un momento
           // después, y el panel tiene que ver los dos (si no, la sesión sale sin
           // su conversación).
-          Promise.resolve(sesiones.refresh()).catch(() => { /* si no se puede, la barra se queda como estaba */ });
+          Promise.resolve(sesiones.refresh()).then(() => {
+            if (typeof console === 'undefined') return;
+            const lista = sesiones.list?.getSnapshot?.();
+            console.info('RATACODE · el MCP tiene una tarea nueva: lista de sesiones refrescada · ' + JSON.stringify((lista?.ids ?? []).slice(0, 8)));
+          }).catch((e) => {
+            if (typeof console !== 'undefined') console.info('RATACODE · no pude refrescar la lista de sesiones: ' + (e?.message ?? e));
+          });
           setTimeout(() => {
             Promise.resolve(sesiones.refresh()).catch(() => { /* da igual: ya se pidió una vez */ });
           }, 3000);

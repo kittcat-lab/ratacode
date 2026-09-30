@@ -1026,14 +1026,24 @@ async function vivoElMcp() {
   const enLaUrl = /\/mcp\/([^/?#]+)/.exec(url)?.[1] ?? '';
   if (clave !== '' && enLaUrl !== '' && enLaUrl !== clave) {
     // La URL lleva una clave que ya no es la de la casa (un «Cambiar clave» a
-    // medias, o un fichero viejo): esa dirección no vale.
-    return { vivo: false, url: '', puerto, motivo: 'la URL del MCP lleva una clave que ya no es la de esta casa; hay que volver a encender (o copiar la dirección otra vez)' };
+    // medias, o un fichero viejo): esa dirección no vale, y ese fichero no sirve
+    // para nada. Se limpia.
+    limpiarFichero(join(casaDeEstaCasa(), 'mcp', 'http-url.txt'));
+    return { vivo: false, url: '', puerto, motivo: 'la URL del MCP llevaba una clave que ya no es la de esta casa: se ha limpiado; vuelve a copiar la dirección (o a encender)' };
   }
   const dicho = await sondearLaUrl(url);
   if (dicho === 'nuestro') return { vivo: true, url, puerto, motivo: null };
   if (dicho === 'ajeno') {
+    // En ese puerto contesta OTRO servidor (el MCP de otra casa, u otro
+    // programa): esta URL no va a funcionar nunca. Se limpia y se dice.
+    limpiarFichero(join(casaDeEstaCasa(), 'mcp', 'http-url.txt'));
     return { vivo: false, url: '', puerto, motivo: 'en el puerto ' + puerto + ' contesta otro servidor (no es el MCP de esta casa: la clave no vale ahí); cierra lo que tengas en ese puerto o cambia `mcp.puerto` en settings.yaml' };
   }
+  // No contesta nadie. El fichero se limpia SÓLO si tampoco hay un hijo nuestro
+  // vivo: entre escribir la URL y empezar a escuchar hay un instante, y borrar
+  // el fichero de un MCP que está arrancando dejaría al panel diciendo «no hay
+  // MCP» para siempre.
+  if (!vivo(CONEXION.mcp)) limpiarFichero(join(casaDeEstaCasa(), 'mcp', 'http-url.txt'));
   return { vivo: false, url: '', puerto, motivo: null };
 }
 
@@ -1068,6 +1078,10 @@ function vivoElTunel() {
   if (url === '') return { vivo: false, url: '', pid: null };
   const pid = leerPid(join(casaDeEstaCasa(), 'mcp', 'tunel.pid'));
   if (pid !== null && pidVivo(pid)) return { vivo: true, url, pid };
+  // La URL está escrita pero el proceso del túnel no existe: eso es un túnel
+  // muerto (o el fichero de una vez anterior). Se limpian los dos.
+  limpiarFichero(join(casaDeEstaCasa(), 'mcp', 'tunel-url.txt'));
+  limpiarFichero(join(casaDeEstaCasa(), 'mcp', 'tunel.pid'));
   return { vivo: false, url: '', pid };
 }
 

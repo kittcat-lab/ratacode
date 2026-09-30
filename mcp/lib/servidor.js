@@ -371,11 +371,12 @@ export function registrarHerramientas(servidor, ctx) {
         const { modelos } = await catalogo(casa);
         const suyos = modelos.filter((m) => m.provider === ruta.provider);
         const pedido = args.model.trim();
-        const conocido = suyos.some((m) => m.id === pedido || m.model === pedido);
+        // El catálogo nombra el id como `model_id` (mira `lib/modelos.js`).
+        const conocido = suyos.some((m) => m.model_id === pedido);
         if (!conocido) {
           return comoError(
             'esta casa no tiene el modelo «' + pedido + '» en el proveedor «' + ruta.provider + '».'
-            + ' Los que sí hay: ' + (suyos.length === 0 ? '(ninguno declarado)' : suyos.slice(0, 20).map((m) => m.id).join(', '))
+            + ' Los que sí hay: ' + (suyos.length === 0 ? '(ninguno declarado)' : suyos.slice(0, 20).map((m) => m.model_id).join(', '))
             + '. Míralo con list_models (y no lo cambies por tu cuenta si el humano ha elegido uno).',
           );
         }
