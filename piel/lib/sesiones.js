@@ -273,6 +273,11 @@ export async function listarSesiones({ ctx, casa, raices }) {
       origen: textoDe(fila.origin),
       abierta_a_chatgpt: abiertas[id]?.abierta === true,
       en_espacio_autorizado: enEspacio,
+      // El permiso que la sesión tiene puesto AHORA (el preset del motor, o
+      // `custom`). Se enseña porque es lo que R28 §3c cambia mientras la sesión
+      // está abierta: sin esto, no habría forma de comprobar que se le devuelve
+      // el suyo al cerrarla.
+      permiso: permisoActual(ctx, id),
       // Y por qué NO se puede atender, si no se puede: el MCP lo dirá tal cual.
       motivo: abiertas[id]?.abierta !== true
         ? 'no está marcada «Abierta a ChatGPT» en el panel'
@@ -619,9 +624,14 @@ export async function enviarMensaje({ ctx, casa, raices, sessionId, titulo, mens
 
   const cerco = encerrarPermiso(ctx, sesion.session_id);
   const estado = leerAbiertas(casa);
-  if (estado.sesiones[sesion.session_id] !== undefined) {
-    estado.sesiones[sesion.session_id].encerrada = cerco.encerrada === true;
-    estado.sesiones[sesion.session_id].permiso_previo = cerco.permiso_previo ?? estado.sesiones[sesion.session_id].permiso_previo ?? null;
+  const entrada = estado.sesiones[sesion.session_id];
+  if (entrada !== undefined) {
+    // OJO: el permiso previo se apunta UNA vez, cuando se encierra la primera
+    // vez. Si se pisara en cada mensaje, al cerrar la sesión se le devolvería
+    // «workspace-write» (el que le pusimos nosotros) en vez del suyo —medido en
+    // R28, con la primera versión de esto—.
+    if (entrada.encerrada !== true) entrada.permiso_previo = cerco.permiso_previo ?? null;
+    entrada.encerrada = cerco.encerrada === true;
     guardarAbiertas(casa, estado);
   }
 
@@ -631,12 +641,19 @@ export async function enviarMensaje({ ctx, casa, raices, sessionId, titulo, mens
     : 25;
   const antes = Date.now();
   try {
+    // OJO con la firma: el servicio `sessionController` es la fachada del motor
+    // y su `prompt` es `prompt(request, signal)`
+    // (`dsh-api-session-controller/lib/index.js:2920-2923`), que además llama a
+    // `signal.throwIfAborted()`. Sin señal, revienta con «Cannot read properties
+    // of undefined (reading 'throwIfAborted')» — medido en R28. Se le pasa una
+    // señal viva (no se aborta nunca aquí: el turno dura lo que dura, y quien
+    // espera es `esperarSegundos`).
     await control.prompt({
       requestId,
       sessionId: sesion.session_id,
       mode: 'queue',
       content: [{ type: 'text', text: texto }],
-    });
+    }, new AbortController().signal);
   } catch (e) {
     apuntarEnviado(casa, { request_id: requestId, session_id: sesion.session_id, cliente, permitido: false, motivo: 'el motor rechazó el mensaje' });
     return {
@@ -674,7 +691,9 @@ export async function enviarMensaje({ ctx, casa, raices, sessionId, titulo, mens
     remitente: { sender: 'openai-mcp', source: 'chatgpt-web', cliente: cliente ?? 'MCP' },
     encierro: {
       permiso: cerco.encerrada === true ? 'workspace-write' : null,
-      permiso_previo: cerco.permiso_previo ?? null,
+      // El permiso que tenía la sesión ANTES de encerrarla (se apunta la primera
+      // vez, no se pisa): es el que se le devuelve al cerrar el interruptor.
+      permiso_previo: entrada?.permiso_previo ?? cerco.permiso_previo ?? null,
       motivo: cerco.motivo ?? null,
       aviso: 'Mientras esta sesión esté abierta a ChatGPT sus turnos van encerrados en su carpeta, sin terminal, sin procesos, sin red y sin subagentes. El motor no deja aplicarlo sólo a los turnos del chat, así que vale para toda la sesión.',
     },

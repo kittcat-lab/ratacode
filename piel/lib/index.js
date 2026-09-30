@@ -261,6 +261,22 @@ function textoParaPegar(url) {
     '- get_task_result: la respuesta, el modelo, los tokens, el coste y la',
     '  duración.',
     '',
+    'Y SI QUIERES HABLAR CON UNA SESIÓN QUE YA TENGO ABIERTA EN EL PANEL (eso NO',
+    'es run_task: aquí el mensaje entra en ESA conversación, se ve aparecer en ese',
+    'chat y yo leo la respuesta ahí):',
+    '- list_sessions: las sesiones del panel, con su id, título y si están',
+    '  «Abiertas a ChatGPT».',
+    '- get_session: una sesión, por su id o por su título exacto.',
+    '- send_to_session: manda un mensaje a UNA de esas sesiones. Tiene que estar',
+    '  marcada «Abierta a ChatGPT» en la cabecera de su chat (lo enciendo yo) y su',
+    '  carpeta tiene que estar en mis carpetas autorizadas; si no, te dirá',
+    '  SESSION_NOT_ALLOWED y no manda nada. Espera 25 s por defecto y te devuelve',
+    '  la respuesta si el turno acaba dentro.',
+    '- get_session_reply: la respuesta de un mensaje ya mandado (por su turn_id).',
+    '  Si dice que sigue en marcha, no preguntes en bucle: una vez cada 20 s.',
+    '  Si el título coincide con más de una sesión, send_to_session NO elige: te',
+    '  devuelve AMBIGUOUS_SESSION con los ids.',
+    '',
     'Si yo he elegido modelo, no lo cambies. Si no, usa el de por defecto de la',
     'casa y dime cuál es. Con un encargo largo, usa esperar_segundos y no cierres',
     'tu turno hasta que get_task_status diga completed o failed.',
@@ -1042,13 +1058,41 @@ async function vivoElMcp() {
     limpiarFichero(join(casaDeEstaCasa(), 'mcp', 'http-url.txt'));
     return { vivo: false, url: '', puerto, motivo: 'la URL del MCP llevaba una clave que ya no es la de esta casa: se ha limpiado; vuelve a copiar la dirección (o a encender)' };
   }
-  const dicho = await sondearLaUrl(url);
+  // R28 §4b · SI LA URL ES RECIÉN ESCRITA, SE INSISTE. Es el caso de «Cambiar
+  // clave»: el fichero lleva la clave nueva y el MCP que está en marcha tarda
+  // hasta 2 s en adoptarla, así que en ese hueco contesta 404 y antes se decía
+  // «en el puerto X contesta otro servidor» con nuestro propio MCP. Se mira la
+  // fecha del fichero: sólo se espera cuando de verdad puede estar cambiando.
+  const edad = antiguedadDe(join(casaDeEstaCasa(), 'mcp', 'http-url.txt'));
+  const ventana = edad !== null && edad < 15000 ? 6000 : 0;
+  const dicho = await sondearLaUrl(url, ventana);
   if (dicho === 'nuestro') return { vivo: true, url, puerto, motivo: null };
   if (dicho === 'ajeno') {
-    // En ese puerto contesta OTRO servidor (el MCP de otra casa, u otro
-    // programa): esta URL no va a funcionar nunca. Se limpia y se dice.
+    // En ese puerto contesta OTRO servidor (el MCP de otra casa, otro programa,
+    // o el propio panel si `mcp.puerto` es el suyo): esta URL no va a funcionar
+    // nunca. Se limpia y se dice QUÉ se ha visto, sin inventarse nada.
     limpiarFichero(join(casaDeEstaCasa(), 'mcp', 'http-url.txt'));
-    return { vivo: false, url: '', puerto, motivo: 'en el puerto ' + puerto + ' contesta otro servidor (no es el MCP de esta casa: la clave no vale ahí); cierra lo que tengas en ese puerto o cambia `mcp.puerto` en settings.yaml' };
+    const puertoDelPanel = puertoDe(urlDeEstaCasa({ headers: {} }) ?? '') ?? null;
+    const esElPanel = puertoDelPanel !== null && puertoDelPanel === puerto;
+    return {
+      vivo: false,
+      url: '',
+      puerto,
+      motivo: esElPanel
+        ? 'en el puerto ' + puerto + ' está el PROPIO PANEL, no el MCP: `mcp.puerto` no puede ser el mismo que el del panel. Pon otro en settings.yaml'
+        : 'en el puerto ' + puerto + ' contesta otro servidor (no contesta como el MCP de esta casa: la clave no vale ahí); cierra lo que tengas en ese puerto o cambia `mcp.puerto` en settings.yaml',
+    };
+  }
+  if (dicho === 'sin-clave') {
+    // Hay un servidor, pero la clave de esta casa no vale ahí TODAVÍA. No se
+    // borra nada: puede ser el nuestro adoptando la clave nueva, y borrar la
+    // dirección dejaría al usuario sin saber a quién pegarle el conector.
+    return {
+      vivo: false,
+      url: '',
+      puerto,
+      motivo: 'en el puerto ' + puerto + ' hay un servidor, pero la clave de esta casa no vale ahí (HTTP 404). Si acabas de cambiar la clave, espera unos segundos y vuelve a copiar la dirección; si no, es el MCP de otra casa: cierra lo que tengas en ese puerto o cambia `mcp.puerto` en settings.yaml',
+    };
   }
   // No contesta nadie. El fichero se limpia SÓLO si tampoco hay un hijo nuestro
   // vivo: entre escribir la URL y empezar a escuchar hay un instante, y borrar
@@ -1060,19 +1104,48 @@ async function vivoElMcp() {
 
 /**
  * Sondear la URL del conector: la misma petición que haría ChatGPT, en pequeño.
+ *
+ * R28 §4b · Y ESPERANDO, PORQUE SI NO MIENTE. Lo que decía antes (30-sep-2026)
+ * era: «405 → es nuestro, cualquier otra cosa → hay otro servidor». Y eso daba
+ * un «en el puerto 3778 contesta otro servidor» con NUESTRO PROPIO MCP justo
+ * después de «Cambiar clave»: la clave se escribe en el fichero y el MCP que
+ * está en marcha la adopta hasta 2 s después (`mcp/lib/http.js:52`,
+ * `MS_REVISION_CLAVE`), así que en ese hueco contesta 404 —que NO es «otro
+ * servidor», es «todavía no»— y la tarjeta ponía en rojo una dirección que sí
+ * funcionaba un segundo más tarde.
+ *
+ * Ahora hay CUATRO respuestas posibles, y cada una dice la verdad:
+ *   · `nuestro`   — 405: es el MCP de esta casa y la clave vale.
+ *   · `sin-clave` — 404: hay alguien, pero esa clave no vale ahí TODAVÍA (el MCP
+ *                   puede estar adoptando la nueva). No prueba que sea ajeno.
+ *   · `ajeno`     — cualquier otro código (200 de un panel, 401, 502…): ahí
+ *                   contesta otro servidor, y esta URL no va a funcionar.
+ *   · `nadie`     — no contesta nadie.
  * @param {string} url - la URL completa del MCP (con su clave).
- * @returns {Promise<'nuestro'|'ajeno'|'nadie'>} qué ha contestado.
+ * @param {number} [ventanaMs] - cuánto se insiste cuando la respuesta es
+ *   «todavía no» (0 = una sola sonda).
+ * @returns {Promise<'nuestro'|'sin-clave'|'ajeno'|'nadie'>} qué ha contestado.
  */
-async function sondearLaUrl(url) {
-  try {
-    const res = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(4000), redirect: 'manual' });
-    if (res.status === 405) return 'nuestro';
-    // 404 (clave que no vale), 403 (origen) o cualquier otra cosa: hay alguien
-    // ahí, pero no es nuestro MCP.
-    return 'ajeno';
-  } catch {
-    return 'nadie';
+async function sondearLaUrl(url, ventanaMs = 0) {
+  const limite = Date.now() + Math.max(0, ventanaMs);
+  for (;;) {
+    let dicho = 'nadie';
+    try {
+      const res = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(4000), redirect: 'manual' });
+      dicho = res.status === 405 ? 'nuestro' : (res.status === 404 ? 'sin-clave' : 'ajeno');
+    } catch {
+      dicho = 'nadie';
+    }
+    // Sólo se insiste con «todavía no»: un servidor ajeno o la ausencia de
+    // respuesta no cambian por esperar.
+    if (dicho !== 'sin-clave' || Date.now() >= limite) return dicho;
+    await new Promise((listo) => setTimeout(listo, 500));
   }
+}
+
+/** ¿Cuánto hace que se escribió un fichero de la casa? `null` si no se puede. */
+function antiguedadDe(ruta) {
+  try { return Date.now() - statSync(ruta).mtimeMs; } catch { return null; }
 }
 
 /**
@@ -1185,13 +1258,16 @@ async function encenderConexion(casa, opciones = {}) {
 async function encenderElMcp(casa, guionMcp, nuevaClave) {
   if (vivo(CONEXION.mcp)) return { ok: true, motivo: 'ya estaba encendido' };
   const puerto = ajustesDeLaCasa().puerto;
-  // Si en ese puerto contesta OTRA cosa (otro MCP, otro programa), mejor decirlo
-  // que arrancar un hijo que va a morir sin decir por qué.
+  // Si en ese puerto contesta OTRA cosa (el MCP de otra casa, otro programa, o
+  // el propio panel), mejor decirlo que arrancar un hijo que va a morir sin
+  // decir por qué. R28 §4b: además de `ajeno`, cuenta `sin-clave` —hay alguien
+  // que no contesta a la clave de esta casa—, que es lo que se ve cuando el
+  // puerto lo tiene el MCP de OTRA casa.
   const ocupado = await sondearLaUrl('http://127.0.0.1:' + puerto + '/mcp/' + leerDeLaCasa('mcp', 'http-secret.txt'));
-  if (ocupado === 'ajeno') {
+  if (ocupado === 'ajeno' || ocupado === 'sin-clave') {
     return {
       ok: false,
-      motivo: 'el puerto ' + puerto + ' lo tiene otro programa (y no es el MCP de esta casa).'
+      motivo: 'el puerto ' + puerto + ' lo tiene otro programa (y no contesta como el MCP de esta casa).'
         + ' Cierra lo que lo esté usando, o pon otro puerto en `mcp.puerto` de settings.yaml.',
     };
   }
@@ -1310,7 +1386,51 @@ function cambiarLaClave(casa, puerto) {
   } catch (e) {
     return { ok: false, motivo: 'no pude cambiar la clave: ' + (e?.message ?? e) };
   }
-  return { ok: true, motivo: 'clave nueva', url: 'http://127.0.0.1:' + p + '/mcp/<oculta>' };
+  // R28 §4a · Y LA DIRECCIÓN DEL TÚNEL, TAMBIÉN. Lo que pasaba (medido el
+  // 30-sep-2026): tras «Cambiar clave», `tunel-url.txt` se quedaba con la clave
+  // VIEJA, así que «Copiar dirección» daba una dirección que devuelve 404 —
+  // porque la clave va DENTRO de la ruta (`/mcp/<clave>`) y `mcp/tunel.mjs` sólo
+  // escribe ese fichero UNA vez, cuando cloudflared le da el dominio
+  // (`mcp/tunel.mjs:264`); no vigila el fichero de la clave. Aquí se reescribe
+  // con la clave vigente, conservando el dominio que ya tenía.
+  const tunel = cambiarLaClaveDelTunel(casa, nueva);
+  return { ok: true, motivo: 'clave nueva', url: 'http://127.0.0.1:' + p + '/mcp/<oculta>', tunel };
+}
+
+/**
+ * R28 §4a · Reescribir la dirección del túnel con la clave VIGENTE.
+ *
+ * Con túnel CON NOMBRE (`mcp.tunel_nombre` + `mcp.tunel_host`) la dirección es
+ * fija y se construye del host: `https://<host>/mcp/<clave>`. Con el túnel
+ * rápido (dominio efímero) se conserva el dominio que ya estaba escrito y sólo
+ * se cambia la clave: el dominio lo dio cloudflared y no se puede adivinar.
+ * Si no hay túnel escrito, no hay nada que reescribir.
+ * @param {string} casa - la casa de RATACODE.
+ * @param {string} clave - la clave vigente.
+ * @returns {{reescrita: boolean, url: string|null, motivo: string|null}}
+ */
+function cambiarLaClaveDelTunel(casa, clave) {
+  const ruta = join(casa, 'mcp', 'tunel-url.txt');
+  const escrita = leerDeLaCasa('mcp', 'tunel-url.txt');
+  const ajustes = ajustesDeLaCasa();
+  let url = null;
+  if (ajustes.tunelHost !== null) {
+    // Túnel con nombre: la dirección se construye del host + la clave vigente.
+    url = 'https://' + ajustes.tunelHost + '/mcp/' + clave;
+  } else if (escrita !== '') {
+    // Túnel rápido: mismo dominio, clave nueva.
+    const corte = escrita.indexOf('/mcp/');
+    if (corte < 0) return { reescrita: false, url: null, motivo: 'la dirección del túnel no tiene la forma /mcp/<clave>; no la toco' };
+    url = escrita.slice(0, corte) + '/mcp/' + clave;
+  } else {
+    return { reescrita: false, url: null, motivo: 'no hay túnel abierto: no hay dirección que reescribir' };
+  }
+  try {
+    writeFileSync(ruta, url + '\n', { mode: 0o600 });
+    return { reescrita: true, url, motivo: null };
+  } catch (e) {
+    return { reescrita: false, url: null, motivo: 'no pude reescribir la dirección del túnel: ' + (e?.message ?? e) };
+  }
 }
 
 /**
