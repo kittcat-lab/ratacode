@@ -166,13 +166,47 @@ el conector.
 | `ratacode_status` | Estado del servidor: si está vivo, versión, herramientas, **carpetas autorizadas**, sesiones (clientes) y topes. Ni la casa ni ninguna clave. |
 | `list_files` | **Sólo lectura (R26).** Lista una carpeta autorizada (entradas con tipo, tamaño y fecha). Fuera de las carpetas autorizadas, se para. |
 | `read_file` | **Sólo lectura (R26).** Devuelve el texto de un fichero de dentro (256 KB como mucho; si es binario, lo dice). Fuera, se para. |
+| `list_sessions` | **Sólo lectura (R28).** Las sesiones que hay abiertas en el panel de RATACODE: id, título, carpeta, modo, modelo, proveedor, estado y si están «Abiertas a ChatGPT». |
+| `get_session` | **Sólo lectura (R28).** Una sesión, por su `session_id` o por su título **exacto**. Con más de una coincidencia devuelve `AMBIGUOUS_SESSION` con los ids. |
+| `send_to_session` | **R28.** Mete un mensaje EN UNA SESIÓN QUE YA EXISTE en el panel (no crea ninguna, no copia la conversación y no le cambia modelo, modo ni carpeta). Entra por la misma vía que la caja de escribir del panel, así que **se ve aparecer en ese chat** con la marca «GPT WEB →», y el agente contesta ahí. Espera 25 s (`wait_seconds`, hasta 120) y devuelve la respuesta si el turno acaba dentro; si no, el `turn_id`. |
+| `get_session_reply` | **Sólo lectura (R28).** La respuesta de un mensaje mandado con `send_to_session`, por su `turn_id` (o por `session_id`). Si sigue en marcha, se pregunta como mucho una vez cada 20 s. |
 
-Las tres de sólo lectura (`ratacode_status`, `list_files`, `read_file`) van marcadas con
+Las diez de sólo lectura (`ratacode_status`, `list_files`, `read_file`, `list_sessions`, `get_session`,
+`get_session_reply`, `list_providers`, `list_models`, `get_task_status`, `get_task_result`) van marcadas con
 `readOnlyHint: true`, `destructiveHint: false` y `openWorldHint: false`, que es lo que OpenAI
 documenta para que el cliente sepa que no cambian nada. **No gastan claves ni tokens**, y el cerco
 de la ruta se comprueba EN EL SERVIDOR con `lib/lectura.js` (el mismo de las tareas): `..`, rutas
 absolutas, uniones que apuntan fuera, nombres cortos 8.3, `\\?\`, UNC y variables de entorno caen
 todos del mismo lado. Son las más baratas para mirar, en cualquier plan.
+
+### Hablar con una sesión ya abierta (R28)
+
+`run_task` lanza **trabajo independiente**: un hijo del motor con su propia sesión `mcp-<task_id>`.
+Las cuatro de R28 son OTRA capacidad: hablan con una sesión que **ya existe** en el panel.
+
+`send_to_session` llama a las rutas de la piel del panel
+(`/ratacode/sesiones/enviar`), y el panel —que es el único proceso que puede escribir en el
+registro durable de una sesión viva— llama a la MISMA función del motor en la que acaba su caja de
+escribir (`sessionController.prompt`). Por eso el mensaje aparece en ese chat, sin sesión nueva, sin
+fork y sin copiar la conversación.
+
+Dos condiciones, y las dos las decide el humano (el TEXTO del mensaje no da permisos nunca):
+
+1. la carpeta de la sesión tiene que estar en `mcp.workspaces` de la casa, y
+2. Patxi tiene que haberla marcado **«Abierta a ChatGPT»** en la cabecera de ese chat. Está
+   **apagado por defecto**.
+
+Si no se cumplen, la herramienta devuelve `SESSION_NOT_ALLOWED` y **no envía nada**. Y mientras una
+sesión está abierta, sus turnos van **encerrados en la carpeta de esa sesión**: sin terminal, sin
+procesos, sin red y sin subagentes, y con el mismo gancho de rutas del MCP
+(`lib/lectura.js`). El motor no deja aplicar el gancho sólo a los turnos del chat —el gancho ve la
+llamada, no el remitente—, así que vale para **toda la sesión** mientras esté abierta: el panel lo
+dice en su cabecera y la herramienta en `encierro`. Al cerrar el interruptor se le devuelve a la
+sesión el permiso que tenía.
+
+Para que esto funcione, el panel tiene que estar **abierto**: el MCP canjea el token de
+`<casa>\url.txt` por la cookie de sesión del navegador (el mismo camino que hace el navegador al
+abrir el panel) y llama a sus rutas. Ni el token ni la cookie salen de la casa.
 
 `run_task` acepta: `prompt`, `esperar_segundos`, `provider`, `model`,
 `working_directory`, `context`, `max_tokens`, `timeout`, `allow_dangerous`.

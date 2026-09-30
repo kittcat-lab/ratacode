@@ -304,13 +304,17 @@ try {
   await cliente.connect(new StreamableHTTPClientTransport(new URL(mcp.url)));
   const { tools } = await cliente.listTools();
   const nombres = tools.map((t) => t.name).sort();
-  comprobar(nombres.length === 9, 'publica 9 herramientas: ' + nombres.join(', '));
+  // R28 · las CUATRO de hablar con una sesión abierta del panel (list_sessions,
+  // get_session, send_to_session y get_session_reply) suben el censo a 13.
+  comprobar(nombres.length === 13, 'publica 13 herramientas: ' + nombres.join(', '));
   comprobar(['list_files', 'read_file', 'ratacode_status'].every((n) => nombres.includes(n)), 'están las tres de sólo lectura de R26 (ratacode_status, list_files, read_file)');
-  const deSoloLectura = ['ratacode_status', 'list_files', 'read_file', 'list_providers', 'list_models', 'get_task_status', 'get_task_result'];
+  comprobar(['list_sessions', 'get_session', 'send_to_session', 'get_session_reply'].every((n) => nombres.includes(n)),
+    'y están las cuatro de R28 (hablar con una sesión abierta del panel)');
+  const deSoloLectura = ['ratacode_status', 'list_files', 'read_file', 'list_providers', 'list_models', 'get_task_status', 'get_task_result', 'list_sessions', 'get_session', 'get_session_reply'];
   const malMarcadas = tools.filter((t) => deSoloLectura.includes(t.name) && t.annotations?.readOnlyHint !== true);
-  comprobar(malMarcadas.length === 0, 'las 7 de sólo lectura van con `readOnlyHint: true`' + (malMarcadas.length === 0 ? '' : ' (faltan: ' + malMarcadas.map((t) => t.name).join(', ') + ')'));
-  const deEscritura = tools.filter((t) => ['run_task', 'cancel_task'].includes(t.name));
-  comprobar(deEscritura.every((t) => t.annotations?.readOnlyHint === false), 'y las 2 que cambian cosas van con `readOnlyHint: false` (run_task, cancel_task)');
+  comprobar(malMarcadas.length === 0, 'las 10 de sólo lectura van con `readOnlyHint: true`' + (malMarcadas.length === 0 ? '' : ' (faltan: ' + malMarcadas.map((t) => t.name).join(', ') + ')'));
+  const deEscritura = tools.filter((t) => ['run_task', 'cancel_task', 'send_to_session'].includes(t.name));
+  comprobar(deEscritura.every((t) => t.annotations?.readOnlyHint === false), 'y las 3 que cambian cosas van con `readOnlyHint: false` (run_task, cancel_task, send_to_session)');
   comprobar(tools.every((t) => t.annotations?.openWorldHint === false), 'ninguna dice que salga a Internet (`openWorldHint: false` en todas)');
   comprobar(typeof cliente.getServerVersion()?.version === 'string' && cliente.getServerVersion().version === VERSION,
     'el servidor se presenta con la versión del paquete (' + VERSION + '), no con una escrita a mano: ' + cliente.getServerVersion()?.version);
@@ -323,7 +327,7 @@ try {
   const estado = datoDe(await cliente.callTool({ name: 'ratacode_status', arguments: {} }));
   comprobar(estado.vivo === true && estado.version === VERSION, 'dice que está vivo y con la versión ' + VERSION);
   comprobar(estado.carpeta_autorizada?.raices?.includes(canonica(taller)), 'dice cuál es la carpeta autorizada: ' + JSON.stringify(estado.carpeta_autorizada?.raices));
-  comprobar(Array.isArray(estado.herramientas) && estado.herramientas.length === 9, 'lista sus 9 herramientas, con cuáles son de sólo lectura');
+  comprobar(Array.isArray(estado.herramientas) && estado.herramientas.length === 13, 'lista sus 13 herramientas, con cuáles son de sólo lectura');
   comprobar(Array.isArray(estado.sesiones?.clientes) && estado.sesiones.clientes.includes('prueba-r26'), 'dice las sesiones (clientes) que han hablado con él: ' + JSON.stringify(estado.sesiones?.clientes));
   const comoTexto = JSON.stringify(estado);
   comprobar(!comoTexto.includes(casa) && !comoTexto.includes('credentials') && !/"casa"|"motor"/.test(comoTexto), 'NO publica la casa ni el motor ni ninguna clave');

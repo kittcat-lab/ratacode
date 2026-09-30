@@ -1,6 +1,6 @@
 {
   "name": "ratacode",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "RATACODE Â· la terminal de trabajo con IA: le mandas el trabajo pesado a modelos baratos (o a los tuyos, en local) y el resultado vuelve a tu agente o a tu chat.",
   "license": "MIT",
   "author": {
@@ -20,7 +20,7 @@
   },
   "scripts": {
     "postinstall": "node bin/instalacion.js",
-    "test": "node pruebas/piel.test.mjs && node pruebas/modos.test.mjs && node pruebas/parche.test.mjs && node pruebas/mcp-espacios.test.mjs && node pruebas/mcp-cerrado.test.mjs && node pruebas/mcp-lectura.test.mjs && node pruebas/mcp-actividad.test.mjs"
+    "test": "node pruebas/piel.test.mjs && node pruebas/modos.test.mjs && node pruebas/parche.test.mjs && node pruebas/mcp-espacios.test.mjs && node pruebas/mcp-cerrado.test.mjs && node pruebas/mcp-lectura.test.mjs && node pruebas/mcp-actividad.test.mjs && node pruebas/mcp-sesiones.test.mjs"
   },
   "files": [
     "bin",

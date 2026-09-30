@@ -16,8 +16,19 @@ Ya está: **no hay que repetirlo cada vez** (la clave y el puerto no cambian al 
 - `Usa RATACODE: busca "TODO" en el proyecto y hazme una lista`
 - `Usa RATACODE: pide a RATACODE que escriba las pruebas del fichero utils.js`
 
-**4 · Mira lo que hace.** **Ajustes › Actividad**: una tabla con hora, cliente, qué (tarea o
-lectura), la tarea o la ruta, y si se permitió o se bloqueó. Se actualiza sola. Y cada tarea sale
+**3 bis · Y para hablar con un chat que ya tienes abierto** (R28): en la **cabecera** de ese chat,
+enciende el interruptor **«Abierta a ChatGPT»** (viene apagado). Entonces:
+- `Usa RATACODE: manda este mensaje al chat ESTO SERA UN TEST DI`
+
+El mensaje entra **en ESA conversación** (no en una nueva): lo verás aparecer en ese chat, marcado con
+**«GPT WEB →»**, y la respuesta del agente sale ahí mismo (ChatGPT también la recibe). Sólo funciona
+si la carpeta de esa sesión está en `mcp.workspaces`, y mientras el interruptor esté encendido los
+turnos de esa sesión van **encerrados en su carpeta** (sin terminal, sin procesos, sin red y sin
+subagentes): vale para toda la sesión, no sólo para lo que manda ChatGPT. Al apagarlo, la sesión
+vuelve a como estaba. El panel tiene que estar abierto.
+
+**4 · Mira lo que hace.** **Ajustes › Actividad**: una tabla con hora, cliente, qué (tarea, lectura o
+chat web), la tarea o la ruta, y si se permitió o se bloqueó. Se actualiza sola. Y cada tarea sale
 en la **barra lateral** del panel, con su conversación, **sin recargar**.
 
 **5 · Apaga.** «Apagar túnel» (deja de estar expuesto y el MCP local sigue) o «Apagar MCP» (lo

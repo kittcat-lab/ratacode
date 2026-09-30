@@ -168,10 +168,14 @@ motor**; el de por defecto es **MODO-RATA**:
 2. **Headless** — `ratacode headless "encargo"`: mandas el encargo por terminal, sin
    pantalla, y la entrega queda en un fichero.
 3. **MCP** — `ratacode mcp` (o `node mcp/bin/ratacode-mcp.js --home <casa>`): servidor MCP
-   por stdio para Claude Code, Codex, ChatGPT web, Rowboat u OpenClaw. Nueve herramientas:
+   por stdio para Claude Code, Codex, ChatGPT web, Rowboat u OpenClaw. Trece herramientas:
    `list_providers` → `list_models` → `run_task` → `get_task_status` → `get_task_result` →
    `cancel_task` y `ratacode_status`, más **`list_files`** y **`read_file`** (sólo lectura, que no
-   gastan nada). Por HTTP (para ChatGPT web) hace falta `ratacode mcp --http` y `mcp.workspaces`
+   gastan nada) y las cuatro de R28 para hablar con una sesión que ya tienes abierta en el panel:
+   **`list_sessions`**, **`get_session`**, **`send_to_session`** y **`get_session_reply`** (el
+   mensaje entra EN ESA conversación, se ve aparecer en ese chat y el agente contesta ahí; hace
+   falta marcar la sesión «Abierta a ChatGPT» en la cabecera de su chat, apagado por defecto).
+   Por HTTP (para ChatGPT web) hace falta `ratacode mcp --http` y `mcp.workspaces`
    declarado; el túnel es `node mcp/tunel.mjs --home <casa>` (el puerto del MCP lo dice
    `mcp.puerto`: 3778 de fábrica). `run_task` **espera solo** unos segundos (25 de fábrica) y, si
    la tarea acaba dentro, devuelve el resultado en la misma respuesta; cada tarea lleva topes de
