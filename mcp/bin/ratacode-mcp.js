@@ -183,7 +183,7 @@ async function main() {
 
   aviso('en marcha · casa: ' + casa);
   aviso('en marcha · motor: ' + dshBin);
-  aviso('en marcha · herramientas: list_providers, list_models, run_task, get_task_status, get_task_result, cancel_task, ratacode_status, list_files, read_file');
+  aviso('en marcha · herramientas: list_providers, list_models, run_task, get_task_status, get_task_result, cancel_task, ratacode_status, list_files, read_file, list_sessions, get_session, send_to_session, get_session_reply');
   aviso('en marcha · tope de tareas: ' + ordenes.tareasPorHora + '/h');
   tareas.resumir();
 

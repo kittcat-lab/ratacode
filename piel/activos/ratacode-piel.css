@@ -216,5 +216,10 @@ html[data-ratacode-tema='minimal'] .mr-vida{display:none!important}
 .mr-tema[data-tema='ratacode-yellow']{--punto-detalle:#ff268e}
 .mr-tema[data-tema='minimal']{--punto-detalle:#3c3c3d}
 
-/* R28 §2 · «GPT WEB →»: el rótulo del mensaje que entró desde un chat web. */
+/* R28 §2 · «GPT WEB →»: el rótulo del mensaje que entró desde un chat web.
+   Medido en pantalla (captura R28-C): sale a la IZQUIERDA de la burbuja, en
+   amarillo, y la flecha apunta al mensaje que viene de ChatGPT. Se probó a
+   subirlo encima con `flex-basis` + `:has()` y la fila que pinta el motor
+   (`dsh-client-ui-chat/lib/client.js:1603-1622`) no lo movió: se deja como se ve,
+   que se lee de un vistazo. */
 .mr-gptweb{margin:0 0 3px;font-size:11px;font-weight:600;letter-spacing:.03em;color:#e4f226}
