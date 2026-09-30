@@ -2,8 +2,9 @@
 
 | Tu app | Qué usar | Por qué |
 |---|---|---|
+| **Patxi, con ChatGPT** | **chatgpt.md** (la guía corta) | Encender, conectar, 5 ejemplos, cómo ver lo que hace, cómo apagar y qué gasta. En una página. |
 | Claude Code, Codex, OpenClaw, Rowboat | **mcp.md** (recomendado) o **navegador.md** | **El MCP es la vía recomendada**: más barata (dos llamadas y texto, sin capturas), con estado explícito y con cada tarea visible en la barra lateral del panel. El navegador sigue valiendo si tu app prefiere mirar la pantalla. |
-| ChatGPT web (el chat) | **mcp.md** con túnel | ChatGPT web habla MCP por HTTP. Necesitas el túnel de Cloudflare: `node mcp/tunel.mjs --home <casa>` (lo cuenta mcp.md). La clave va en la URL. |
+| ChatGPT web (el chat) | **mcp.md** con túnel (+ **chatgpt.md**) | ChatGPT web habla MCP por HTTP. Necesitas el túnel de Cloudflare: `node mcp/tunel.mjs --home <casa>` (lo cuenta mcp.md). La clave va en la URL. Y con `mcp.tunel_nombre`/`mcp.tunel_host` la dirección es fija (chatgpt.md). |
 | Cualquier chat sin MCP ni navegador | **headless.md** | `ratacode headless "encargo"` hace el trabajo sin pantalla y deja el resultado en un fichero. |
 | Cualquier agente que no sea de los anteriores | **mcp.md** (genérico) | Si tu agente habla MCP por stdio, usa la configuración genérica de mcp.md. |
 
@@ -26,6 +27,7 @@ Después, `ratacode` (necesita Windows y Node 24).
 La web del producto, con el prompt listo para copiar: <https://kittcat.com/ratacode/>.
 
 ## Dónde están los prompts
+- **chatgpt.md** — la guía corta para Patxi (ChatGPT ↔ RATACODE, en una página)
 - **navegador.md** — para agentes con navegador (Claude Code, Codex, OpenClaw, Rowboat…)
 - **headless.md** — para `ratacode headless "encargo"`
 - **mcp.md** — para apps con MCP (Claude Code, Codex, OpenClaw, Rowboat, ChatGPT web con túnel, genérico)

@@ -170,15 +170,22 @@ motor**; el de por defecto es **MODO-RATA**:
 3. **MCP** — `ratacode mcp` (o `node mcp/bin/ratacode-mcp.js --home <casa>`): servidor MCP
    por stdio para Claude Code, Codex, ChatGPT web, Rowboat u OpenClaw. Nueve herramientas:
    `list_providers` → `list_models` → `run_task` → `get_task_status` → `get_task_result` →
-   `cancel_task` y `ratacode_status`, más **`list_files`** y **`read_file`** (sólo lectura, para
-   el conector de ChatGPT con cuenta propia: con un plan Pro el modo desarrollador sólo deja usar
-   herramientas que no cambian nada). Por HTTP (para ChatGPT web) hace falta `ratacode mcp --http`
-   y `mcp.workspaces` declarado; el túnel es `node mcp/tunel.mjs --home <casa>` (puerto por
-   defecto del MCP: 3778).
+   `cancel_task` y `ratacode_status`, más **`list_files`** y **`read_file`** (sólo lectura, que no
+   gastan nada). Por HTTP (para ChatGPT web) hace falta `ratacode mcp --http` y `mcp.workspaces`
+   declarado; el túnel es `node mcp/tunel.mjs --home <casa>` (el puerto del MCP lo dice
+   `mcp.puerto`: 3778 de fábrica). `run_task` **espera solo** unos segundos (25 de fábrica) y, si
+   la tarea acaba dentro, devuelve el resultado en la misma respuesta; cada tarea lleva topes de
+   pasos y de tokens (`mcp.pasos_max`, `mcp.tokens_max`).
+   La guía para Patxi, en [`apreton/chatgpt.md`](apreton/chatgpt.md).
 
-> Los rótulos propios y las secciones **Conexiones**, **Modelos locales** y **Modos** están en
-> español, pero Ajustes → Models y los menús del motor siguen en inglés (los pone el motor, y
-> RATACODE no reescribe la interfaz a propósito).
+> **Corregido en R27 (30-sep-2026):** con **ChatGPT Pro** y conector propio (modo desarrollador)
+> `run_task` **SÍ funciona** (medido: la tarea `mcp-t-mun3aspp-7huh` creó `PLAN.md`). Hasta ahora
+> aquí decía que el plan Pro sólo dejaba leer: era falso. Las de sólo lectura se quedan, porque no
+> gastan nada.
+
+> Los rótulos propios y las secciones **Conexiones**, **Modelos locales**, **Actividad** y
+> **Modos** están en español, pero Ajustes → Models y los menús del motor siguen en inglés (los
+> pone el motor, y RATACODE no reescribe la interfaz a propósito).
 
 Para manejar RATACODE desde otro chat sin ayuda, abre **Ajustes → Conexiones** y usa sus dos
 tarjetas (el texto para los agentes con navegador y el MCP para chats web); los textos largos

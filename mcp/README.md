@@ -77,17 +77,31 @@ ChatGPT web (y cualquier app que hable MCP por URL) necesita HTTP. El túnel es 
 transporte**: expone el MCP local con Cloudflare mientras corre y no cambia nada del servidor.
 
 ```sh
-ratacode mcp --http                        # el MCP por HTTP (local)
+ratacode mcp --http --port <mcp.puerto>    # el MCP por HTTP (local)
 node mcp/tunel.mjs --home <casa>           # el túnel, en otra ventana
 ```
 
 `tunel.mjs` imprime la **URL pública completa** (dominio + `/mcp/<clave>`) para pegar en el
-cliente. Al abrirlo estrena clave (`--misma-clave` para reutilizar la que había); el servidor
-**adopta la clave nueva sin reiniciar** (relee `<casa>\mcp\http-secret.txt` cada dos segundos) y
-reescribe la URL en `<casa>\mcp\http-url.txt`. A cloudflared se le pasa sólo el origen: la clave
-no viaja en los argumentos de ningún proceso. Si el túnel nombrado `mcp.mod-rat.com` existe en tu
-Cloudflare, lo usa con hostname fijo mediante un fichero de configuración
-(`<casa>\mcp\cloudflared.yml`); si no, un quick tunnel con URL efímera. Ctrl+C lo cierra.
+cliente. Con `--misma-clave` reutiliza la clave que había (es lo que usa el botón «Encender» del
+panel, para que la dirección no cambie); sin él estrena una, y el servidor **adopta la clave nueva
+sin reiniciar** (relee `<casa>\mcp\http-secret.txt` cada dos segundos) y reescribe la URL en
+`<casa>\mcp\http-url.txt`. A cloudflared se le pasa sólo el origen: la clave no viaja en los
+argumentos de ningún proceso.
+
+**Dos modos, y el de fábrica es el rápido (R27):**
+- **Túnel rápido** (sin cuenta): URL efímera `https://<algo>.trycloudflare.com`, **distinta cada
+  vez**. Es lo que hay si no declaras nada.
+- **Túnel CON NOMBRE**: si la casa declara `mcp.tunel_nombre` y `mcp.tunel_host`, se arranca
+  `cloudflared tunnel run --url <origen> <nombre>` y la dirección es **FIJA**
+  (`https://<host>/mcp/<clave>`), así que el conector de ChatGPT se crea una sola vez. El túnel y
+  su DNS los das de alta tú en Cloudflare (los tres comandos, en
+  [`..\apreton\chatgpt.md`](../apreton/chatgpt.md)); RATACODE no hace login y no lee
+  `%USERPROFILE%\.cloudflared`.
+
+Dónde está `cloudflared` se puede decir con `--cloudflared <ruta>` o con `RATACODE_CLOUDFLARED` (y un
+`.mjs` se lanza con node: en Windows un `.mjs` no es ejecutable). Ctrl+C lo cierra, y también borra
+sus dos ficheros de la casa (`tunel-url.txt` y `tunel.pid`), que son los que dicen si el túnel está
+vivo.
 
 Y **ya no hay nada que aceptar**: cada tarea va encerrada en las carpetas de
 `mcp.workspaces` (lee y escribe sólo ahí, sin terminal y sin red), así que la
@@ -106,18 +120,33 @@ loopback y desde OpenAI.
 
 Pasos (documentación oficial de hoy: [conectar y probar](https://developers.openai.com/plugins/deploy/connect-chatgpt)):
 
-1. En ChatGPT: **Ajustes › Seguridad e inicio de sesión › Modo desarrollador** (en ChatGPT Pro la
-   política del plan puede limitarlo; el artículo de ayuda de OpenAI lo detalla).
-2. En el PC: `ratacode mcp --http` (con `mcp.workspaces` declarado) y, en otra ventana,
-   `node mcp/tunel.mjs --home <casa>`. El túnel **público lo enciende el humano**, no RATACODE.
+1. En ChatGPT: **Ajustes › Seguridad e inicio de sesión › Modo desarrollador**.
+2. En el PC: **Ajustes › Conexiones › ChatGPT y Claude web › Encender** (o, a mano,
+   `ratacode mcp --http --port <mcp.puerto>` y, en otra ventana,
+   `node mcp/tunel.mjs --home <casa>`). En ChatGPT, el conector se crea con **«URL del servidor»** y
+   **Autenticación: «Sin autenticación»**.
 3. En ChatGPT: **ChatGPT › Plugins** (`https://chatgpt.com/plugins`) → **+** → nombre y descripción
-   → en **Conexión**, pegar la URL pública completa (la que imprimió `tunel.mjs`).
-4. Crear y revisar las herramientas que descubre. Si el plan **no** permite las de escritura, el
-   conector funciona igual con las de sólo lectura: `ratacode_status`, `list_files` y `read_file`.
+   → en **Conexión**, pegar la dirección que da RATACODE → marcar la casilla → **Crear**.
+4. Crear y revisar las herramientas que descubre. La guía corta, en
+   [`..\apreton\chatgpt.md`](../apreton/chatgpt.md).
 
-> `CHATGPT_PRO_WRITE = NO DISPONIBLE POR PLAN`: con Pro, el conector propio (modo desarrollador) es
-> de sólo lectura. `run_task` y `cancel_task` siguen existiendo y funcionando por stdio y para los
-> clientes que sí pueden escribir; en ChatGPT Pro no aparecerán utilizables.
+> **R27 · CORRECCIÓN (medido el 30-sep-2026):** con **ChatGPT Pro** y este mismo conector,
+> `run_task` **SÍ funciona** —la tarea `mcp-t-mun3aspp-7huh` creó `PLAN.md` en la carpeta
+> autorizada—. Lo que decía antes esta página («`CHATGPT_PRO_WRITE = NO DISPONIBLE POR PLAN`) era
+> falso. Las tres de sólo lectura (`ratacode_status`, `list_files`, `read_file`) se quedan, porque
+> no gastan nada, y bastan para mirar.
+
+**Y no gasta de más (R27).** `run_task` **espera solo** `mcp.espera_por_defecto_segundos` (25 s de
+fábrica): si la tarea acaba dentro, el resultado va en ESA misma respuesta y el chat no tiene que
+preguntar nada; si no, devuelve el `task_id` y las instrucciones del servidor le dicen que **no
+pregunte en bucle** (como mucho, `get_task_status` cada 20 s). Cada tarea lleva además dos topes —
+`mcp.pasos_max` (40 de fábrica) y `mcp.tokens_max` (400 000)—: al llegar, la tarea se para sola y lo
+dice en `tope_alcanzado`.
+
+**La misma dirección, siempre.** El MCP se enciende al puerto de la casa (`mcp.puerto`) y la clave
+**no cambia** al apagar y encender (sólo la cambia el botón «Cambiar clave»), así que el conector de
+ChatGPT se crea **una vez**. Si quieres además que el DOMINIO no cambie, mira
+`mcp.tunel_nombre` y `mcp.tunel_host` más abajo (el túnel con nombre de Cloudflare).
 
 Alternativa nativa (en vez de cloudflared): **Secure MCP Tunnel** de OpenAI
 ([guía](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)), que necesita un
@@ -130,7 +159,7 @@ el conector.
 |---|---|
 | `list_providers` | Proveedores configurados y si tienen la credencial puesta en la casa (Ajustes → Models). Nunca la clave. |
 | `list_models` | Modelos con proveedor, id, contexto, capacidades, coste declarado y estado. Se llama **antes** de `run_task`. |
-| `run_task` | Lanza el encargo. Sin `esperar_segundos`, devuelve `task_id` al momento y el trabajo sigue en segundo plano. Con `esperar_segundos` (1-600), la llamada **espera y devuelve el resultado completo** en esa misma respuesta. |
+| `run_task` | Lanza el encargo. **Espera solo** `mcp.espera_por_defecto_segundos` (25 s de fábrica): si la tarea acaba dentro, el resultado completo va en esa misma respuesta. Si no, devuelve `task_id` (y no hay que preguntar en bucle). Con `esperar_segundos` (1-600) se espera lo que digas. Lleva topes de pasos y tokens. |
 | `get_task_status` | `queued` · `running` · `completed` · `failed` · `cancelled`. |
 | `get_task_result` | Respuesta, modelo, proveedor, tokens, coste (si está declarado), duración y errores. |
 | `cancel_task` | Detiene la tarea de inmediato (se mata el proceso que la ejecuta). |
@@ -143,20 +172,22 @@ Las tres de sólo lectura (`ratacode_status`, `list_files`, `read_file`) van mar
 documenta para que el cliente sepa que no cambian nada. **No gastan claves ni tokens**, y el cerco
 de la ruta se comprueba EN EL SERVIDOR con `lib/lectura.js` (el mismo de las tareas): `..`, rutas
 absolutas, uniones que apuntan fuera, nombres cortos 8.3, `\\?\`, UNC y variables de entorno caen
-todos del mismo lado. Por eso son las que puede usar un **ChatGPT Pro** en modo desarrollador
-(mira «ChatGPT web» más abajo).
+todos del mismo lado. Son las más baratas para mirar, en cualquier plan.
 
 `run_task` acepta: `prompt`, `esperar_segundos`, `provider`, `model`,
 `working_directory`, `context`, `max_tokens`, `timeout`, `allow_dangerous`.
 
-**Esperar dentro de la llamada (tropiezo 17).** Por stdio, la tarea vive lo que
+**Esperar dentro de la llamada (tropiezo 17, y R27).** Por stdio, la tarea vive lo que
 vive el cliente: si el cliente se cierra, el servidor se va y el fichero se queda
 a medias. Un cliente de una sola vuelta (`claude -p`, `codex exec`, una llamada
 suelta) no puede volver a preguntar por el estado, así que tiene dos salidas:
 `run_task` con `esperar_segundos` (máximo 600 s) y el resultado en la misma
 respuesta, o no terminar el turno hasta que `get_task_status` diga `completed` o
-`failed`. Si el plazo se agota, la respuesta lo dice (`espera.agotada: true`) y
-queda el `task_id` para seguir preguntando.
+`failed`. Desde R27, además, **no hace falta pedirlo**: `run_task` espera solo
+`mcp.espera_por_defecto_segundos` (25 s) y devuelve el resultado en la misma
+respuesta si la tarea acaba dentro. Si el plazo se agota, la respuesta lo dice
+(`espera.agotada: true`, `espera.por_defecto: true`) y queda el `task_id` para
+seguir preguntando — **sin bucle**: una vez cada 20 s como mucho.
 
 **Sin routing oculto.** Si no dices modelo, se usa el `agent-default-model` de
 la casa **y se te dice cuál** (`ruta_elegida: "por_defecto"`). El humano o el
@@ -224,6 +255,12 @@ mcp:
   timeout_maximo_ms: 3600000        # 1 h: techo, aunque el cliente pida más
   tareas_a_la_vez: 3                # cuántas pueden estar en marcha a la vez
   prompt_max_caracteres: 100000     # tope del encargo
+  puerto: 3778                      # (R27) el puerto del MCP por HTTP de esta casa
+  espera_por_defecto_segundos: 25    # (R27) lo que espera run_task dentro de la llamada
+  pasos_max: 40                      # (R27) tope de vueltas del modelo por tarea
+  tokens_max: 400000                 # (R27) tope de tokens (entrada + salida) por tarea
+  tunel_nombre: ratacode             # (R27) túnel CON NOMBRE: dirección fija (opcional)
+  tunel_host: ratacode.kittcat.com   # (R27) su hostname público (van los dos juntos)
   precios:                        # opcional: el core no trae precios de texto
     b-ai:
       deepseek-v4.1-flash:
@@ -235,17 +272,28 @@ mcp:
 El coste sólo aparece si lo declaras aquí. **RATACODE no se inventa precios**:
 si no está, devuelve `null` y lo dice.
 
+**La DIRECCIÓN FIJA (R27).** El túnel rápido de Cloudflare da un dominio nuevo cada vez que se
+enciende, así que la dirección de ChatGPT cambia. Si declaras `tunel_nombre` y `tunel_host`, el
+panel arranca `cloudflared tunnel run --url http://127.0.0.1:<puerto> <nombre>` y la dirección es
+siempre `https://<host>/mcp/<clave>`. El túnel y su DNS los das de alta tú, en tu Cloudflare (los
+tres comandos están en [`..\apreton\chatgpt.md`](../apreton/chatgpt.md)); RATACODE **no hace login,
+no crea túneles y no lee** `%USERPROFILE%\.cloudflared` (eso son tus credenciales).
+
 ## Qué deja escrito
 
 ```
 <casa>\mcp\
   estado.json       estado del servidor (para el panel y para --status)
-  actividad.jsonl   una línea por tarea: hora, cliente, modelo, proveedor,
-                    tarea (recortada), duración, tokens, coste, estado
+  actividad.jsonl   una línea por llamada: tipo 'tarea' (hora, cliente, modelo,
+                    proveedor, tarea recortada, duración, tokens, coste, estado)
+                    o tipo 'lectura' (hora, cliente, herramienta, ruta y
+                    permitido/bloqueado) — R27
   marcas.json       las marcas del tope de tareas por hora (sobreviven al reinicio)
   http-secret.txt   la clave del MCP por HTTP (sólo dueño)
   http-url.txt      la URL completa con la clave (sólo dueño)
-  cloudflared.yml   la config del túnel nombrado, si se usa (sólo dueño)
+  tunel-url.txt     la URL pública del túnel, mientras está abierto (sólo dueño)
+  tunel.pid         el pid de cloudflared (R27: es lo que dice si el túnel vive)
+  cloudflared.yml   la config del túnel con nombre, si se usa (sólo dueño)
   tareas\<id>.json  el registro completo de cada tarea
   tmp\              parches de política de una tarea (se borran al terminar)
 ```

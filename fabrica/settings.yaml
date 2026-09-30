@@ -245,3 +245,31 @@ llm-pi-ai:
           compat:
             supportsDeveloperRole: false
             supportsReasoningEffort: false
+
+# ── EL SERVIDOR MCP DE LA CASA (R27) ────────────────────────────────────────
+# Esta sección NO hace falta para usar el MCP: sin ella, todo va con los valores
+# de fábrica. Está aquí, comentada, para que se vea qué se puede tocar. Lo que
+# de verdad importa si abres RATACODE a ChatGPT es `workspaces` (las carpetas
+# donde puede trabajar; sin ella no arranca en modo HTTP).
+#
+# mcp:
+#   workspaces:                      # OBLIGATORIO para `--http` (y para el túnel)
+#     - C:\Users\tu-usuario\Projects\mi-app
+#   workspace_por_defecto: C:\Users\tu-usuario\Projects\mi-app
+#   permitir_peligroso: false        # `allow_dangerous` no basta: hace falta esto
+#   puerto: 3778                     # (R27) el puerto del MCP por HTTP de esta casa
+#   espera_por_defecto_segundos: 25  # (R27) lo que espera `run_task` dentro de la llamada
+#   pasos_max: 40                    # (R27) tope de vueltas del modelo por tarea
+#   tokens_max: 400000               # (R27) tope de tokens (entrada + salida) por tarea
+#   timeout_por_defecto_ms: 1800000  # 30 min por tarea
+#   timeout_maximo_ms: 3600000       # 1 h de techo
+#   tareas_a_la_vez: 3
+#   prompt_max_caracteres: 100000
+#   tunel_nombre: ratacode           # (R27) túnel CON NOMBRE de Cloudflare: dirección FIJA
+#   tunel_host: ratacode.kittcat.com # (R27) su hostname público (van los dos juntos)
+#   precios:                         # opcional: el coste sólo sale si lo declaras
+#     b-ai:
+#       deepseek-v4.1-flash:
+#         entrada_por_millon: 0.14
+#         salida_por_millon: 0.28
+#         moneda: EUR

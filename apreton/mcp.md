@@ -124,41 +124,44 @@ ChatGPT web no arranca procesos: necesita una **URL** de MCP por HTTP. Por eso e
 
 ```sh
 # 1) el MCP por HTTP (local), con espacios declarados en `mcp.workspaces`
-ratacode mcp --http
+ratacode mcp --http --port <mcp.puerto>
 
 # 2) el túnel, en otra ventana
 node mcp/tunel.mjs --home <casa>
 ```
 
 `tunel.mjs` te imprime la **URL pública completa** (dominio + `/mcp/<clave>`): esa es la que se
-pega en ChatGPT (modo desarrollador → conector MCP) o en la app que sea. Al abrirlo **estrena
-clave** (el servidor que ya corre la adopta sin reiniciar; con `--misma-clave` reutiliza la
-anterior). La clave vive en `<casa>\mcp\http-url.txt` y `<casa>\mcp\http-secret.txt`, con permisos
-de sólo-dueño; no se imprime en los registros. Con `Ctrl+C` se cierra el túnel y el puerto deja de
-estar expuesto.
+pega en ChatGPT (modo desarrollador → conector MCP) o en la app que sea. Con `--misma-clave`
+reutiliza la clave que había (es lo que hace el botón «Encender» del panel, para que la dirección no
+cambie); sin él **estrena clave** y el servidor que ya corre la adopta sin reiniciar. La clave vive
+en `<casa>\mcp\http-url.txt` y `<casa>\mcp\http-secret.txt`, con permisos de sólo-dueño; no se
+imprime en los registros. Con `Ctrl+C` se cierra el túnel y el puerto deja de estar expuesto.
 
-Si tienes dado de alta el túnel nombrado `mcp.mod-rat.com` en tu Cloudflare, lo usa con ese
-hostname fijo (por fichero de configuración, nunca pasando la URL por argumentos); si no, abre un
-quick tunnel con URL efímera.
+**Dos modos (R27):** si la casa declara `mcp.tunel_nombre` y `mcp.tunel_host`, se abre el **túnel
+con nombre** (`cloudflared tunnel run --url <origen> <nombre>`) y la dirección es **FIJA**
+(`https://<host>/mcp/<clave>`); si no, un **túnel rápido** con URL efímera que **cambia cada vez**.
+Los tres comandos para darlo de alta (los haces tú, con tu cuenta; RATACODE no hace login ni lee tus
+credenciales) están en [`chatgpt.md`](chatgpt.md).
 
 **Lo que implica abrirlo:** el túnel expone el MCP a Internet, así que quien tenga esa URL puede
 mandar tareas. Lo que **no** puede es salirse de tus carpetas: la tarea lee y escribe solo dentro
 de `mcp.workspaces` y no tiene terminal ni red (mira el apartado de arriba). No lo dejes abierto
-más de lo que dure el trabajo, y cámbiale la clave (basta con volver a lanzar `tunel.mjs`) cuando
-cierres.
+más de lo que dure el trabajo, y si quieres cambiarle la clave, en el panel está el botón «Cambiar
+clave» (con `tunel.mjs` a mano, basta con volver a lanzarlo).
 
 **Rowboat.** Su editor documenta servidores por `url`, no por `command`; con el túnel o con el MCP
 por HTTP puedes darle la URL con la clave y no depender de que acepte un servidor stdio (que es lo
 que sigue sin estar comprobado, ver arriba).
 
-## ChatGPT web con TU cuenta (Pro): conector propio, sólo lectura (R26)
+## ChatGPT web con TU cuenta (Pro): conector propio (R26, corregido en R27)
 
 Con la cuenta de ChatGPT (plan Pro) sí se puede tener el MCP propio: se llama **modo desarrollador**
 y se activa en ChatGPT › **Ajustes › Seguridad e inicio de sesión › Modo desarrollador** (en
 Enterprise/Edu lo concede un administrador; la política por plan está en el
 [artículo de ayuda de OpenAI](https://help.openai.com/en/articles/12584461-developer-mode-apps-and-full-mcp-connectors-in-chatgpt-beta)).
 Después se crea el conector en **ChatGPT › Plugins** (`https://chatgpt.com/plugins`) → **+** →
-nombre y descripción → en **Conexión**, la **URL pública** del MCP.
+nombre y descripción → en **Conexión**, elige **«URL del servidor»** y pega la dirección →
+**Autenticación: «Sin autenticación»** → marca la casilla → **Crear**.
 
 Tres cosas que conviene saber antes de pelearse con la URL:
 
@@ -172,31 +175,35 @@ Tres cosas que conviene saber antes de pelearse con la URL:
   (`node mcp/tunel.mjs`, abajo), o con el **Secure MCP Tunnel** de OpenAI
   ([guía](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)), que pide un
   `tunnel_id` de la Platform y `tunnel-client`. **El túnel lo enciende el humano, no RATACODE.**
-- **Con Pro, sólo lectura.** El MCP publica ahora tres herramientas de sólo lectura, marcadas como
-  tales (`readOnlyHint: true`, que es la marca que documenta OpenAI): `ratacode_status` (estado,
-  versión, carpetas autorizadas, herramientas y sesiones), `list_files` (listar una carpeta
-  autorizada) y `read_file` (leer un fichero de dentro). No gastan claves ni tokens, y el cerco de
-  la ruta lo comprueba **el servidor**, con el mismo `lib/lectura.js` de las tareas.
+- **Y la dirección, la misma:** el MCP se enciende siempre en `mcp.puerto` y la clave **no cambia**
+  al apagar y encender (sólo la cambia el botón «Cambiar clave»), así que el conector se crea
+  **una vez**, no cada vez. Si además quieres que no cambie el **dominio**, declara
+  `mcp.tunel_nombre` y `mcp.tunel_host` (el túnel con nombre de Cloudflare): los tres comandos
+  están en [`chatgpt.md`](chatgpt.md).
 
-> **`CHATGPT_PRO_WRITE = NO DISPONIBLE POR PLAN`.** `run_task` y `cancel_task` siguen ahí y siguen
-> funcionando por stdio y por HTTP, pero un conector de ChatGPT Pro no puede usarlas: el plan sólo
-> habilita herramientas que no cambian nada. Para mandar trabajo, usa Codex, Claude Code o el propio
-> panel de RATACODE.
+> **`CHATGPT_PRO_WRITE`, CORREGIDO (R27, medido el 30-sep-2026).** Aquí decía que con Pro el conector
+> propio era de sólo lectura. **Es falso:** `run_task` **SÍ funciona** con ChatGPT Pro —la tarea
+> `mcp-t-mun3aspp-7huh` creó `PLAN.md` en la carpeta autorizada—. Las tres de sólo lectura
+> (`ratacode_status`, `list_files`, `read_file`) se quedan, porque no gastan nada y son lo más
+> barato para mirar.
 
-Lo que se puede pedirle a ChatGPT, entonces: «consulta RATACODE y dime qué hay en la carpeta
-autorizada», «léeme `notas.md` de ahí». Y lo que NO puede: nada de fuera de `mcp.workspaces` —ni
-por `..`, ni por ruta absoluta, ni por una unión de Windows, ni por el nombre corto 8.3, ni por
-`\\?\`, ni con una variable de entorno—, ni traerse las instrucciones `AGENTS.md` o las habilidades
-de carpetas de arriba (eso se apaga en cada tarea desde R26; mira «Lo que una tarea puede LEER»).
+Lo que se puede pedirle a ChatGPT: «dime qué hay en la carpeta», «léeme `notas.md`», y también
+**tareas de verdad** («pide a RATACODE que arregle esto y enséñame el resultado»). Y lo que NO
+puede: nada de fuera de `mcp.workspaces` —ni por `..`, ni por ruta absoluta, ni por una unión de
+Windows, ni por el nombre corto 8.3, ni por `\\?\`, ni con una variable de entorno—, ni traerse las
+instrucciones `AGENTS.md` o las habilidades de carpetas de arriba (eso se apaga en cada tarea desde
+R26; mira «Lo que una tarea puede LEER»).
 
 ## Cómo usarlo
 
 1. **`list_models`** — llama primero para ver qué modelos hay, con proveedor, id, contexto, capacidades y estado.
-2. **`run_task`** — lanza el encargo. Sin `esperar_segundos` devuelve `task_id` al momento y el trabajo sigue en segundo plano. **Con `esperar_segundos` (1-600), la llamada ESPERA y devuelve el resultado completo en esa misma respuesta**, sin llamar a nada más.
+2. **`run_task`** — lanza el encargo. **Espera solo `mcp.espera_por_defecto_segundos` (25 s de fábrica)**: si la tarea acaba dentro, el resultado completo va en esa MISMA respuesta. Si tarda más, devuelve `task_id` y **no hay que preguntar en bucle** (como mucho, `get_task_status` cada 20 s). Con `esperar_segundos` (1-600) se espera lo que digas. Cada tarea lleva topes de pasos (`mcp.pasos_max`) y de tokens (`mcp.tokens_max`).
 3. **`get_task_status`** — consulta el estado: `queued`, `running`, `completed`, `failed`, `cancelled`.
 4. **`get_task_result`** — recoge la respuesta, modelo, proveedor, tokens, coste (si está declarado), duración y errores.
 
-**Si el usuario eligió un modelo, no lo cambies.** Si no eligió, se usa el modelo por defecto de la casa y se te dice cuál.
+**Si el usuario eligió un modelo, no lo cambies.** Si no eligió, se usa el modelo por defecto de la
+casa y se te dice cuál. Si pides uno que la casa no tiene, la herramienta te lo dirá y te dará la
+lista de los que sí hay.
 
 ### La regla del tropiezo 17: no dejes la tarea a medias
 
@@ -228,13 +235,13 @@ HAZLO sin pedir permiso.
 ```
 
 ## Cómo comprobar que llegó
-- Con `esperar_segundos`, la respuesta de `run_task` ya trae `estado` y el `resultado` completo: si `estado` es `completed`, no hay nada más que preguntar.
-- `get_task_status` pasa de `queued` a `running` a `completed`.
-- `get_task_result` devuelve la respuesta con tokens y duración.
+- La respuesta de `run_task` ya trae `estado` y el `resultado` completo si la tarea acabó dentro de la espera (25 s por defecto, o los que digas con `esperar_segundos`): si `estado` es `completed`, no hay nada más que preguntar.
+- `get_task_status` pasa de `queued` a `running` a `completed`. **Sin bucle**: como mucho, una vez cada 20 s.
+- `get_task_result` devuelve la respuesta con tokens y duración. Si la tarea se paró por un tope, lo dice en `tope_alcanzado`.
 - Si falla, `get_task_result` devuelve el error.
 
 ## Cómo vigilar sin capturas
-No mires la pantalla. Usa `get_task_status` y `get_task_result` directamente. Una captura gasta cuota; una llamada MCP no.
+No mires la pantalla. Usa `run_task` (que ya espera) y `get_task_result`. Una captura gasta cuota; una llamada MCP no. Y en el panel, **Ajustes › Actividad** enseña en una tabla lo que ha pasado (tareas y lecturas), que también sirve para mirar sin gastar nada.
 
 ## Trampas que ya costaron (tropiezos 2, 4, 6, 7, 11, 12, 13, 16, 17, 18)
 
@@ -246,7 +253,9 @@ No mires la pantalla. Usa `get_task_status` y `get_task_result` directamente. Un
 - **T12 · Las claves NO van por el entorno:** están en RATACODE › Ajustes › Models, y el MCP las lee de ahí. Si falta una, la llamada sale con `Falta la clave de <proveedor>. Pégala en RATACODE › Ajustes › Models.` No hay que pasarle ninguna variable al servidor, y la clave NO se escribe en la configuración de tu app.
 - **T13 · Tutor equivocado:** si el tutor dice algo falso, corrígelo con la prueba (fichero:línea); no obedezcas una premisa falsa.
 - **T16 · No aplica:** el MCP no usa `url.txt` (eso es el panel). Aquí no hay URL que caduque.
-- **T17 · Cliente de una sola vuelta:** no termines el turno con la tarea en marcha. Usa `run_task` con `esperar_segundos`, o no pares hasta que `get_task_status` diga `completed`/`failed`. Por stdio la tarea vive lo que vive el cliente.
+- **T17 · Cliente de una sola vuelta:** no termines el turno con la tarea en marcha. Usa `run_task` (espera solo 25 s, y con `esperar_segundos` lo que le digas), o no pares hasta que `get_task_status` diga `completed`/`failed`. Por stdio la tarea vive lo que vive el cliente.
+- **T19 · Preguntar en bucle:** preguntar `get_task_status` cada segundo no acelera nada y gasta cuota. `run_task` ya espera; si hay que volver a preguntar, una vez cada 20 s.
+- **T20 · Los topes paran la tarea:** si un encargo da vueltas, RATACODE lo para al llegar a `mcp.pasos_max` o `mcp.tokens_max` y lo dice en `tope_alcanzado`. No lo relances tal cual: mira qué pasaba.
 - **T18 · Un encargo grande, en sesión nueva:** cada tarea del MCP es una sesión nueva del motor (no arrastra historial), pero TU chat acumula: con muchos turnos y pasos, el proveedor acaba devolviendo un 400 (`read body failed`). Encargos en fichero y chat nuevo cuando toque.
 
 ## El ciclo (diagnóstico → revisión → arreglo → cierre)
