@@ -749,11 +749,19 @@ function parcheModelo(casa, eleccion) {
   return { parche: ruta, copia };
 }
 
+/**
+ * Matar el árbol de un hijo (en Windows, `taskkill /T /F`).
+ *
+ * R27 · OJO CON EL ESPACIO: la orden es `taskkill /pid <n> /T /F`, con espacio
+ * antes de `/T`. Sin él, `cmd` lee `27688/T` como el pid y contesta «no se
+ * encontró el proceso»: el proceso se queda vivo y nadie se entera (le pasaba
+ * al botón «Apagar» de la piel y a este `matarArbol`). Medido el 30-sep-2026.
+ */
 function matarArbol(hijo) {
   if (!hijo || hijo.killed || hijo.pid === undefined) return;
   try {
     if (process.platform === 'win32') {
-      spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'taskkill /pid ' + hijo.pid + '/T /F'], { windowsHide: true, stdio: 'ignore' });
+      spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'taskkill /pid ' + hijo.pid + ' /T /F'], { windowsHide: true, stdio: 'ignore' });
     } else hijo.kill('SIGTERM');
   } catch { /* el hijo ya se fue */ }
 }
