@@ -112,6 +112,28 @@ window.__ModuleLoader__.load({
       '.mr-aviso-modelos{margin:0 0 4px;color:var(--dsw-alias-label-tertiary,#9aa0a6);font-size:13px;font-weight:400;line-height:20px}',
       '.mr-aviso-caja{box-sizing:border-box;width:100%;max-width:var(--dsh-composer-card-max-width,780px);',
       'margin:0 auto;padding:2px 12px 0;color:var(--dsw-alias-label-tertiary,#9aa0a6);font-size:12px;line-height:18px}',
+      // R27 §4 · Conexiones: el gasto, los ejemplos y la fila de acciones.
+      '.mr-cx-gasto{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary,#9aa0a6)}',
+      '.mr-cx-ejemplo{margin:0;padding:8px 10px;border-radius:8px;background:#0e1012;color:#dfe3e6;',
+      'font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:17px;white-space:pre-wrap;word-break:break-word}',
+      '.mr-cx-acciones{display:flex;gap:8px;flex-wrap:wrap;align-items:center}',
+      '.mr-cx-plan{display:flex;flex-direction:column;gap:6px}',
+      // R27 · Ajustes › Actividad: la tabla de lo que pasó por el MCP.
+      '.mr-ac{display:flex;flex-direction:column;gap:8px;padding:4px 0 18px;max-width:900px}',
+      '.mr-ac-intro{margin:0;font-size:13px;line-height:19px;color:var(--dsw-alias-text-secondary,#9aa0a6)}',
+      '.mr-ac-tabla{width:100%;border-collapse:collapse;font-size:12px;line-height:17px}',
+      '.mr-ac-tabla th{text-align:left;font-weight:600;color:var(--dsw-alias-label-tertiary,#9aa0a6);',
+      'border-bottom:1px solid var(--dsw-alias-border-secondary,#3a3f45);padding:4px 8px 5px 0}',
+      '.mr-ac-tabla td{border-bottom:1px solid var(--dsw-alias-border-secondary,#2a2d31);padding:5px 8px 5px 0;vertical-align:top}',
+      '.mr-ac-hora{white-space:nowrap;font-family:ui-monospace,Consolas,monospace;font-size:11px}',
+      '.mr-ac-si{color:#a6e22e}',
+      '.mr-ac-no{color:#ffb4b4}',
+      '.mr-ac-tipo{border-radius:6px;padding:1px 7px;font-size:11px;white-space:nowrap}',
+      '.mr-ac-tipo-tarea{background:rgba(228,242,38,.14);color:#e4f226}',
+      '.mr-ac-tipo-lectura{background:rgba(154,160,166,.16);color:#c9ced3}',
+      '.mr-ac-ruta{font-family:ui-monospace,Consolas,monospace;font-size:11px;word-break:break-all}',
+      '.mr-ac-pie{display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
+      '.mr-ac-vivo{margin:0;font-size:11px;color:var(--dsw-alias-label-tertiary,#9aa0a6)}',
     ].join('');
 
     if (typeof document !== 'undefined') {
@@ -153,6 +175,67 @@ window.__ModuleLoader__.load({
     };
 
     /**
+     * R27 §1 · EL TEXTO DE «ACTIVIDAD», en los tres idiomas. Va en su propio
+     * espacio de nombres porque es una sección NUEVA de la casa (el motor no
+     * tiene ninguna «Actividad»): ahí se ve TODO lo que ha pasado por el MCP,
+     * tareas y llamadas de sólo lectura, con su hora, su cliente y su ruta.
+     */
+    const ACTIVIDAD_NS = 'ratacode-actividad';
+    const ACTIVIDAD = {
+      es: {
+        nav: 'Actividad',
+        intro: 'Todo lo que ha pasado por el MCP de esta casa: lo que hicieron los chats (ChatGPT) y las tareas.',
+        cuando: 'Hora',
+        cliente: 'Cliente',
+        que: 'Qué',
+        donde: 'Tarea o ruta',
+        como: 'Estado',
+        tarea: 'tarea',
+        lectura: 'lectura',
+        permitido: 'permitido',
+        bloqueado: 'bloqueado',
+        vacio: 'Todavía no hay nada apuntado. En cuanto un chat lea algo o lance una tarea, sale aquí.',
+        sinMirar: 'No pude mirar la actividad: ' + '{error}',
+        mirando: 'Mirando…',
+        ahora: 'en vivo',
+      },
+      en: {
+        nav: 'Activity',
+        intro: 'Everything that went through this home’s MCP: what the chats (ChatGPT) did, and the tasks.',
+        cuando: 'Time',
+        cliente: 'Client',
+        que: 'What',
+        donde: 'Task or path',
+        como: 'State',
+        tarea: 'task',
+        lectura: 'read',
+        permitido: 'allowed',
+        bloqueado: 'blocked',
+        vacio: 'Nothing recorded yet. As soon as a chat reads something or runs a task, it shows up here.',
+        sinMirar: 'I could not read the activity: ' + '{error}',
+        mirando: 'Looking…',
+        ahora: 'live',
+      },
+      zh: {
+        nav: '活动',
+        intro: '本机 MCP 上发生过的一切：聊天（ChatGPT）做过什么，以及任务。',
+        cuando: '时间',
+        cliente: '客户端',
+        que: '类型',
+        donde: '任务或路径',
+        como: '状态',
+        tarea: '任务',
+        lectura: '读取',
+        permitido: '允许',
+        bloqueado: '已阻止',
+        vacio: '还没有记录。聊天一读取或运行任务，就会出现在这里。',
+        sinMirar: '无法读取活动记录：' + '{error}',
+        mirando: '正在查看…',
+        ahora: '实时',
+      },
+    };
+
+    /**
      * El traductor de {@link AVISOS_NS}, en una variable de este ámbito: lo pone
      * `avisosDeLaCasa` (que es quien registra los diccionarios) y lo usa también
      * la tarjeta de «Conexiones», que se pinta en otro momento. Si todavía no
@@ -161,10 +244,26 @@ window.__ModuleLoader__.load({
     let tAvisos = null;
     const AVISO_ESPACIO_ES = 'Este chat solo puede leer y escribir en {carpeta}.';
 
-    /** Un pedido a las rutas de la piel; nunca revienta: devuelve el error. */
-    async function pedir(ruta, metodo) {
+    /** El traductor de {@link ACTIVIDAD_NS}, puesto por `avisosDeLaCasa`. */
+    let tActividad = null;
+
+    /**
+     * Un pedido a las rutas de la piel; nunca revienta: devuelve el error.
+     * @param {string} ruta - la ruta de la piel.
+     * @param {string} metodo - GET o POST.
+     * @param {object} [cuerpo] - lo que se manda (JSON), si toca.
+     */
+    async function pedir(ruta, metodo, cuerpo) {
       try {
-        const res = await fetch(ruta, { method: metodo, credentials: 'same-origin', cache: 'no-store' });
+        const res = await fetch(ruta, {
+          method: metodo,
+          credentials: 'same-origin',
+          cache: 'no-store',
+          ...(cuerpo === undefined ? {} : {
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(cuerpo),
+          }),
+        });
         const datos = await res.json().catch(() => null);
         if (datos === null) return { ok: false, error: 'HTTP ' + res.status };
         return datos;
@@ -227,15 +326,168 @@ window.__ModuleLoader__.load({
     }
 
     /**
+     * R27 · LA BARRA LATERAL, EN CALIENTE.
+     *
+     * ── EL PROBLEMA (medido en R12 y otra vez en R27) ─────────────────────────
+     * Una tarea del MCP SÍ deja su sesión apuntada en `<casa>\storages\workspace.json`
+     * (lo hace `mcp\lib\espacios.js`), con su conversación en
+     * `<casa>\sessions\mcp-<task>\`, pero el panel en marcha NO la veía: la barra
+     * lateral pinta la foto que le dio el servidor al abrir la página, y esa foto
+     * no vuelve a pedirse sola. Había que RECARGAR (y por eso parecía que hacía
+     * falta reiniciar).
+     *
+     * ── LA VÍA (la oficial del motor) ─────────────────────────────────────────
+     * El servicio de sesiones del motor tiene `refresh()`
+     * (`dsh-api-session-controller/lib/client.js`, `ClientSessions.refresh` →
+     * `SessionManager.refreshList`), que vuelve a pedir `session.list` al
+     * servidor: es lo mismo que hace el panel al reconectar, y con eso la barra
+     * lateral se repinta sola. Aquí NO se pinta nada a mano ni se toca ningún
+     * componente: se le dice al motor que mire otra vez.
+     *
+     * Y se le dice CUANDO TOCA: esta skin sondea `/ratacode/mcp/vivo` (barato: dos
+     * `readdir`), que trae un SELLO de las tareas de la casa. Si el sello cambió,
+     * hay una tarea nueva y se pide el refresco; si no, no se pide nada.
+     * @param ctx - contexto del plugin de navegador.
+     */
+    function vigilarElMcp(ctx) {
+      const cada = 2000;
+      let selloVisto = null;
+      let enCurso = false;
+      const mirar = () => {
+        if (enCurso) return;
+        enCurso = true;
+        pedir('/ratacode/mcp/vivo', 'GET').then((r) => {
+          if (r.ok !== true) return;
+          if (selloVisto === null) { selloVisto = r.sello ?? ''; return; }
+          if ((r.sello ?? '') === selloVisto) return;
+          selloVisto = r.sello ?? '';
+          const sesiones = ctx.get('sessions');
+          if (sesiones === undefined || typeof sesiones.refresh !== 'function') return;
+          // Se pide el refresco AHORA y OTRA VEZ dentro de unos segundos: la
+          // tarea deja su registro al arrancar y su fichero de sesión un momento
+          // después, y el panel tiene que ver los dos (si no, la sesión sale sin
+          // su conversación).
+          Promise.resolve(sesiones.refresh()).catch(() => { /* si no se puede, la barra se queda como estaba */ });
+          setTimeout(() => {
+            Promise.resolve(sesiones.refresh()).catch(() => { /* da igual: ya se pidió una vez */ });
+          }, 3000);
+        }).catch(() => { /* sin servidor de piel: no hay nada que vigilar */ })
+          .finally(() => { enCurso = false; });
+      };
+      mirar();
+      setInterval(mirar, cada);
+    }
+
+    /**
+     * R27 §1 · AJUSTES › ACTIVIDAD: todo lo que ha pasado por el MCP.
+     *
+     * El cuaderno de la casa (`<casa>\mcp\actividad.jsonl`) llevaba SÓLO las
+     * tareas terminadas: mientras ChatGPT leía (que es lo que más hace: mirar,
+     * listar y leer ficheros), el panel no enseñaba nada y parecía muerto. Desde
+     * R27 el servidor apunta también las llamadas de SÓLO LECTURA —hora, cliente,
+     * herramienta, ruta y permitido/bloqueado—, y aquí se ven las dos clases de
+     * fila, en vivo (`/ratacode/mcp/vivo` cada 2 s mientras la sección está
+     * abierta). Lo bloqueado también sale: es justo lo que el humano quiere ver.
+     */
+    function SeccionActividad() {
+      const t = React.useCallback((clave, vars) => (tActividad === null ? clave : tActividad(clave, vars)), []);
+      const [estado, setEstado] = React.useState({ fase: 'cargando' });
+      React.useEffect(() => {
+        let vivo = true;
+        const mirar = () => {
+          pedir('/ratacode/mcp/vivo', 'GET').then((r) => {
+            if (!vivo) return;
+            if (r.ok !== true) { setEstado({ fase: 'error', error: r.error ?? 'error' }); return; }
+            setEstado({ fase: 'listo', datos: r });
+          });
+        };
+        mirar();
+        const reloj = setInterval(mirar, 2000);
+        return () => { vivo = false; clearInterval(reloj); };
+      }, []);
+
+      if (estado.fase === 'cargando') return e('div', { className: 'mr-ac' }, e('p', { className: 'mr-ac-intro' }, t('mirando')));
+
+      const filas = estado.fase === 'listo' && Array.isArray(estado.datos.actividad) ? estado.datos.actividad : [];
+      const hijos = [
+        e('p', { className: 'mr-ac-intro', key: 'intro' }, t('intro')),
+      ];
+      if (estado.fase === 'error') {
+        hijos.push(e('p', { className: 'mr-ml-aviso', key: 'error' }, t('sinMirar', { error: estado.error })));
+      }
+      if (filas.length === 0) {
+        hijos.push(e('p', { className: 'mr-ml-nota', key: 'vacio' }, t('vacio')));
+      } else {
+        hijos.push(e('table', { className: 'mr-ac-tabla', key: 'tabla' },
+          e('thead', {}, e('tr', {},
+            e('th', {}, t('cuando')),
+            e('th', {}, t('cliente')),
+            e('th', {}, t('que')),
+            e('th', {}, t('donde')),
+            e('th', {}, t('como')))),
+          e('tbody', {}, filas.map((f, i) => e(FilaDeActividad, { key: i, fila: f, t })))));
+      }
+      hijos.push(e('div', { className: 'mr-ac-pie', key: 'pie' },
+        e('p', { className: 'mr-ac-vivo' }, t('ahora'))));
+      return e('div', { className: 'mr-ac' }, hijos);
+    }
+
+    /**
+     * Una fila de la tabla de Actividad. Las dos clases de línea del cuaderno
+     * (`tarea` y `lectura`) se pintan con las mismas columnas, que es lo que
+     * hace que se lean de un vistazo.
+     */
+    function FilaDeActividad(props) {
+      const { fila, t } = props;
+      const esTarea = fila.tipo === 'tarea' || fila.tipo === undefined;
+      const permitido = fila.permitido === true;
+      const bloqueada = esTarea ? (fila.estado === 'failed' || fila.estado === 'cancelled') : !permitido;
+      const donde = esTarea
+        ? (fila.tarea ?? fila.task_id ?? '')
+        : (fila.ruta ?? '');
+      const clase = 'mr-ac-tipo mr-ac-tipo-' + (esTarea ? 'tarea' : 'lectura');
+      return e('tr', { className: 'mr-ac-fila' },
+        e('td', { className: 'mr-ac-hora' }, horaCorta(fila.hora)),
+        e('td', {}, fila.cliente ?? 'MCP'),
+        e('td', {}, e('span', { className: clase }, esTarea ? t('tarea') : t('lectura'))),
+        e('td', { className: 'mr-ac-ruta', title: donde }, donde),
+        e('td', { className: bloqueada ? 'mr-ac-no' : 'mr-ac-si' },
+          esTarea ? (fila.estado ?? '?') : (permitido ? t('permitido') : t('bloqueado'))));
+    }
+
+    /** La hora de una línea del cuaderno, en corto (`HH:MM:SS`). */
+    function horaCorta(iso) {
+      const cuando = Date.parse(String(iso ?? ''));
+      if (!Number.isFinite(cuando)) return String(iso ?? '');
+      const d = new Date(cuando);
+      const dos = (n) => String(n).padStart(2, '0');
+      return dos(d.getHours()) + ':' + dos(d.getMinutes()) + ':' + dos(d.getSeconds());
+    }
+
+    /**
      * R23 · La sección «Conexiones» de Ajustes: dos tarjetas, cada una con sus
      * pasos 1-2-3 y un botón por acción. Lo que se explica largo va plegado.
+     *
+     * R27 §4 · La tarjeta de «ChatGPT y Claude web», con los pasos REALES de
+     * ChatGPT (los que se midieron con Patxi) y un plegable «Cómo usarlo» con
+     * tres ejemplos listos para pegar. Lo que NO cambia: aquí no se inventa nada
+     * —los pasos son los de la documentación de OpenAI y los del propio ChatGPT—
+     * y todo lo largo va plegado, como en OpenAI y Anthropic.
      */
+    /** R27 · los tres ejemplos que se pegan en ChatGPT. */
+    const EJEMPLOS = [
+      'Usa RATACODE: dime qué hay en la carpeta',
+      'Usa RATACODE: lee <fichero>',
+      'Usa RATACODE: pide a RATACODE que <tarea> y enséñame el resultado',
+    ];
+
     function SeccionConexiones() {
       const [texto, setTexto] = React.useState(null);
       const [copiado, setCopiado] = React.useState('');
       const [conexion, setConexion] = React.useState({ fase: 'cargando' });
       const [enCurso, setEnCurso] = React.useState('');
       const [dicho, setDicho] = React.useState('');
+      const [plan, setPlan] = React.useState(null);
 
       const mirarConexion = () => {
         setConexion((previo) => (previo.fase === 'listo' ? { ...previo, fase: 'remirando' } : { fase: 'cargando' }));
@@ -278,6 +530,36 @@ window.__ModuleLoader__.load({
           .catch(() => { setEnCurso(''); setDicho('No pude hablar con RATACODE.'); });
       };
 
+      /**
+       * R27 §3 · «Cambiar clave»: lo ÚNICO que cambia la clave (apagar y
+       * encender ya no la toca, para que el conector de ChatGPT siga valiendo).
+       */
+      const cambiarClave = () => {
+        setDicho('');
+        setEnCurso('clave');
+        fetch('/ratacode/conexion/clave', { method: 'POST', credentials: 'same-origin', cache: 'no-store' })
+          .then((res) => res.json().catch(() => null))
+          .then((r) => {
+            setEnCurso('');
+            if (r === null) { setDicho('No pude hablar con RATACODE.'); return; }
+            setDicho(r.ok === true
+              ? 'Clave nueva. Vuelve a copiar la dirección en ChatGPT (el conector viejo ya no vale).'
+              : (r.motivo ?? 'No pude cambiar la clave.'));
+            if (r.estado !== undefined) setConexion({ fase: 'listo', datos: r.estado });
+            else mirarConexion();
+          })
+          .catch(() => { setEnCurso(''); setDicho('No pude hablar con RATACODE.'); });
+      };
+
+      /** R27 §3 · los tres pasos del túnel con nombre (dirección fija). */
+      const verPlanDelTunel = () => {
+        setDicho('');
+        pedir('/ratacode/conexion/tunel-nombrado', 'GET').then((r) => {
+          if (r.ok !== true) { setDicho('No pude prepararlo: ' + (r.error ?? 'error')); return; }
+          setPlan(r);
+        });
+      };
+
       const hijos = [];
 
       // ── tarjeta 1 · los agentes con navegador ─────────────────────────────
@@ -294,14 +576,21 @@ window.__ModuleLoader__.load({
       // ── tarjeta 2 · los chats web (ChatGPT y Claude web) ──────────────────
       const d = conexion.fase === 'listo' ? conexion.datos : null;
       const conectado = d !== null && d.conectado === true;
+      // R27 §2 · las dos mitades, por separado: el MCP local puede estar
+      // encendido sin túnel (lo normal si no hay `cloudflared`), y eso se dice.
+      const localEncendido = d !== null && d.mcpLocal === true;
+      const encendida = conectado || localEncendido;
       const tarjeta = [
         e('div', { className: 'mr-cx-cabeza', key: 'cabeza' },
           e('span', { className: 'mr-cx-nombre' }, 'ChatGPT y Claude web'),
-          e('span', { className: 'mr-ml-pildora ' + (conectado ? 'mr-ml-encendido' : 'mr-ml-sin') },
-            conectado ? 'Conectado' : 'Sin conectar')),
+          e('span', { className: 'mr-ml-pildora ' + (conectado ? 'mr-ml-encendido' : 'mr-ml-sin'), 'data-estado': conectado ? 'conectado' : 'sin-conectar' },
+            conectado ? 'Conectado' : 'Sin conectar'),
+          localEncendido && !conectado
+            ? e('span', { className: 'mr-ml-pildora mr-ml-duda', 'data-estado': 'local' }, 'MCP local encendido')
+            : null),
         e(Paso, { n: '1', key: 'p1' }, 'Enciende la conexión',
           conectado
-            ? e('button', { type: 'button', className: 'mr-ml-boton', onClick: () => botonConexion('apagar') },
+            ? e('button', { type: 'button', className: 'mr-ml-boton', 'data-accion': 'apagar', onClick: () => botonConexion('apagar') },
               enCurso === 'apagar' ? 'Apagando…' : 'Apagar')
             : e('button', { type: 'button', className: 'mr-ml-boton', 'data-accion': 'encender', onClick: () => botonConexion('encender') },
               enCurso === 'encender' ? 'Encendiendo…' : 'Encender')),
@@ -310,15 +599,62 @@ window.__ModuleLoader__.load({
             ? e('button', { type: 'button', className: 'mr-ml-boton', onClick: () => copiarConAviso('direccion', d.direccion) },
               copiado === 'direccion' ? 'Copiada ✓' : 'Copiar dirección')
             : null),
-        e(Paso, { n: '3', key: 'p3' }, 'Pégala en ChatGPT › Ajustes › Conectores'),
+        e(Paso, { n: '3', key: 'p3' }, 'En ChatGPT: chatgpt.com/plugins › + › «URL del servidor»: pega la dirección, Autenticación «Sin autenticación», marca la casilla y Crear.'),
+        e('p', { className: 'mr-cx-gasto', key: 'gasto' },
+          'Leer es gratis; las tareas gastan tu saldo del modelo.'),
         e('p', { className: 'mr-ml-nota', key: 'aviso' }, avisoDeEspacio(d)),
       ];
+      // El botón «Apagar» tiene que estar SIEMPRE a la vista cuando está
+      // encendida: va también aquí, fuera del paso 1 (que puede quedar estrecho
+      // con la dirección copiada al lado).
+      if (encendida) {
+        tarjeta.push(e('div', { className: 'mr-cx-acciones', key: 'acciones' },
+          conectado
+            ? e('button', { type: 'button', className: 'mr-ml-boton', 'data-accion': 'apagar-tunel', onClick: () => botonConexion('apagar-tunel') },
+              enCurso === 'apagar-tunel' ? 'Cerrando…' : 'Apagar túnel')
+            : e('button', { type: 'button', className: 'mr-ml-boton', 'data-accion': 'apagar', onClick: () => botonConexion('apagar') },
+              enCurso === 'apagar' ? 'Apagando…' : 'Apagar MCP'),
+          e('button', { type: 'button', className: 'mr-ml-boton', 'data-accion': 'cambiar-clave', onClick: () => cambiarClave() },
+            enCurso === 'clave' ? 'Cambiando…' : 'Cambiar clave')));
+      }
+      // Si el túnel no está pero el MCP local sí, se dice POR QUÉ y qué hacer.
+      if (d !== null && d.pistaTunel !== null && d.pistaTunel !== undefined) {
+        tarjeta.push(e('p', { className: 'mr-ml-nota', key: 'pista' }, d.pistaTunel));
+      }
+      tarjeta.push(e('details', { className: 'mr-ml-avanzado', key: 'usar' },
+        e('summary', {}, 'Cómo usarlo'),
+        e('p', { className: 'mr-ml-nota' }, 'Pega uno de estos en ChatGPT (donde «RATACODE» es el nombre que le pusiste al conector):'),
+        ...EJEMPLOS.map((uno, i) => e('pre', { className: 'mr-cx-ejemplo', key: 'e' + i }, uno))));
       if (conexion.fase === 'error') {
         tarjeta.push(e('p', { className: 'mr-ml-aviso', key: 'error' }, 'No pude mirar la conexión: ' + conexion.error));
       }
       if (d !== null && !d.nuestro && conectado) {
         tarjeta.push(e('p', { className: 'mr-ml-nota', key: 'ajena' },
           'La encendiste tú (en una ventana): se apaga con Ctrl+C ahí.'));
+      }
+      // R27 §3 · la dirección del túnel rápido cambia cada vez: se dice en UNA
+      // línea, y al lado va el plegable del túnel con nombre (dirección fija).
+      const tieneFija = d !== null && d.tunel !== undefined && typeof d.tunel?.fijo === 'string' && d.tunel.fijo !== '';
+      tarjeta.push(e('p', { className: 'mr-ml-nota', key: 'efimero', 'data-tunel': tieneFija ? 'fijo' : 'rapido' },
+        tieneFija
+          ? 'Esta casa tiene túnel con nombre: la dirección NO cambia (https://' + d.tunel.host + '/mcp/…).'
+          : 'El túnel rápido (sin cuenta) cambia de dominio cada vez que se enciende; con un túnel con nombre, la dirección es siempre la misma.'));
+      tarjeta.push(e('details', { className: 'mr-ml-avanzado', key: 'nombrado' },
+        e('summary', {}, 'Dirección fija (túnel con nombre)'),
+        e('button', { type: 'button', className: 'mr-ml-boton', 'data-accion': 'plan-tunel', onClick: () => verPlanDelTunel() },
+          plan === null ? 'Ver los 3 pasos' : 'Volver a mirar los 3 pasos'),
+        plan === null ? null : e('div', { className: 'mr-cx-plan' },
+          ...plan.pasos.map((p, i) => e('p', { className: 'mr-ml-nota', key: 'paso' + i }, p)),
+          e('p', { className: 'mr-ml-nota', key: 'comandos-titulo' }, 'Los tres comandos, en tu PC:'),
+          ...(Array.isArray(plan.comandos) ? plan.comandos : []).map((c, i) => e('pre', { className: 'mr-cx-ejemplo', key: 'cmd' + i }, c)),
+          e('p', { className: 'mr-ml-nota', key: 'ajustes-titulo' }, 'Y estas dos líneas en settings.yaml:'),
+          e('pre', { className: 'mr-cx-ejemplo', key: 'ajustes' }, (Array.isArray(plan.ajustes) ? plan.ajustes : []).join('\n')),
+          e('p', { className: 'mr-ml-nota', key: 'nota' }, plan.nota))));
+      // R27 §2 · si la URL del MCP está escrita pero NO contesta como la nuestra
+      // (otro programa en ese puerto, o una clave vieja), se dice tal cual: es la
+      // diferencia entre «Conectado» y «hay un fichero que miente».
+      if (d !== null && d.http !== undefined && d.http !== null && typeof d.http.motivo === 'string' && d.http.motivo !== '') {
+        tarjeta.push(e('p', { className: 'mr-ml-aviso', key: 'motivo-http' }, d.http.motivo));
       }
       if (d !== null && !conectado && d.comandos !== undefined) {
         tarjeta.push(e('details', { className: 'mr-ml-avanzado', key: 'comandos' },
@@ -888,8 +1224,11 @@ window.__ModuleLoader__.load({
      */
     function avisosDeLaCasa(ctx) {
       ctx.effect(() => ctx.locale.register(AVISOS_NS, AVISOS), 'ratacode-piel: los avisos, en los tres idiomas');
+      // R27 §1 · y los textos de Ajustes › Actividad, por la misma vía.
+      ctx.effect(() => ctx.locale.register(ACTIVIDAD_NS, ACTIVIDAD), 'ratacode-piel: los textos de Actividad');
       const t = ctx.locale.bind(AVISOS_NS);
       tAvisos = t;
+      tActividad = ctx.locale.bind(ACTIVIDAD_NS);
       const pintar = () => { try { pintarAvisos(ctx, t); } catch { /* un aviso nunca tumba la pantalla */ } };
       pintar();
       setInterval(pintar, 900);
@@ -994,6 +1333,10 @@ window.__ModuleLoader__.load({
       // arriba en Ajustes › Modelos), en los tres idiomas. Van detrás del
       // idioma: los pinta el traductor, que tiene que estar puesto.
       avisosDeLaCasa(ctx);
+      // R27 §1 · la barra lateral, en caliente: si el MCP deja una tarea nueva
+      // en la casa, la sesión sale sin recargar (por la vía oficial del motor,
+      // `ctx.get('sessions').refresh()`).
+      vigilarElMcp(ctx);
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
         id: 'modelos-locales',
@@ -1006,6 +1349,13 @@ window.__ModuleLoader__.load({
         order: 25,
         label: () => 'Conexiones',
       }, SeccionConexiones));
+      // R27 §1 · Ajustes › Actividad: lo que ha pasado por el MCP, en vivo.
+      ctx.slots.inject('settings.section', () => ctx.slots.register({
+        name: 'settings.section',
+        id: 'actividad',
+        order: 26,
+        label: () => (tActividad === null ? 'Actividad' : tActividad('nav')),
+      }, SeccionActividad));
       if (typeof console !== 'undefined') {
         console.info('RATACODE · Ajustes › General › Language: ' + IDIOMA_ETIQUETA
           + ' (' + IDIOMA + ', ' + idiomas.length + ' diccionarios)'

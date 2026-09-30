@@ -63,8 +63,9 @@
  * Si algún día el motor cambia de nombre el servicio o el tap, esta piel no
  * engancha: se calla y lo dice por consola, en vez de romper el arranque.
  */
-import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -210,15 +211,15 @@ function textoDelHandshake(req) {
 
 // ── el MCP para chats web ──────────────────────────────────────────────────
 
+/** El nombre del túnel nombrado de la casa, si el usuario lo tiene dado de alta. */
+const TUNEL_NOMBRADO = 'mcp.mod-rat.com';
+
+/** R27 · el puerto del MCP por HTTP si la casa no dice otra cosa (`mcp.puerto`). */
+const PUERTO_MCP_POR_DEFECTO = 3778;
+
 /** Lee un fichero de la casa sin reventar si no está; '' si no se puede. */
 function leerDeLaCasa(...trozos) {
   try { return readFileSync(join(casaDeEstaCasa(), ...trozos), 'utf8').trim(); } catch { return ''; }
-}
-
-/** El puerto del MCP por HTTP, tal y como quedó en su URL local. */
-function puertoDeLaUrlMCP(url) {
-  const m = /^https?:\/\/[^/]+:(\d+)\//.exec(url);
-  return m === null ? null : Number(m[1]);
 }
 
 /**
@@ -261,17 +262,23 @@ function textoParaPegar(url) {
 }
 
 /**
- * Las carpetas que el MCP tiene autorizadas en ESTA casa (`mcp.workspaces` de
- * `settings.yaml`). Se lee el texto a mano, y a propósito: esta piel viaja
- * copiada dentro del perfil del motor y no lleva dependencias (no tiene
- * js-yaml), y lo único que hace falta es la lista que va debajo de `mcp:`.
- * @returns {string[]} las carpetas, en el orden en que están declaradas.
+ * Los ajustes de `mcp:` que necesita la piel, leídos del TEXTO de `settings.yaml`
+ * (esta piel viaja copiada dentro del perfil del motor y no lleva dependencias:
+ * no tiene js-yaml). Son cuatro valores sencillos, todos de una línea:
+ *   · `puerto` — el puerto del MCP por HTTP de esta casa (3778 de fábrica). Se
+ *     usa para encender el MCP Y el túnel, así la dirección es siempre la misma.
+ *   · `tunel_nombre` y `tunel_host` — el «túnel con nombre» de Cloudflare (lo
+ *     da de alta el humano en su cuenta), para una dirección FIJA.
+ *   · `workspaces` — la lista de carpetas autorizadas (su lector de siempre).
+ * @returns {{puerto: number, tunelNombre: string|null, tunelHost: string|null, workspaces: string[]}}
  */
-function carpetasAutorizadas() {
+function ajustesDeLaCasa() {
   const casa = casaDeEstaCasa();
   let texto;
-  try { texto = readFileSync(join(casa, 'settings.yaml'), 'utf8'); } catch { return []; }
-  const salida = [];
+  try { texto = readFileSync(join(casa, 'settings.yaml'), 'utf8'); } catch {
+    return { puerto: PUERTO_MCP_POR_DEFECTO, tunelNombre: null, tunelHost: null, workspaces: [] };
+  }
+  const salida = { puerto: PUERTO_MCP_POR_DEFECTO, tunelNombre: null, tunelHost: null, workspaces: [] };
   let enMcp = false;
   let enLista = false;
   for (const linea of texto.split(/\r?\n/)) {
@@ -281,39 +288,54 @@ function carpetasAutorizadas() {
       continue;
     }
     if (!enMcp) continue;
-    const clave = /^\s+([A-Za-z_][\w-]*):/.exec(linea);
+    const clave = /^\s+([A-Za-z_][\w-]*):\s*(.*)$/.exec(linea);
     if (clave !== null) {
-      enLista = clave[1] === 'workspaces';
+      const nombre = clave[1];
+      const valor = clave[2].replace(/\s+#.*$/, '').trim().replace(/^['"]|['"]$/g, '');
+      enLista = nombre === 'workspaces';
+      if (nombre === 'puerto') {
+        const n = Number(valor);
+        if (Number.isInteger(n) && n > 0 && n < 65536) salida.puerto = n;
+      }
+      if (nombre === 'tunel_nombre' && valor !== '') salida.tunelNombre = valor;
+      if (nombre === 'tunel_host' && valor !== '') salida.tunelHost = valor;
       continue;
     }
     if (!enLista) continue;
     const punto = /^\s*-\s+(.+?)\s*$/.exec(linea);
-    if (punto !== null) salida.push(punto[1].replace(/^['"]|['"]$/g, ''));
+    if (punto !== null) salida.workspaces.push(punto[1].replace(/^['"]|['"]$/g, ''));
   }
   return salida;
 }
 
 /**
  * El estado del MCP de esta casa y lo que hay que pegar/ejecutar.
- * - El MCP por HTTP está ARRANCADO si existe `<casa>\mcp\http-url.txt` (lo
- *   escribe el propio servidor al escuchar, `mcp/bin/ratacode-mcp.js:179-183`).
- * - El túnel está ABIERTO si existe `<casa>\mcp\tunel-url.txt` (lo escribe
- *   `mcp/tunel.mjs` cuando cloudflared da la URL pública, y lo borra al cerrar).
+ * - El MCP por HTTP está ARRANCADO si su URL **contesta**, y contesta como
+ *   NUESTRO servidor (R27 §2: mirar que exista el fichero no basta — un fichero
+ *   de un proceso muerto, o de OTRA casa que se haya quedado con el puerto,
+ *   diría «conectado» mintiendo).
+ * - El túnel está ABIERTO si hay URL y el proceso de cloudflared sigue vivo
+ *   (`<casa>\mcp\tunel.pid`).
  * @param req - el pedido, para el caso de que falte el `url.txt` del panel.
- * @returns el estado, los dos comandos y el texto para el chat.
+ * @returns {Promise<object>} el estado, los dos comandos y el texto para el chat.
  */
-function estadoDelMcp(req) {
+async function estadoDelMcp(req) {
   const casa = casaDeEstaCasa();
-  const urlLocal = leerDeLaCasa('mcp', 'http-url.txt');
-  const urlTunel = leerDeLaCasa('mcp', 'tunel-url.txt');
+  const ajustes = ajustesDeLaCasa();
+  // R27 §2 · VIVOS, no sólo escritos.
+  const mcpVivo = await vivoElMcp();
+  const tunelVivo = vivoElTunel();
+  const urlLocal = mcpVivo.url;
+  const urlTunel = tunelVivo.url;
   const instalacion = instalacionDeEstaCasa();
   const donde = instalacion === null ? '<ruta de RATACODE>' : instalacion;
   const conecta = urlTunel !== '' ? urlTunel : (urlLocal !== '' ? urlLocal : null);
+  // Los comandos, con el puerto DE ESTA CASA (R27 §3: misma dirección siempre).
   const comandos = [
-    'cd ' + donde + '; ratacode mcp --http',
+    'cd ' + donde + '; ratacode mcp --http --port ' + ajustes.puerto,
     'cd ' + donde + '; node mcp/tunel.mjs --home ' + casa,
   ].join('\n');
-  const carpetas = carpetasAutorizadas();
+  const carpetas = ajustes.workspaces;
   return {
     ok: true,
     casa,
@@ -321,11 +343,18 @@ function estadoDelMcp(req) {
     http: {
       abierto: urlLocal !== '',
       url: urlLocal === '' ? null : urlLocal,
-      puerto: puertoDeLaUrlMCP(urlLocal),
+      puerto: mcpVivo.puerto ?? ajustes.puerto,
+      // Si hay URL escrita pero no contesta (o contesta OTRO), se dice por qué.
+      motivo: mcpVivo.motivo ?? null,
     },
     tunel: {
       abierto: urlTunel !== '',
       url: urlTunel === '' ? null : urlTunel,
+      pid: tunelVivo.pid,
+      // R27 §8 · el túnel con nombre (dirección fija), si el humano lo configuró.
+      nombre: ajustes.tunelNombre,
+      host: ajustes.tunelHost,
+      fijo: ajustes.tunelHost === null ? null : 'https://' + ajustes.tunelHost,
     },
     panel: urlDeEstaCasa(req),
     // R25 · las carpetas donde ESTE chat puede leer y escribir, tal y como las
@@ -336,6 +365,83 @@ function estadoDelMcp(req) {
     comandos,
     pegar: textoParaPegar(conecta),
   };
+}
+
+// ── R27 · LO QUE ESTÁ HACIENDO EL MCP, PARA QUE EL PANEL LO VEA ────────────
+/**
+ * Una foto barata de la casa para el panel (R27 §1): las tareas del MCP (las
+ * que estén apuntadas en `<casa>\mcp\tareas\`) y las últimas llamadas del
+ * cuaderno (`<casa>\mcp\actividad.jsonl`), que desde R27 incluye también las de
+ * SÓLO LECTURA. Es lo que la cara de cliente sondea cada pocos segundos para
+ * saber si hay una sesión nueva que refrescar y para pintar en Actividad lo que
+ * hizo el chat (ChatGPT) aunque no lanzara ninguna tarea.
+ *
+ * Sin casa, sin claves y sin el contenido de los ficheros: sólo lo justo.
+ * @param {number} cuantas - cuántas líneas del cuaderno devolver.
+ * @returns {object} la foto.
+ */
+function fotoDelMcp(cuantas = 30) {
+  const casa = casaDeEstaCasa();
+  const carpeta = join(casa, 'mcp', 'tareas');
+  const tareas = [];
+  try {
+    for (const nombre of readdirSync(carpeta)) {
+      if (!nombre.endsWith('.json')) continue;
+      try {
+        const t = JSON.parse(readFileSync(join(carpeta, nombre), 'utf8'));
+        tareas.push({
+          task_id: t.task_id ?? null,
+          estado: t.estado ?? null,
+          cliente: t.cliente ?? null,
+          model: t.model ?? null,
+          provider: t.provider ?? null,
+          empezada: t.empezada ?? null,
+          terminada: t.terminada ?? null,
+          sesion: 'mcp-' + (t.task_id ?? ''),
+        });
+      } catch { /* una tarea ilegible no invalida la lista */ }
+    }
+  } catch { /* sin carpeta de tareas: no hay nada */ }
+  tareas.sort((a, b) => String(b.empezada).localeCompare(String(a.empezada)));
+  return {
+    ok: true,
+    actualizado: new Date().toISOString(),
+    sello: selloDeLaCasa(),
+    tareas: tareas.slice(0, 20),
+    actividad: ultimasDelCuaderno(carpeta, cuantas),
+  };
+}
+
+/**
+ * Un sello que cambia cuando aparece una tarea nueva: es lo que la cara de
+ * cliente mira para NO pedir un refresco de más. Se compone del número de
+ * ficheros de tarea y del de la última tarea (por nombre, que lleva el sello de
+ * tiempo), sin leer ninguno.
+ * @returns {string} el sello.
+ */
+function selloDeLaCasa() {
+  const carpeta = join(casaDeEstaCasa(), 'mcp', 'tareas');
+  try {
+    const nombres = readdirSync(carpeta).filter((n) => n.endsWith('.json')).sort();
+    return nombres.length + '·' + (nombres[nombres.length - 1] ?? '');
+  } catch {
+    return '0·';
+  }
+}
+
+/** Las últimas líneas del cuaderno de actividad, la más reciente primero. */
+function ultimasDelCuaderno(carpeta, cuantas) {
+  let lineas;
+  try {
+    lineas = readFileSync(join(carpeta, '..', 'actividad.jsonl'), 'utf8').split(/\r?\n/).filter((l) => l.trim() !== '');
+  } catch {
+    return [];
+  }
+  const salida = [];
+  for (const linea of lineas.slice(-cuantas).reverse()) {
+    try { salida.push(JSON.parse(linea)); } catch { /* una línea rota no invalida el cuaderno */ }
+  }
+  return salida;
 }
 
 // ── R17 · la clave que le falta al modelo por defecto ──────────────────────
@@ -845,21 +951,152 @@ function vivo(hijo) {
   return hijo !== null && hijo.exitCode === null && hijo.killed !== true;
 }
 
+// ── R27 §2 · «CONECTADO» TIENE QUE SER VERDAD ──────────────────────────────
+// El estado se decidía por la EXISTENCIA de `<casa>\mcp\http-url.txt` y
+// `<casa>\mcp\tunel-url.txt`. El problema medido: si los procesos se mueren
+// (se cierra la ventana del túnel, se apaga el MCP a mano), los ficheros se
+// quedan escritos, la tarjeta sigue diciendo «Conectado» y «Apagar» no hace
+// nada (no hay ningún hijo al que apagar). Ahora se comprueba que estén VIVOS
+// —el puerto del MCP escucha y el proceso del túnel existe— y, si no lo están,
+// se LIMPIAN los ficheros y se dice «Sin conectar». Los ficheros son lo que
+// leen `estadoDelMcp` y la tarjeta, así que limpiarlos es lo que hace que el
+// estado no mienta.
+
+/** El puerto de una URL (`http://127.0.0.1:3778/mcp/<clave>`). */
+function puertoDe(url) {
+  try {
+    const u = new URL(String(url));
+    if (u.port !== '') return Number(u.port);
+    return u.protocol === 'https:' ? 443 : 80;
+  } catch {
+    return null;
+  }
+}
+
+/** ¿Ese pid es un proceso vivo? */
+function pidVivo(pid) {
+  if (typeof pid !== 'number' || !Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    // EPERM: el proceso existe pero es de otro usuario (cuenta como vivo).
+    return e?.code === 'EPERM';
+  }
+}
+
+/** Leer un pid de la casa (`<casa>\mcp\tunel.pid`). */
+function leerPid(ruta) {
+  try {
+    const n = Number(readFileSync(ruta, 'utf8').trim());
+    return Number.isInteger(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * ¿Está VIVO el MCP por HTTP de esta casa? Y no basta con que «escuche alguien»:
+ * tiene que contestar COMO NUESTRO SERVIDOR.
+ *
+ * ── POR QUÉ ASÍ (medido el 30-sep-2026) ────────────────────────────────────
+ * Con la comprobación anterior («¿hay alguien escuchando en ese puerto?») salía
+ * un «Conectado» falso de verdad: Patxi tenía su propio MCP en el puerto por
+ * defecto (3778, de la casa `casa-camel`), y el MCP de la casa de pruebas no
+ * pudo escuchar (puerto ocupado), murió... y su `http-url.txt` se quedó escrito
+ * apuntando a un puerto donde SÍ había alguien: el MCP de OTRA casa, con OTRA
+ * clave. La URL no habría funcionado.
+ *
+ * ── LA PRUEBA QUE SÍ VALE ──────────────────────────────────────────────────
+ * Un `GET` a la URL del conector, con la clave de ESTA casa:
+ *   · 405 → es NUESTRO servidor: la clave vale y está en modo sin estado (es lo
+ *     que contesta `mcp/lib/http.js` a un GET con la clave buena).
+ *   · 404 → hay alguien, pero no es esta casa (la clave no vale ahí).
+ *   · sin respuesta → no hay nadie.
+ * Es la única comprobación que mide lo que de verdad importa: que la dirección
+ * que se pega en ChatGPT FUNCIONE. Esta consulta NO BORRA NADA (lo que esté
+ * muerto se limpia en `limpiarLoMuerto` y al encender).
+ * @returns {Promise<{vivo: boolean, url: string, puerto: number|null, motivo: string|null}>}
+ */
+async function vivoElMcp() {
+  const url = leerDeLaCasa('mcp', 'http-url.txt');
+  if (url === '') return { vivo: false, url: '', puerto: null, motivo: null };
+  const puerto = puertoDe(url);
+  const clave = leerDeLaCasa('mcp', 'http-secret.txt');
+  const enLaUrl = /\/mcp\/([^/?#]+)/.exec(url)?.[1] ?? '';
+  if (clave !== '' && enLaUrl !== '' && enLaUrl !== clave) {
+    // La URL lleva una clave que ya no es la de la casa (un «Cambiar clave» a
+    // medias, o un fichero viejo): esa dirección no vale.
+    return { vivo: false, url: '', puerto, motivo: 'la URL del MCP lleva una clave que ya no es la de esta casa; hay que volver a encender (o copiar la dirección otra vez)' };
+  }
+  const dicho = await sondearLaUrl(url);
+  if (dicho === 'nuestro') return { vivo: true, url, puerto, motivo: null };
+  if (dicho === 'ajeno') {
+    return { vivo: false, url: '', puerto, motivo: 'en el puerto ' + puerto + ' contesta otro servidor (no es el MCP de esta casa: la clave no vale ahí); cierra lo que tengas en ese puerto o cambia `mcp.puerto` en settings.yaml' };
+  }
+  return { vivo: false, url: '', puerto, motivo: null };
+}
+
+/**
+ * Sondear la URL del conector: la misma petición que haría ChatGPT, en pequeño.
+ * @param {string} url - la URL completa del MCP (con su clave).
+ * @returns {Promise<'nuestro'|'ajeno'|'nadie'>} qué ha contestado.
+ */
+async function sondearLaUrl(url) {
+  try {
+    const res = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(4000), redirect: 'manual' });
+    if (res.status === 405) return 'nuestro';
+    // 404 (clave que no vale), 403 (origen) o cualquier otra cosa: hay alguien
+    // ahí, pero no es nuestro MCP.
+    return 'ajeno';
+  } catch {
+    return 'nadie';
+  }
+}
+
+/**
+ * ¿Está VIVO el túnel? El túnel rápido de Cloudflare no se puede sondear desde
+ * aquí (su dominio contesta siempre, aunque no haya nadie detrás), así que se
+ * mira lo que SÍ es verdad local: `tunel-url.txt` (lo escribe el túnel cuando
+ * cloudflared le dio la URL y lo borra al cerrar) y el pid que deja `tunel.mjs`
+ * en `<casa>\mcp\tunel.pid`, que tiene que seguir existiendo. Como
+ * {@link vivoElMcp}, esta consulta no borra nada.
+ * @returns {{vivo: boolean, url: string, pid: number|null}}
+ */
+function vivoElTunel() {
+  const url = leerDeLaCasa('mcp', 'tunel-url.txt');
+  if (url === '') return { vivo: false, url: '', pid: null };
+  const pid = leerPid(join(casaDeEstaCasa(), 'mcp', 'tunel.pid'));
+  if (pid !== null && pidVivo(pid)) return { vivo: true, url, pid };
+  return { vivo: false, url: '', pid };
+}
+
+/**
+ * R27 §2 · LIMPIAR LO MUERTO: los ficheros de un MCP o de un túnel que ya no
+ * existen se borran, para que el estado no mienta. Se llama en dos sitios y
+ * sólo en dos: al arrancar la piel y al encender la conexión.
+ * @returns {Promise<{mcp: boolean, tunel: boolean}>} si había algo vivo (y por tanto, no se tocó).
+ */
+async function limpiarLoMuerto() {
+  const casa = casaDeEstaCasa();
+  const mcp = await vivoElMcp();
+  const tunel = vivoElTunel();
+  if (mcp.vivo !== true) limpiarFichero(join(casa, 'mcp', 'http-url.txt'));
+  if (tunel.vivo !== true) {
+    limpiarFichero(join(casa, 'mcp', 'tunel-url.txt'));
+    limpiarFichero(join(casa, 'mcp', 'tunel.pid'));
+  }
+  return { mcp: mcp.vivo === true, tunel: tunel.vivo === true };
+}
+
+/** Borrar un fichero de la casa sin reventar si no está. */
+function limpiarFichero(ruta) {
+  try { rmSync(ruta, { force: true }); } catch { /* da igual: sin permiso se queda, pero el estado ya dice que no */ }
+}
+
 /** La raíz de la instalación de RATACODE (donde vive `mcp\`). */
 function raizDeLaInstalacion() {
   return instalacionDeEstaCasa() ?? join(AQUI, '..', '..');
-}
-
-/** Espera a que aparezca un fichero con algo dentro. `false` si no llega a tiempo. */
-async function esperarFichero(ruta, plazoMs) {
-  const limite = Date.now() + plazoMs;
-  for (;;) {
-    try {
-      if (readFileSync(ruta, 'utf8').trim() !== '') return true;
-    } catch { /* todavía no está */ }
-    if (Date.now() >= limite) return false;
-    await new Promise((listo) => setTimeout(listo, 400));
-  }
 }
 
 /** La primera línea con algo de la salida de un hijo, para poder decir qué falló. */
@@ -878,40 +1115,177 @@ function primeraLineaUtil(texto) {
  * @param casa - la casa de RATACODE.
  * @returns `{ok, motivo}`.
  */
-async function encenderConexion(casa) {
-  if (vivo(CONEXION.mcp) || vivo(CONEXION.tunel)) return { ok: true, motivo: 'ya estaba encendida' };
+async function encenderConexion(casa, opciones = {}) {
   const raiz = raizDeLaInstalacion();
   const guionMcp = join(raiz, 'mcp', 'bin', 'ratacode-mcp.js');
   const guionTunel = join(raiz, 'mcp', 'tunel.mjs');
   if (!existsSync(guionMcp) || !existsSync(guionTunel)) {
     return { ok: false, motivo: 'no encuentro el MCP en esta instalación (' + raiz + ')' };
   }
-  const salida = { mcp: '', tunel: '' };
-  const arrancar = (cual, guion, args) => {
-    const hijo = spawn(process.execPath, [guion, ...args], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
-    hijo.stdout.setEncoding('utf8');
-    hijo.stderr.setEncoding('utf8');
-    const guardar = (t) => { salida[cual] = (salida[cual] + t).slice(-4000); };
-    hijo.stdout.on('data', guardar);
-    hijo.stderr.on('data', guardar);
-    return hijo;
-  };
   CONEXION.ultimoError = null;
-  CONEXION.mcp = arrancar('mcp', guionMcp, ['--home', casa, '--http']);
-  const rutaHttp = join(casa, 'mcp', 'http-url.txt');
+  // R27 §2 · LAS DOS MITADES SON INDEPENDIENTES. Antes, si el túnel no llegaba a
+  // abrirse (por ejemplo, sin `cloudflared` instalado), se apagaba TAMBIÉN el MCP
+  // local y el botón «Encender» no dejaba nada: eso es lo que hacía que pareciera
+  // que no hacía nada. Ahora el MCP local se queda encendido y se dice, en una
+  // línea, que falta el túnel.
+  const mcp = await encenderElMcp(casa, guionMcp, opciones.nuevaClave === true);
+  if (mcp.ok !== true) return mcp;
+  const tunel = await encenderElTunel(casa, guionTunel);
+  return {
+    ok: true,
+    motivo: tunel.ok === true
+      ? ((opciones.nuevaClave === true) ? 'encendida desde RATACODE, con clave nueva' : 'encendida desde RATACODE')
+      : ('el MCP local está encendido; el túnel no: ' + tunel.motivo),
+    mcp,
+    tunel,
+  };
+}
+
+/**
+ * Encender SÓLO el MCP por HTTP (la mitad local). Reutiliza la clave guardada,
+ * salvo que se pida una nueva (`opciones.nuevaClave`), que es lo que hace el
+ * botón «Cambiar clave» al final de la vía.
+ *
+ * R27 §3 · Y SIEMPRE AL MISMO PUERTO (`mcp.puerto` de la casa, 3778 de
+ * fábrica): si el puerto cambiara, la dirección que ChatGPT tiene pegada
+ * dejaría de valer. Antes se arrancaba sin `--port`, así que tomaba el de
+ * fábrica del MCP... que puede estar ocupado por el MCP de OTRA casa (medido:
+ * el panel de Patxi tenía el 3778): ahí el hijo moría y quedaba un «conectado»
+ * falso. Ahora, si el puerto de la casa está ocupado por otra cosa, se dice.
+ * @param casa - la casa de RATACODE.
+ * @param guionMcp - la ruta del guion del MCP.
+ * @param {boolean} nuevaClave - true para estrenar clave.
+ * @returns `{ok, motivo, url, puerto}`.
+ */
+async function encenderElMcp(casa, guionMcp, nuevaClave) {
+  if (vivo(CONEXION.mcp)) return { ok: true, motivo: 'ya estaba encendido' };
+  const puerto = ajustesDeLaCasa().puerto;
+  // Si en ese puerto contesta OTRA cosa (otro MCP, otro programa), mejor decirlo
+  // que arrancar un hijo que va a morir sin decir por qué.
+  const ocupado = await sondearLaUrl('http://127.0.0.1:' + puerto + '/mcp/' + leerDeLaCasa('mcp', 'http-secret.txt'));
+  if (ocupado === 'ajeno') {
+    return {
+      ok: false,
+      motivo: 'el puerto ' + puerto + ' lo tiene otro programa (y no es el MCP de esta casa).'
+        + ' Cierra lo que lo esté usando, o pon otro puerto en `mcp.puerto` de settings.yaml.',
+    };
+  }
+  // R27 · se borra la URL de ANTES de arrancar: si el MCP de la vez pasada se
+  // murió sin borrarla, su fichero es una mentira con la que no se puede
+  // distinguir si el que escucha es el nuevo. Se limpia y se espera a que el
+  // nuevo escriba la suya.
+  limpiarFichero(join(casa, 'mcp', 'http-url.txt'));
+  let salida = '';
+  CONEXION.mcp = arrancarHijo((t) => { salida = (salida + t).slice(-4000); },
+    guionMcp, ['--home', casa, '--http', '--port', String(puerto), ...(nuevaClave ? ['--nueva-clave'] : [])]);
+  // Se espera a que la URL CONTESTE como nuestra (misma comprobación que el
+  // estado): entre escribir `http-url.txt` y estar escuchando hay un instante.
+  const limite = Date.now() + 20000;
+  let estado = { vivo: false, url: '', puerto };
+  for (;;) {
+    if (!vivo(CONEXION.mcp)) break;
+    estado = await vivoElMcp();
+    if (estado.vivo === true) break;
+    if (Date.now() >= limite) break;
+    await new Promise((listo) => setTimeout(listo, 500));
+  }
+  if (estado.vivo !== true) {
+    const motivo = primeraLineaUtil(salida) || estado.motivo || 'el MCP por HTTP no llegó a escuchar';
+    apagarConexion();
+    return { ok: false, motivo };
+  }
+  return { ok: true, motivo: nuevaClave ? 'encendido, con clave nueva' : 'encendido', url: estado.url, puerto: estado.puerto };
+}
+
+/**
+ * Encender SÓLO el túnel. SIEMPRE con `--misma-clave` (R27 §3): la clave del
+ * MCP no cambia al apagar y encender, así que el conector de ChatGPT sigue
+ * valiendo y no hay que recrearlo.
+ *
+ * R27 §8 · Y CON EL TÚNEL CON NOMBRE SI LA CASA LO TIENE (`mcp.tunel_nombre` y
+ * `mcp.tunel_host`): entonces la dirección es FIJA (`https://<host>/mcp/<clave>`)
+ * en vez del dominio efímero del túnel rápido. El túnel lo da de alta el humano
+ * en su Cloudflare; aquí no se hace login ni se crea nada.
+ * @param casa - la casa de RATACODE.
+ * @param guionTunel - la ruta del guion del túnel.
+ * @returns `{ok, motivo, url}`.
+ */
+async function encenderElTunel(casa, guionTunel) {
+  if (vivo(CONEXION.tunel)) return { ok: true, motivo: 'ya estaba abierto' };
+  const ajustes = ajustesDeLaCasa();
+  const args = ['--home', casa, '--misma-clave'];
+  if (ajustes.tunelNombre !== null) args.push('--tunel-nombre', ajustes.tunelNombre, '--tunel-host', ajustes.tunelHost);
+  let salida = '';
+  CONEXION.tunel = arrancarHijo((t) => { salida = (salida + t).slice(-4000); }, guionTunel, args);
+  // R27 · se espera a que el túnel esté vivo Y haya escrito su URL, y se vigila
+  // que el hijo no se haya muerto por el camino (si se muere, `esperarFichero`
+  // solo se enteraría al agotar el plazo).
   const rutaTunel = join(casa, 'mcp', 'tunel-url.txt');
-  if (!await esperarFichero(rutaHttp, 20000) || !vivo(CONEXION.mcp)) {
-    const motivo = primeraLineaUtil(salida.mcp) || 'el MCP por HTTP no llegó a escuchar';
-    apagarConexion();
-    return { ok: false, motivo };
+  const limite = Date.now() + 30000;
+  for (;;) {
+    if (!vivo(CONEXION.tunel)) break;
+    if (leerDeLaCasa('mcp', 'tunel-url.txt') !== '') {
+      return { ok: true, motivo: 'abierto', url: leerDeLaCasa('mcp', 'tunel-url.txt') };
+    }
+    if (Date.now() >= limite) break;
+    await new Promise((listo) => setTimeout(listo, 500));
   }
-  CONEXION.tunel = arrancar('tunel', guionTunel, ['--home', casa]);
-  if (!await esperarFichero(rutaTunel, 30000) || !vivo(CONEXION.tunel)) {
-    const motivo = primeraLineaUtil(salida.tunel) || primeraLineaUtil(salida.mcp) || 'el túnel no llegó a abrirse';
-    apagarConexion();
-    return { ok: false, motivo };
+  // Lo que cuente el túnel: las líneas de cloudflared son largas, así que se
+  // buscan las que EXPLICAN algo (el aviso de cloudflared que falta, el error
+  // del túnel con nombre...) y no la primera línea cualquiera.
+  CONEXION.ultimoError = explicarElTunel(salida) || null;
+  const motivo = explicarElTunel(salida) || 'el túnel no llegó a abrirse';
+  // El túnel no llegó: se para su hijo (si sigue) y se limpia lo que haya
+  // escrito, pero el MCP local NO se toca — es local y no expone nada.
+  apagarElTunel();
+  limpiarFichero(rutaTunel);
+  return { ok: false, motivo };
+}
+
+/** La línea del túnel que explica algo (o la primera con algo, si no hay otra). */
+function explicarElTunel(texto) {
+  const lineas = String(texto).split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== '');
+  const util = lineas.find((l) => /✋|ERR|error|failed|no está|no encuentro|denied/i.test(l));
+  return util ?? (lineas[0] ?? '');
+}
+
+/** Arrancar un hijo y quedarse con lo que cuente (para poder explicar un fallo). */
+function arrancarHijo(guardar, guion, args) {
+  const hijo = spawn(process.execPath, [guion, ...args], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  hijo.stdout.setEncoding('utf8');
+  hijo.stderr.setEncoding('utf8');
+  hijo.stdout.on('data', guardar);
+  hijo.stderr.on('data', guardar);
+  return hijo;
+}
+
+/**
+ * R27 §3 · CAMBIAR LA CLAVE, a petición del usuario. Es lo único que la cambia:
+ * apagar y encender no la toca. Se hace donde siempre — `<casa>\mcp\http-secret.txt`
+ * y la URL completa—, con el formato del propio MCP (hex de 64).
+ *
+ * Y NO se toca ninguna cuenta ni se hace ningún login: aquí sólo se cambia una
+ * clave local.
+ * @param casa - la casa de RATACODE.
+ * @param {string} puerto - el puerto del MCP local, tal y como está en su URL.
+ * @returns `{ok, motivo, url}`.
+ */
+function cambiarLaClave(casa, puerto) {
+  const carpeta = join(casa, 'mcp');
+  mkdirSync(carpeta, { recursive: true });
+  const nueva = randomBytes(32).toString('hex');
+  const p = typeof puerto === 'number' && Number.isInteger(puerto) ? puerto : 3778;
+  try {
+    const rutaClave = join(carpeta, 'http-secret.txt');
+    writeFileSync(rutaClave, nueva + '\n', { mode: 0o600 });
+    // El MCP que esté en marcha adopta la clave nueva sin reiniciar (relee este
+    // fichero cada dos segundos: `mcp/lib/http.js`), y su `alRotar` reescribe la
+    // URL. Aquí se deja ya escrita, para que la tarjeta la lea al momento.
+    writeFileSync(join(carpeta, 'http-url.txt'), 'http://127.0.0.1:' + p + '/mcp/' + nueva + '\n', { mode: 0o600 });
+  } catch (e) {
+    return { ok: false, motivo: 'no pude cambiar la clave: ' + (e?.message ?? e) };
   }
-  return { ok: true, motivo: 'encendida desde RATACODE' };
+  return { ok: true, motivo: 'clave nueva', url: 'http://127.0.0.1:' + p + '/mcp/<oculta>' };
 }
 
 /**
@@ -921,44 +1295,223 @@ async function encenderConexion(casa) {
  */
 function apagarConexion() {
   const nuestros = [CONEXION.mcp, CONEXION.tunel].filter((h) => vivo(h));
+  const dichos = [];
   CONEXION.mcp = null;
   CONEXION.tunel = null;
   if (nuestros.length === 0) {
     return { ok: false, nuestro: false, motivo: 'la conexión no la encendió RATACODE: ciérrala donde la lanzaste (Ctrl+C)' };
   }
   for (const hijo of nuestros) {
-    try {
-      if (process.platform === 'win32' && hijo.pid !== undefined) {
-        spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'taskkill /pid ' + hijo.pid + '/T /F'], { windowsHide: true, stdio: 'ignore' });
-      } else {
-        hijo.kill('SIGTERM');
-      }
-    } catch { /* ya se fue */ }
+    const parado = matarHijo(hijo);
+    dichos.push(parado.dicho);
   }
+  // R27 · se limpia lo que escribieron: si un fichero se queda, el estado
+  // siguiente diría que hay conexión.
+  limpiarFichero(join(casaDeEstaCasa(), 'mcp', 'tunel-url.txt'));
+  limpiarFichero(join(casaDeEstaCasa(), 'mcp', 'tunel.pid'));
+  CONEXION.ultimoApagado = dichos.join(' | ') || null;
   return { ok: true, nuestro: true, motivo: 'apagada' };
 }
 
 /**
- * El estado de la conexión, para la tarjeta «ChatGPT y Claude web»: si hay una
- * dirección pública que pegar (el túnel abierto), cuál es, y si quien la abrió
- * fue RATACODE (entonces el botón «Apagar» puede cerrarla).
- * @param req - el pedido, para componer la URL del panel si falta.
- * @returns el estado, con `conectado`, `direccion` y `nuestro`.
+ * R27 §2 · Apagar SÓLO el túnel (la mitad pública). Sirve para el botón «Apagar
+ * túnel» de la tarjeta: el MCP local es local, y no hay razón para apagarlo
+ * cuando lo que se quiere es dejar de estar expuesto.
+ * @returns `{ok, motivo}`.
  */
-function estadoDeLaConexion(req) {
-  const base = estadoDelMcp(req);
+function apagarElTunel() {
+  const nuestro = CONEXION.tunel;
+  CONEXION.tunel = null;
+  if (!vivo(nuestro)) {
+    limpiarFichero(join(casaDeEstaCasa(), 'mcp', 'tunel-url.txt'));
+    limpiarFichero(join(casaDeEstaCasa(), 'mcp', 'tunel.pid'));
+    return { ok: true, motivo: 'el túnel no lo encendió RATACODE (o ya estaba cerrado)' };
+  }
+  const parado = matarHijo(nuestro);
+  limpiarFichero(join(casaDeEstaCasa(), 'mcp', 'tunel-url.txt'));
+  limpiarFichero(join(casaDeEstaCasa(), 'mcp', 'tunel.pid'));
+  return { ok: true, motivo: 'túnel cerrado (' + parado.dicho + ')' };
+}
+
+/**
+ * Matar un hijo que arrancamos nosotros (en Windows, el árbol entero).
+ *
+ * R27 · se ESPERA a que el sistema termine de matarlo y se apunta lo que diga
+ * `taskkill`: si no se pudiera (permisos, un sandbox por medio), el botón
+ * «Apagar» no puede contestar «apagada» tan tranquilo. Antes se lanzaba el
+ * `taskkill` sin esperar y sin mirar su salida, y un fallo quedaba invisible.
+ * @param {object} hijo - el proceso hijo.
+ * @returns {{ok: boolean, dicho: string}} si se pudo y qué dijo el sistema.
+ */
+function matarHijo(hijo) {
+  if (hijo === null || hijo === undefined || hijo.pid === undefined) return { ok: false, dicho: 'sin pid' };
+  if (process.platform === 'win32') {
+    try {
+      const r = spawnSync(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'taskkill /pid ' + hijo.pid + ' /T /F'],
+        { windowsHide: true, encoding: 'utf8', timeout: 8000 });
+      const dicho = String(r.stdout ?? '').trim() || String(r.stderr ?? '').trim();
+      // `taskkill` devuelve 128 si el proceso ya no existía: eso también es «está parado».
+      return { ok: r.status === 0 || /no se encuentra|not found|no running/i.test(dicho), dicho: dicho.replace(/\s+/g, ' ').slice(0, 200) };
+    } catch (e) {
+      return { ok: false, dicho: String(e?.message ?? e).slice(0, 200) };
+    }
+  }
+  try {
+    hijo.kill('SIGTERM');
+    return { ok: true, dicho: 'SIGTERM' };
+  } catch (e) {
+    return { ok: false, dicho: String(e?.message ?? e).slice(0, 200) };
+  }
+}
+
+/**
+ * El estado de la conexión, para la tarjeta «ChatGPT y Claude web»: si hay una
+ * dirección pública que pegar (el túnel VIVO), cuál es, y si quien la abrió
+ * fue RATACODE (entonces el botón «Apagar» puede cerrarla).
+ *
+ * R27 §2 · `conectado` es VERDAD sólo si el túnel está vivo (su proceso existe)
+ * y `mcpLocal` sólo si el MCP por HTTP **contesta como el nuestro** (mira
+ * `vivoElMcp`: que el puerto escuche no basta, puede ser el MCP de otra casa).
+ * Los ficheros de un proceso muerto se limpian al arrancar y al encender
+ * (`limpiarLoMuerto`), así que «Conectado» no puede quedarse puesto cuando ya no
+ * hay nadie.
+ * @param req - el pedido, para componer la URL del panel si falta.
+ * @returns {Promise<object>} el estado, con `conectado`, `direccion` y `nuestro`.
+ */
+async function estadoDeLaConexion(req) {
+  const base = await estadoDelMcp(req);
   const conectado = base.tunel.abierto;
+  // R27 §2 · las dos mitades se cuentan por separado: el MCP local puede estar
+  // encendido sin túnel (es lo normal si `cloudflared` no está instalado), y la
+  // tarjeta lo dice en vez de fingir que no hay nada.
+  const mcpLocal = base.http.abierto;
+  let pistaTunel = null;
+  if (!conectado) {
+    try {
+      execFileSync('where', ['cloudflared'], { timeout: 4000, stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+    } catch {
+      pistaTunel = 'El túnel necesita cloudflared: instálalo con «winget install Cloudflare.cloudflared» y vuelve a pulsar Encender. Mientras tanto, el MCP local ya funciona (para Claude Code, Codex o el panel).';
+    }
+    // R27 §8 · si la casa tiene túnel con nombre configurado, se dice que la
+    // dirección puede ser fija (y no la efímera del túnel rápido).
+    const ajustes = ajustesDeLaCasa();
+    if (pistaTunel === null && ajustes.tunelHost !== null) {
+      pistaTunel = 'Esta casa tiene túnel con nombre (' + ajustes.tunelNombre + ' → https://' + ajustes.tunelHost + '): al encender, la dirección será siempre la misma.';
+    }
+  }
   return {
     ok: true,
     conectado,
     direccion: conectado ? base.tunel.url : null,
+    // `nuestro` es «lo encendió RATACODE»: hace falta que el hijo siga vivo.
     nuestro: vivo(CONEXION.mcp) || vivo(CONEXION.tunel),
-    mcpLocal: base.http.abierto,
+    // Y si el túnel está abierto pero NO lo encendió esta ventana, se dice: se
+    // apaga donde se lanzó (Ctrl+C), y la tarjeta lo cuenta en una línea.
+    mcpLocal,
+    pistaTunel,
+    // R27 · los dos hijos que ha arrancado RATACODE (para poder comprobarlo y
+    // para poder decir «lo encendió RATACODE» sin adivinar).
+    procesos: {
+      mcp: vivo(CONEXION.mcp) ? CONEXION.mcp.pid : null,
+      tunel: vivo(CONEXION.tunel) ? CONEXION.tunel.pid : null,
+      ultimoError: CONEXION.ultimoError ?? null,
+      ultimoApagado: CONEXION.ultimoApagado ?? null,
+    },
+    http: base.http,
+    tunel: base.tunel,
     carpeta: base.carpeta,
     carpetas: base.carpetas,
     comandos: base.comandos,
     panel: base.panel,
     pegar: base.pegar,
+  };
+}
+
+/**
+ * R27 §8 · LA DIRECCIÓN FIJA, en TRES PASOS (sin hacer login ni tocar cuentas).
+ *
+ * El túnel rápido da un dominio NUEVO cada vez que se enciende, así que la
+ * dirección que ChatGPT tiene pegada deja de valer. La solución es un túnel
+ * NOMBRADO sobre un subdominio del usuario: entonces la dirección es siempre la
+ * misma. `mcp\tunel.mjs` lo arranca con `--nombre` y `--host` (que vienen de
+ * `mcp.tunel_nombre` y `mcp.tunel_host`); lo que falta es que la cuenta lo tenga
+ * dado de alta, y eso lo hace el humano en su Cloudflare.
+ *
+ * Aquí NO se lee `%USERPROFILE%\.cloudflared` (son credenciales del usuario), no
+ * se hace login y no se crea ningún túnel: se dicen los tres pasos, se deja
+ * escrito el fichero de configuración que el túnel leerá, y se enseña el comando.
+ * @param req - el pedido, para el caso de que falte el `url.txt` del panel.
+ * @returns {Promise<object>} el plan, con sus tres pasos y los comandos.
+ */
+async function planDelTunelNombrado(req) {
+  const casa = casaDeEstaCasa();
+  const ajustes = ajustesDeLaCasa();
+  const raiz = raizDeLaInstalacion();
+  // El nombre y el host: los de la casa si están puestos; si no, el de la casa
+  // de RATACODE de siempre, para que el ejemplo sea real y no un `<tu-nombre>`.
+  const nombre = ajustes.tunelNombre ?? TUNEL_NOMBRADO;
+  const host = ajustes.tunelHost ?? (ajustes.tunelNombre === null ? TUNEL_NOMBRADO : nombre + '.kittcat.com');
+  const puerto = ajustes.puerto;
+  const rutaConfig = join(casa, 'mcp', 'cloudflared.yml');
+  let tieneCloudflared;
+  try {
+    execFileSync('where', ['cloudflared'], { timeout: 4000, stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+    tieneCloudflared = true;
+  } catch {
+    tieneCloudflared = false;
+  }
+  const base = await estadoDelMcp(req);
+  const lineas = [
+    '# RATACODE · config del túnel nombrado. La escribe Ajustes › Conexiones.',
+    '# La usa `mcp\\tunel.mjs` cuando la casa declara mcp.tunel_nombre y mcp.tunel_host.',
+    'tunnel: ' + nombre,
+    'ingress:',
+    '  - hostname: ' + host,
+    '    service: http://127.0.0.1:' + puerto,
+    '  - service: http_status:404',
+    '',
+  ];
+  let escrito = false;
+  try {
+    mkdirSync(join(casa, 'mcp'), { recursive: true });
+    writeFileSync(rutaConfig, lineas.join('\n'), { mode: 0o600 });
+    escrito = true;
+  } catch { /* sin permiso: se dicen los pasos y ya */ }
+  return {
+    ok: true,
+    nombre,
+    host,
+    hostname: host,
+    puerto,
+    fichero: escrito ? rutaConfig : null,
+    tiene_cloudflared: tieneCloudflared,
+    configurado: ajustes.tunelHost !== null,
+    // Los TRES comandos que haría Patxi, tal cual (el paso 2 es en la web de
+    // Cloudflare: ahí no se puede entrar desde aquí, ni se debe).
+    comandos: [
+      'cloudflared tunnel login',
+      'cloudflared tunnel create ' + nombre,
+      'cloudflared tunnel route dns ' + nombre + ' ' + host,
+    ],
+    ajustes: [
+      'mcp:',
+      '  tunel_nombre: ' + nombre,
+      '  tunel_host: ' + host,
+    ],
+    pasos: [
+      '1 · En tu PC, con tu cuenta de Cloudflare (esto lo haces tú; aquí no se hace login): '
+        + '`cloudflared tunnel login` y luego `cloudflared tunnel create ' + nombre + '`. '
+        + 'Las credenciales quedan en %USERPROFILE%\\.cloudflared y RATACODE no las lee.',
+      '2 · En Cloudflare: añade el hostname ' + host + ' al túnel (o `cloudflared tunnel route dns ' + nombre + ' ' + host + '`) '
+        + 'y apunta el servicio a http://127.0.0.1:' + puerto + '.',
+      '3 · En ' + join(casa, 'settings.yaml') + ' pon las dos líneas de abajo y pulsa «Encender»: '
+        + 'la dirección será SIEMPRE https://' + host + '/mcp/<clave>, y el conector de ChatGPT se crea una sola vez.',
+    ],
+    nota: tieneCloudflared
+      ? 'Con el túnel con nombre, la dirección no cambia: el conector de ChatGPT se crea UNA vez.'
+      : 'cloudflared no está instalado en este equipo: instálalo con «winget install Cloudflare.cloudflared» antes del paso 3.',
+    efimero: 'El túnel rápido (sin cuenta) da un dominio NUEVO cada vez que se enciende: la dirección de ChatGPT cambia y hay que volver a pegarla. El túnel con nombre es lo que la deja fija.',
+    estado: base.tunel.fijo,
   };
 }
 
@@ -1060,9 +1613,24 @@ function montarRutas(c) {
   const mcp = (req, res) => {
     if (!autorizada(req, res)) return;
     if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'Usa GET.' }); return; }
-    json(res, 200, estadoDelMcp(req));
+    estadoDelMcp(req).then((estado) => json(res, 200, estado),
+      (e) => json(res, 500, { ok: false, error: String(e?.message ?? e) }));
   };
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/mcp', handler: mcp }), 'ratacode-piel.mcp');
+
+  // GET /ratacode/mcp/vivo → (R27 §1) la foto barata de lo que está haciendo el
+  // MCP: las tareas de la casa (con su sesión `mcp-<task_id>`) y las últimas
+  // líneas del cuaderno, con las de SÓLO LECTURA dentro. La cara de cliente la
+  // sondea cada pocos segundos para (a) refrescar la barra lateral EN CALIENTE
+  // cuando aparece una tarea nueva —sin recargar la página— y (b) pintar en
+  // Actividad lo que hizo el chat aunque no lanzara ninguna tarea.
+  const mcpVivo = (req, res) => {
+    if (!autorizada(req, res)) return;
+    if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'Usa GET.' }); return; }
+    try { json(res, 200, fotoDelMcp()); }
+    catch (e) { json(res, 500, { ok: false, error: String(e?.message ?? e) }); }
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/mcp/vivo', handler: mcpVivo }), 'ratacode-piel.mcp-vivo');
 
   // GET /ratacode/clave → ¿le falta la clave al modelo por defecto de la casa?
   // Lo pregunta el guion de la piel para avisar en español encima de la caja.
@@ -1087,7 +1655,8 @@ function montarRutas(c) {
   const conexion = (req, res) => {
     if (!autorizada(req, res)) return;
     if (req.method !== 'GET') { json(res, 405, { ok: false, error: 'Usa GET.' }); return; }
-    json(res, 200, estadoDeLaConexion(req));
+    estadoDeLaConexion(req).then((estado) => json(res, 200, estado),
+      (e) => json(res, 500, { ok: false, error: String(e?.message ?? e) }));
   };
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/conexion', handler: conexion }), 'ratacode-piel.conexion');
 
@@ -1095,17 +1664,66 @@ function montarRutas(c) {
     if (!autorizada(req, res)) return;
     if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'Usa POST.' }); return; }
     const casa = casaDeEstaCasa();
+    /** Contestar con el estado ya recalculado (el botón enseña la verdad nueva). */
+    const contestar = (dicho) => {
+      estadoDeLaConexion(req).then(
+        (estado) => json(res, 200, { ...dicho, estado }),
+        (e) => json(res, 500, { ok: false, motivo: String(e?.message ?? e) }),
+      );
+    };
     if (cual === 'apagar') {
-      const dicho = apagarConexion();
-      json(res, 200, { ...dicho, estado: estadoDeLaConexion(req) });
+      contestar(apagarConexion());
       return;
     }
-    encenderConexion(casa).then((dicho) => {
-      json(res, 200, { ...dicho, estado: estadoDeLaConexion(req) });
-    }, (e) => json(res, 500, { ok: false, motivo: String(e?.message ?? e) }));
+    // R27 §2 · «Apagar túnel»: cierra SÓLO la mitad pública y deja el MCP local
+    // en pie (que es local, y no expone nada).
+    if (cual === 'apagar-tunel') {
+      contestar(apagarElTunel());
+      return;
+    }
+    encenderConexion(casa).then(contestar,
+      (e) => json(res, 500, { ok: false, motivo: String(e?.message ?? e) }));
   };
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/conexion/encender', handler: botonConexion('encender') }), 'ratacode-piel.conexion-encender');
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/conexion/apagar', handler: botonConexion('apagar') }), 'ratacode-piel.conexion-apagar');
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/conexion/apagar-tunel', handler: botonConexion('apagar-tunel') }), 'ratacode-piel.conexion-apagar-tunel');
+  // R27 §2 · AL ABRIR EL PANEL, la conexión se mira de verdad: si los ficheros
+  // de un MCP o de un túnel muertos siguen escritos, se limpian AQUÍ (una vez),
+  // para que lo primero que vea el usuario sea la verdad y no un «Conectado» de
+  // un proceso que ya no existe.
+  limpiarLoMuerto().catch(() => { /* sin casa todavía: se mirará al pedir el estado */ });
+
+  // POST /ratacode/conexion/clave → (R27 §3) el botón «Cambiar clave»: cambia la
+  // clave del MCP por HTTP y su URL, y NADA MÁS. El MCP que esté en marcha la
+  // adopta sin reiniciar (relee el fichero cada 2 s). No toca ninguna cuenta, no
+  // hace ningún login y no enciende ni apaga nada.
+  const cambiarClave = (req, res) => {
+    if (!autorizada(req, res)) return;
+    if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'Usa POST.' }); return; }
+    const casa = casaDeEstaCasa();
+    // El puerto es el de la casa (el mismo en el que está escuchando, si está):
+    // así la URL nueva sigue valiendo para el conector de ChatGPT.
+    const dicho = cambiarLaClave(casa, ajustesDeLaCasa().puerto);
+    estadoDeLaConexion(req).then((estado) => json(res, 200, { ...dicho, estado }),
+      (e) => json(res, 500, { ok: false, motivo: String(e?.message ?? e) }));
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/conexion/clave', handler: cambiarClave }), 'ratacode-piel.conexion-clave');
+
+  // GET /ratacode/conexion/tunel-nombrado → (R27 §8) los TRES pasos y los TRES
+  // comandos que haría Patxi para tener una dirección FIJA (un subdominio suyo)
+  // en vez del dominio efímero del túnel rápido, que cambia cada vez que se
+  // enciende. Aquí NO se hace login, ni se toca ninguna cuenta, ni se crea
+  // ningún túnel, ni se leen las credenciales de `%USERPROFILE%\.cloudflared`:
+  // sólo se prepara el fichero de configuración del TÚNEL CON NOMBRE
+  // (`<casa>\mcp\cloudflared.yml`, el mismo que `tunel.mjs` usa) y se dicen los
+  // pasos. Si no hay cloudflared instalado, se dice.
+  const tunelNombrado = (req, res) => {
+    if (!autorizada(req, res)) return;
+    if (req.method !== 'GET' && req.method !== 'POST') { json(res, 405, { ok: false, error: 'Usa GET o POST.' }); return; }
+    planDelTunelNombrado(req).then((plan) => json(res, 200, plan),
+      (e) => json(res, 500, { ok: false, error: String(e?.message ?? e) }));
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/conexion/tunel-nombrado', handler: tunelNombrado }), 'ratacode-piel.tunel-nombrado');
   // Si la piel se va (el panel se cierra), no se dejan el MCP ni el túnel
   // abiertos por detrás: se paran los dos, que los arrancó RATACODE.
   c.effect(() => () => { apagarConexion(); }, 'ratacode-piel.conexion-cierre');
