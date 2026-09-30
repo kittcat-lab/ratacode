@@ -132,6 +132,13 @@ export function iniciarServidorHttp({ fabricaServidor, puerto, clave, rutaClave,
   let claveViva = clave;
   let atendiendose = 0;
   let temporizadorClave;
+  // R27 §1 · QUIÉN LLAMA, para el cuaderno. En modo sin estado cada POST lo
+  // atiende un `McpServer` NUEVO, y el `initialize` (con el `clientInfo`) viene
+  // en OTRA petición: el servidor que atiende una herramienta no ha visto
+  // nunca el nombre y el cuaderno se quedaba en «MCP». Aquí se recuerda el
+  // último cliente que se presentó y se le da a cada servidor que se fabrica,
+  // así la fila de Actividad dice «ChatGPT», que es lo que se quiere ver.
+  let quienLlama = null;
 
   if (typeof rutaClave === 'string' && rutaClave !== '') {
     temporizadorClave = setInterval(() => {
@@ -201,11 +208,14 @@ export function iniciarServidorHttp({ fabricaServidor, puerto, clave, rutaClave,
         // `initialize`, así que allí no hay nombre que preguntar y el cuaderno se
         // quedaba en «MCP». Se apunta aquí, de la petición que sí lo trae.
         const nombre = cuerpo?.params?.clientInfo?.name;
-        if (cuerpo?.method === 'initialize' && typeof nombre === 'string' && nombre.trim() !== '' && typeof alPresentarse === 'function') {
-          alPresentarse(nombre.trim().slice(0, 80));
+        if (typeof nombre === 'string' && nombre.trim() !== '') {
+          quienLlama = nombre.trim().slice(0, 80);
+          // Sólo el `initialize` se anuncia como «cliente conectado» (para el
+          // panel); el nombre se recuerda para TODAS las peticiones.
+          if (cuerpo?.method === 'initialize' && typeof alPresentarse === 'function') alPresentarse(quienLlama);
         }
         const transporte = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-        const servidor = fabricaServidor();
+        const servidor = fabricaServidor(quienLlama);
         await servidor.connect(transporte);
         res.on('close', () => { servidor.close().catch(() => {}); transporte.close().catch(() => {}); });
         await transporte.handleRequest(req, res, cuerpo);
