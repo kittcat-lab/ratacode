@@ -604,7 +604,7 @@ export async function enviarMensaje({ ctx, casa, raices, sessionId, titulo, mens
       ok: false,
       error: 'SESSION_NOT_ALLOWED',
       session_id: sesion.session_id,
-      motivo: 'esa sesión no está marcada «Abierta a ChatGPT»: Patxi tiene que encenderlo en la cabecera de ese chat',
+      motivo: 'esa sesión no está marcada «Abierta a ChatGPT»: hay que encenderlo en la cabecera de ese chat',
     };
   }
   if (sesion.en_espacio_autorizado !== true) {

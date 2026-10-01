@@ -114,8 +114,8 @@ ChatGPT **no acepta claves propias** ni cabeceras que le inventes
 ([docs de autenticación](https://developers.openai.com/plugins/build/auth): no admite claves de API
 de cliente), así que la clave viaja **dentro de la URL**: es una URL-capacidad. El servidor la
 admite de tres formas —en la ruta `/mcp/<clave>`, en la consulta `/mcp?clave=<clave>` o en
-`Authorization: Bearer <clave>`— por si un cliente no traga con una de ellas; la que se le da a
-Patxi es la de la ruta. Y **el `Origin` de otra web se corta con un 403**: sólo se atiende desde
+`Authorization: Bearer <clave>`— por si un cliente no traga con una de ellas; la que se le da al
+usuario es la de la ruta. Y **el `Origin` de otra web se corta con un 403**: sólo se atiende desde
 loopback y desde OpenAI.
 
 Pasos (documentación oficial de hoy: [conectar y probar](https://developers.openai.com/plugins/deploy/connect-chatgpt)):
@@ -193,7 +193,7 @@ fork y sin copiar la conversación.
 Dos condiciones, y las dos las decide el humano (el TEXTO del mensaje no da permisos nunca):
 
 1. la carpeta de la sesión tiene que estar en `mcp.workspaces` de la casa, y
-2. Patxi tiene que haberla marcado **«Abierta a ChatGPT»** en la cabecera de ese chat. Está
+2. el usuario tiene que haberla marcado **«Abierta a ChatGPT»** en la cabecera de ese chat. Está
    **apagado por defecto**.
 
 Si no se cumplen, la herramienta devuelve `SESSION_NOT_ALLOWED` y **no envía nada**. Y mientras una
