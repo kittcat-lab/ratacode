@@ -1,0 +1,5 @@
+# Los YAML de RATACODE van SIEMPRE con LF, también en una copia de Windows con
+# core.autocrlf: la fábrica en CRLF dejaba la casa con `agent-default-model`
+# repetido (YAML inválido). Lo vigila pruebas/fabrica.test.mjs.
+*.yaml text eol=lf
+*.yml text eol=lf

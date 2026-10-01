@@ -22,7 +22,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { entornoDelMotorSinClaves } from './claves.js';
 import { copiarCerco, parcheDePolitica } from './seguridad.js';
-import { parcheDeAjustes } from './casa.js';
+import { TELEMETRIA, parcheDeAjustes } from './casa.js';
 
 /** Cuánto se espera a que un hijo termine de irse antes de matarlo. */
 const GRACIA_MS = 2500;
@@ -63,7 +63,8 @@ export function lanzarTarea({
   writeFileSync(rutaParche, parcheDePolitica({ modo, espacio, raices: raices ?? [espacio] }));
   // DSH 0.2 · el perfil sdk no tiene los proveedores ni el modelo del panel (viven
   // en el parche del perfil web): van en un overlay ANTES de la política, que manda.
-  const rutaAjustes = parcheDeAjustes(casa, 'mcp-' + id + '.yml', { ids: ['agent-default-model', 'llm-pi-ai', 'llm-deepseek'] });
+  // Y la telemetría del motor, como la tenga la casa (apagada de serie).
+  const rutaAjustes = parcheDeAjustes(casa, 'mcp-' + id + '.yml', { ids: ['agent-default-model', 'llm-pi-ai', 'llm-deepseek', TELEMETRIA.id] });
 
   // El hijo arranca SIN las variables de claves (ni las del cliente MCP ni las
   // de Windows): la única fuente de claves es el almacén de la casa, que es lo

@@ -273,3 +273,9 @@ llm-pi-ai:
 #         entrada_por_millon: 0.14
 #         salida_por_millon: 0.28
 #         moneda: EUR
+
+# Enchufes de serie (navegador, reloj, agenda, preguntar, voz, terminal y codex;
+# claude y equipos, apagados). Se apagan y encienden en <casa>\ratacode.yaml,
+# sección `enchufes:` (RATACODE deja ahí la lista comentada al estrenar la casa).
+# La telemetría del motor («Upload Session Log») va APAGADA de serie: se cambia
+# en Ajustes › General.

@@ -12,6 +12,10 @@
  *       `ratacode-piel`, copiado dentro del perfil, que es como el cargador de
  *       DSH resuelve un plugin fuera del árbol) y `profiles/headless`
  *       (`dsh-base` + `dsh-headless`, el modo sin pantalla que DSH ya trae).
+ *   1b · ENCHUFES DE SERIE en los dos perfiles (`bin/enchufes.js`): navegador,
+ *       reloj, agenda, preguntar, voz, terminal y codex (claude y equipos, con
+ *       opción). Se apagan en `<casa>\ratacode.yaml` › `enchufes.<clave>: false`.
+ *       Y la telemetría del motor («Upload Session Log»), APAGADA de serie.
  *   2 · ESTRENA la casa (sólo la primera vez, si no hay `settings.yaml`):
  *       copia `fabrica\settings.yaml` — B.AI y OpenRouter de fábrica, el aviso
  *       «Internal Testing» ya aceptado y `permission.defaultPreset:
@@ -69,7 +73,10 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
 import { entornoDelMotorSinClaves } from '../mcp/lib/claves.js';
-import { importarAjustes, leerAjustes as leerAjustesDeLaCasa, parcheDeAjustes } from '../mcp/lib/casa.js';
+import {
+  CABECERA_RATACODE_YAML, TELEMETRIA, importarAjustes, leerAjustes as leerAjustesDeLaCasa, parcheDeAjustes,
+} from '../mcp/lib/casa.js';
+import { anunciarEnAjustes, asegurarEnchufes, resumen as resumenEnchufes } from './enchufes.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const PAQUETE = resolve(AQUI, '..');
@@ -264,6 +271,16 @@ function leerOrdenes(argv) {
 }
 
 // ── 1 · la casa y los perfiles ──────────────────────────────────────────────
+/**
+ * Un texto con saltos `\n`. La fábrica puede llegar en CRLF (una copia de
+ * Windows con `core.autocrlf`), y las reescrituras por bloques de aquí buscan
+ * `\n`: con CRLF no encontraban `agent-default-model:` y lo añadían otra vez al
+ * final, y el YAML quedaba con la clave repetida (inválido).
+ */
+function sinCR(texto) {
+  return texto.replace(/\r\n?/g, '\n');
+}
+
 function escribirSiFalta(ruta, texto) {
   if (existsSync(ruta)) return false;
   mkdirSync(dirname(ruta), { recursive: true });
@@ -349,6 +366,29 @@ function asegurarCapaPresets(perfil) {
   return { puesto: true, reparado, motivo: reparado ? 'capa añadida al final' : 'añadida al final' };
 }
 
+/**
+ * La telemetría del motor, APAGADA de serie: la fila `session-log-deepseek`
+ * con `enabled: false` en el parche del perfil web, que es donde escribe el
+ * interruptor de Ajustes › General («Upload Session Log…»). Sólo si el parche
+ * no tiene ya esa fila: si el usuario la enciende, se queda encendida.
+ * @returns `{puesto, motivo}`.
+ */
+function apagarTelemetria(perfil) {
+  const ruta = join(perfil, 'cordis.patch.yml');
+  let texto;
+  try { texto = readFileSync(ruta, 'utf8'); } catch { return { puesto: false, motivo: 'sin cordis.patch.yml' }; }
+  const filas = filasDelParche(texto);
+  if (filas === null) return { puesto: false, motivo: 'el cordis.patch.yml del perfil no se puede leer como YAML: no lo toco' };
+  const fila = filas.find((f) => f !== null && typeof f === 'object' && f.id === TELEMETRIA.id);
+  if (fila !== undefined) {
+    return { puesto: false, motivo: fila.config?.enabled === false ? 'apagada' : 'ENCENDIDA (la encendiste tú en Ajustes › General)' };
+  }
+  const bloque = '# RATACODE · telemetría del motor apagada de serie (Ajustes › General › «Upload Session Log…»).\n'
+    + yaml.dump([TELEMETRIA]);
+  escribir(ruta, filas.length === 0 ? bloque : (texto.endsWith('\n') ? texto + '\n' : texto + '\n\n') + bloque);
+  return { puesto: true, motivo: 'apagada de serie' };
+}
+
 /** El perfil: sus bundles, en orden. Si ya existe, NO se pisa: se completa. */
 function prepararPerfil(perfil, nombre, bundles, patchReload) {
   const manifest = join(perfil, 'package.json');
@@ -410,7 +450,7 @@ function escribir(ruta, texto) {
 function aceptarAviso(casa) {
   const ruta = join(casa, 'settings.yaml');
   let actual = '';
-  try { actual = readFileSync(ruta, 'utf8'); } catch { actual = ''; }
+  try { actual = sinCR(readFileSync(ruta, 'utf8')); } catch { actual = ''; }
   if (/welcomeNoticeVersion\s*:/.test(actual) || leerAjustes(casa)['ui-settings-general']?.welcomeNoticeVersion) return 'ya estaba';
   const seccion = (actual.trim() === '' ? '' : actual.replace(/\s*$/, '\n'))
     + 'ui-onboarding:\n  welcomeNoticeVersion: ' + AVISO_ACEPTADO + '\n';
@@ -449,6 +489,7 @@ function primerModeloDeclarado(ajustes, proveedor) {
  * Si el bloque no está, se añade al final.
  */
 function ponerModeloEnTexto(texto, proveedor, modelo) {
+  texto = sinCR(texto);
   const bloque = 'agent-default-model:\n  provider: ' + proveedor + '\n  model: ' + JSON.stringify(modelo) + '\n';
   const bloqueActual = /^agent-default-model:[ \t]*\n(?:[ \t]+[^\n]*\n)*/m;
   if (bloqueActual.test(texto)) return texto.replace(bloqueActual, bloque);
@@ -464,7 +505,7 @@ function estrenarCasa(casa, entorno) {
   const ruta = join(casa, 'settings.yaml');
   if (existsSync(ruta) || existsSync(ruta + '.imported')) return { nueva: false, aviso: aceptarAviso(casa), modelo: null };
   mkdirSync(casa, { recursive: true });
-  let texto = readFileSync(FABRICA_ORIGEN, 'utf8');
+  let texto = sinCR(readFileSync(FABRICA_ORIGEN, 'utf8'));
   const elegido = primerProveedorConClave(entorno);
   if (elegido !== null) {
     const ajustes = yaml.load(texto) ?? {};
@@ -495,7 +536,7 @@ function estrenarCasa(casa, entorno) {
  */
 function ponerIdiomaPorDefecto(casa, idioma = IDIOMA_POR_DEFECTO) {
   const ruta = join(casa, 'settings.yaml');
-  const texto = existsSync(ruta) ? readFileSync(ruta, 'utf8') : '';
+  const texto = existsSync(ruta) ? sinCR(readFileSync(ruta, 'utf8')) : '';
   const actual = leerAjustesDeLaCasa(casa).documento.locale?.preference;
   if (actual === idioma) return { cambiado: false, motivo: 'ya estaba en ' + idioma };
   if (typeof actual === 'string' && actual.trim() !== '') {
@@ -813,7 +854,7 @@ function entornoSinClaves(casa) {
 }
 
 // ── el encargo sin pantalla ─────────────────────────────────────────────────
-function correrHeadless({ motor, casa, carpeta, perfilHeadless, encargo, modelo }) {
+function correrHeadless({ motor, casa, carpeta, perfilHeadless, encargo, modelo, parcheEnchufes }) {
   // DSH 0.2 · el perfil headless no tiene los ajustes del panel (viven en el
   // parche del perfil web): van en un overlay, y `--modelo` cambia SÓLO ahí.
   const cambios = {};
@@ -822,8 +863,10 @@ function correrHeadless({ motor, casa, carpeta, perfilHeadless, encargo, modelo 
     eleccion = resolverModelo(casa, modelo, leerAjustes(casa)['agent-default-model']);
     cambios['agent-default-model'] = { provider: eleccion.proveedor, model: eleccion.modelo };
   }
-  const parches = [parcheDeAjustes(casa, 'headless-' + process.pid + '.yml', { cambios })];
-  let temporales = [...parches];
+  const overlayAjustes = parcheDeAjustes(casa, 'headless-' + process.pid + '.yml', { cambios });
+  // El de los enchufes apagados no es temporal: lo rehace cada arranque.
+  const parches = [overlayAjustes, ...(parcheEnchufes ? [parcheEnchufes] : [])];
+  let temporales = [overlayAjustes];
   if (eleccion !== null) {
     process.stdout.write('RATACODE · headless · modelo de este encargo: ' + eleccion.modelo
       + ' (proveedor ' + eleccion.proveedor + ')\n');
@@ -927,10 +970,12 @@ function esperarPuerto(url, plazoMs = 20000) {
   });
 }
 
-function correrPanel({ motor, casa, carpeta, ordenes }) {
+function correrPanel({ motor, casa, carpeta, ordenes, parcheEnchufes }) {
   const parche = parcheSelectorCarpeta(casa);
   const conClavesEnWindows = anotarVariablesDeClaves(casa);
-  const args = [motor.bin, '--profile', 'web', '--patch', parche, '--port', String(ordenes.puerto)];
+  // Los --patch, ANTES de --port: lo que va detrás es del app y no los admite (medido en la 0.1.5).
+  const args = [motor.bin, '--profile', 'web', '--patch', parche,
+    ...(parcheEnchufes ? ['--patch', parcheEnchufes] : []), '--port', String(ordenes.puerto)];
   if (!ordenes.abrir) args.push('--no-open');
   const rutaUrl = join(casa, 'url.txt');
   const empezo = Date.now();
@@ -1067,6 +1112,21 @@ async function main() {
   const perfilHeadless = join(casa, 'profiles', 'headless');
   const motor = binDelMotor();
 
+  const capaWeb = prepararPerfil(perfilWeb, 'dsh-profile-web',
+    ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', NOMBRE_PLUGIN], 'live');
+  prepararPerfil(perfilHeadless, 'dsh-profile-headless',
+    ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'], 'startup');
+  const estreno = estrenarCasa(casa, process.env);
+  // R32 · los enchufes de serie, ANTES de copiar la piel: el pnpm de los que se
+  // instalan en el perfil (codex, claude) toca su node_modules. Lo que diga
+  // `ratacode.yaml` (o, en una casa de la 0.2.9 aún sin importar, su
+  // `settings.yaml` › `ratacode.enchufes`) manda.
+  anunciarEnAjustes(casa, CABECERA_RATACODE_YAML);
+  const elegidos = leerAjustes(casa).enchufes ?? {};
+  const enchufes = {
+    web: asegurarEnchufes({ motor, casa, perfil: perfilWeb, nombre: 'web', elegidos }),
+    headless: asegurarEnchufes({ motor, casa, perfil: perfilHeadless, nombre: 'headless', elegidos }),
+  };
   const cuenta = copiarArbol(PIEL_ORIGEN, join(perfilWeb, 'node_modules', NOMBRE_PLUGIN), { copiados: 0, iguales: 0 });
   // El texto de la conexión viaja CON el plugin: la piel lo sirve en
   // /ratacode/handshake (Ajustes > Conexiones) y, copiada dentro del perfil, no
@@ -1076,11 +1136,6 @@ async function main() {
   // dentro), para que los dos comandos del MCP que enseña Ajustes > Conexiones
   // lleven la ruta de verdad y no un «<ruta>» que el usuario tenga que buscar.
   writeFileSync(join(perfilWeb, 'node_modules', NOMBRE_PLUGIN, 'instalacion.txt'), PAQUETE + '\n');
-  const capaWeb = prepararPerfil(perfilWeb, 'dsh-profile-web',
-    ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', NOMBRE_PLUGIN], 'live');
-  prepararPerfil(perfilHeadless, 'dsh-profile-headless',
-    ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'], 'startup');
-  const estreno = estrenarCasa(casa, process.env);
   // Los 9 modos, dentro de la piel (ver `asegurarModos`): sólo escribe lo que cambia.
   const modos = asegurarModos(join(perfilWeb, 'node_modules', NOMBRE_PLUGIN));
   // R21 · el español de la casa: se apunta `locale.preference: es` si la casa no
@@ -1093,6 +1148,9 @@ async function main() {
   // DSH 0.2 · el settings.yaml (el de fábrica, o el de una casa vieja) pasa al
   // parche del perfil web ANTES de que lo vea el motor (ver mcp/lib/casa.js).
   const importados = importarAjustes(casa);
+  // La telemetría del motor, apagada de serie (después de importar: el parche
+  // del perfil web ya tiene lo que traía settings.yaml).
+  const telemetria = apagarTelemetria(perfilWeb);
 
   const carpeta = exigirCarpeta(ordenes.carpeta ?? process.cwd());
   const espacio = registrarEspacio(casa, carpeta);
@@ -1126,6 +1184,9 @@ async function main() {
   process.stdout.write('RATACODE · proveedores: ' + (estreno.nueva
     ? 'Ajustes › Models: las 8 APIs con clave (B.AI, OpenRouter, Groq, Google Gemini, NVIDIA NIM, SambaNova, Cloudflare Workers AI y DeepSeek nativo) · Ajustes › Modelos locales: Ollama y LM Studio, sin clave'
     : 'los que ya tuviera la casa (no se toca settings.yaml): añade a mano los que falten de las 8 APIs') + '\n');
+  for (const [nombre, e] of Object.entries(enchufes)) process.stdout.write(resumenEnchufes(nombre, e));
+  process.stdout.write('RATACODE · telemetría del motor (Upload Session Log): ' + telemetria.motivo
+    + ' · se cambia en Ajustes › General\n');
   process.stdout.write('RATACODE · manos: el texto de la conexión y el MCP viven en Ajustes › Conexiones\n');
   process.stdout.write('RATACODE · idioma: ' + (idioma.cambiado
     ? 'español puesto por defecto (' + idioma.motivo + ')'
@@ -1163,7 +1224,9 @@ async function main() {
         return;
       }
     }
-    correrHeadless({ motor, casa, carpeta, perfilHeadless, encargo: ordenes.encargo, modelo: ordenes.modelo });
+    correrHeadless({
+      motor, casa, carpeta, perfilHeadless, encargo: ordenes.encargo, modelo: ordenes.modelo, parcheEnchufes: enchufes.headless.parche,
+    });
     return;
   }
   // El puerto, ANTES de arrancar el motor: si está ocupado, el fallo crudo del
@@ -1181,7 +1244,7 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  correrPanel({ motor, casa, carpeta, ordenes });
+  correrPanel({ motor, casa, carpeta, ordenes, parcheEnchufes: enchufes.web.parche });
 }
 
 main().catch((e) => {

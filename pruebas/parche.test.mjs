@@ -26,6 +26,8 @@ import { fileURLToPath } from 'node:url';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const PRODUCTO = resolve(AQUI, '..');
+// R32 · sin instalar los enchufes con paquete (pnpm, red): eso lo mira enchufes.test.
+process.env.RATACODE_SIN_INSTALAR = '1';
 const CASA = join(PRODUCTO, '_pruebaR23-parche');
 const TALLER = join(PRODUCTO, '_pruebaR23-parche-taller');
 const PUERTO_OCUPADO = 3333;
@@ -125,7 +127,9 @@ async function main() {
     comprobar(f !== null && capas(f).length === 1, 'con `[]`, el parche queda válido y con la capa puesta');
     // DSH 0.2 · el parche es también donde viven los ajustes: RATACODE vuelve a
     // poner el aviso aceptado y el idioma si faltan, pero nada se repite.
-    comprobar(new Set(ids(f)).size === ids(f).length, 'y sin filas repetidas: ' + JSON.stringify(ids(f)));
+    // R32 · los enchufes de serie van en sus propios bloques «- insert:» (sin id): no cuentan aquí.
+    const sueltas = (f ?? []).filter((x) => !Array.isArray(x?.insert));
+    comprobar(new Set(ids(sueltas)).size === ids(sueltas).length, 'y sin filas repetidas: ' + JSON.stringify(ids(sueltas)));
 
     // ── caso 3 · filas del usuario: se respetan ─────────────────────────────
     di('');

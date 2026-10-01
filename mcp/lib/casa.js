@@ -69,15 +69,30 @@ const PRESETS_DE_PERMISO = {
   'workspace-write': { sandbox: 'workspace-write', approval: 'ask' },
   'danger-full-access': { sandbox: 'danger-full-access', approval: 'never' },
 };
+/**
+ * La telemetría del motor (Ajustes › General › «Upload Session Log when using the
+ * official model API»): la fila `session-log-deepseek` de `dsh-base` sube el
+ * registro de la sesión con cada petición a la API oficial de DeepSeek, y de
+ * serie viene ENCENDIDA. RATACODE la deja APAGADA de serie: la fila va en el
+ * parche del perfil web (que es donde escribe ese interruptor, así que el
+ * usuario la puede volver a encender) y, si la casa no dice nada, también en los
+ * perfiles sin web (headless, sdk) a través de {@link FILAS_COMPARTIDAS}.
+ */
+export const TELEMETRIA = { id: 'session-log-deepseek', config: { enabled: false } };
 /** Las filas que los perfiles sin web (headless, sdk) necesitan del perfil web. */
-export const FILAS_COMPARTIDAS = ['permission', 'agent-default-model', 'llm-pi-ai', 'llm-deepseek'];
+export const FILAS_COMPARTIDAS = ['permission', 'agent-default-model', 'llm-pi-ai', 'llm-deepseek', TELEMETRIA.id];
 /** El parche de un perfil puede llevar `!!js`: aquí sólo se leen datos, así que vale null. */
 const ESQUEMA = yaml.DEFAULT_SCHEMA.extend([new yaml.Type('tag:yaml.org,2002:js', { kind: 'scalar', construct: () => null })]);
 
-/** Un mapa YAML de un fichero; {} si no está; lanza si está roto. */
-function mapaDe(ruta) {
+/**
+ * Un mapa YAML de un fichero; {} si no está; lanza si está roto.
+ * Con `tolerante`, una clave repetida no lo rompe: gana la ÚLTIMA. Es para el
+ * `settings.yaml` de las casas que estrenó la 0.2.9 con la fábrica en CRLF: el
+ * modelo elegido se añadía al final como un segundo `agent-default-model`.
+ */
+function mapaDe(ruta, { tolerante = false } = {}) {
   if (!existsSync(ruta)) return {};
-  const cargado = yaml.load(readFileSync(ruta, 'utf8'), { schema: ESQUEMA });
+  const cargado = yaml.load(readFileSync(ruta, 'utf8'), { schema: ESQUEMA, json: tolerante });
   if (cargado === null || cargado === undefined) return {};
   if (typeof cargado !== 'object' || Array.isArray(cargado)) throw new Error(ruta + ' no es un mapa');
   return cargado;
@@ -108,11 +123,16 @@ export function leerAjustes(casa) {
   const ruta = join(casa, 'ratacode.yaml');
   try {
     const documento = filasDelPerfilWeb(casa);
-    for (const [seccion, valor] of Object.entries(mapaDe(join(casa, 'settings.yaml')))) {
+    const { mcp, ratacode, ...delMotor } = mapaDe(join(casa, 'settings.yaml'), { tolerante: true });
+    for (const [seccion, valor] of Object.entries(delMotor)) {
       documento[ID_DE_SECCION[seccion] ?? seccion] = valor;
     }
+    if (documento[TELEMETRIA.id] === undefined) documento[TELEMETRIA.id] = TELEMETRIA.config;
     const propio = mapaDe(ruta);
+    const enchufes = propio.enchufes ?? ratacode?.enchufes;
     if (propio.mcp !== undefined) documento.mcp = propio.mcp;
+    else if (mcp !== undefined) documento.mcp = mcp;
+    if (enchufes !== undefined) documento.enchufes = enchufes;
     return { documento, ruta, error: null };
   } catch (e) {
     return { documento: {}, ruta, error: 'no pude leer los ajustes de la casa: ' + (e instanceof Error ? e.message : String(e)) };
@@ -131,18 +151,26 @@ export function leerAjustes(casa) {
 export function importarAjustes(casa) {
   const original = join(casa, 'settings.yaml');
   if (!existsSync(original)) return { importado: false, motivo: 'no hay settings.yaml' };
+  const propio = join(casa, 'ratacode.yaml');
   let secciones;
   let yaHay;
+  let yaTiene;
   try {
-    secciones = mapaDe(original);
+    secciones = mapaDe(original, { tolerante: true });
     yaHay = filasDelPerfilWeb(casa);
+    yaTiene = mapaDe(propio);
   } catch (e) {
     return { importado: false, motivo: 'no lo puedo leer, no lo toco: ' + (e instanceof Error ? e.message : String(e)) };
   }
-  const { mcp, 'agent-presets': _modos, ...delMotor } = secciones;
-  const propio = join(casa, 'ratacode.yaml');
-  if (mcp !== undefined && !existsSync(propio)) {
-    writeFileSync(propio, '# RATACODE · los ajustes propios de la casa (el motor no los lee).\n' + yaml.dump({ mcp }), { mode: 0o600 });
+  const { mcp, ratacode, 'agent-presets': _modos, ...delMotor } = secciones;
+  // Lo de RATACODE (`mcp:` y los enchufes, que en la 0.2.9 iban en
+  // `ratacode.enchufes`) va a `ratacode.yaml`, sin pisar lo que ya tenga.
+  const nuevo = {};
+  if (mcp !== undefined && yaTiene.mcp === undefined) nuevo.mcp = mcp;
+  if (ratacode?.enchufes !== undefined && yaTiene.enchufes === undefined) nuevo.enchufes = ratacode.enchufes;
+  if (Object.keys(nuevo).length > 0) {
+    const antes = existsSync(propio) ? readFileSync(propio, 'utf8').replace(/\s*$/, '\n\n') : CABECERA_RATACODE_YAML;
+    writeFileSync(propio, antes + yaml.dump(nuevo, { lineWidth: -1 }), { mode: 0o600 });
   }
   const filas = [];
   for (const [seccion, valor] of Object.entries(delMotor)) {
@@ -162,6 +190,9 @@ export function importarAjustes(casa) {
   renameSync(original, existsSync(destino) ? destino + '-' + Date.now() : destino);
   return { importado: true, filas: filas.map((f) => f.id) };
 }
+
+/** La primera línea de `<casa>\ratacode.yaml`. */
+export const CABECERA_RATACODE_YAML = '# RATACODE · los ajustes propios de la casa (el motor no los lee).\n';
 
 /**
  * El overlay `--patch` con las filas compartidas del perfil web, para los

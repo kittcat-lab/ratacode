@@ -48,6 +48,22 @@ copia el prompt de instalación y lo cuenta en corto.
   de la guía para que el agente la abra. Es genérica (sin nombres, rutas, dominios ni puertos de
   nadie) y sirve para cualquier agente. Las instrucciones del servidor MCP también la nombran.
 
+## Qué trae la integración 0.3 (motor DSH 0.2.0-rc.2)
+
+- **El motor DSH 0.2.0-rc.2.** Todos los paquetes `@deepseek-ai/dsh*` van en esa misma
+  versión: con otra distinta el motor no arranca (lo vigila `pruebas/versiones.test.mjs`).
+- **Enchufes de serie**, que se apagan en `<casa>\ratacode.yaml` › `enchufes:` (RATACODE deja
+  ahí la lista comentada): navegador (Playwright, con su propio Chrome), reloj (hora de
+  Madrid), agenda, preguntar, voz (dictado en local), la terminal del panel lateral y Codex
+  como subagente. Claude Code como subagente y los equipos de agentes vienen apagados. El
+  navegador y los subagentes se instalan solos en el perfil la primera vez (pnpm, con red).
+- **La telemetría del motor, apagada de serie:** el interruptor «Upload Session Log» de
+  Ajustes › General arranca apagado (y así va también a headless y al MCP). Si lo enciendes, se
+  respeta.
+- **La fábrica ya no se rompe con CRLF:** en una copia de Windows `fabrica\settings.yaml`
+  podía dejar `agent-default-model` repetido (YAML inválido). Las casas que quedaron así se
+  importan igual (gana el último).
+
 ## Requisitos
 
 - **Windows** (la v1 solo está probada en Windows; Mac y Linux, después).
