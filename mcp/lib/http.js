@@ -189,20 +189,22 @@ export function iniciarServidorHttp({ fabricaServidor, puerto, clave, rutaClave,
           .end('Demasiadas peticiones a la vez (máximo ' + simultaneas + '). Prueba dentro de un momento.');
         return;
       }
-      let cuerpo;
-      try {
-        cuerpo = await leerCuerpo(req);
-      } catch (e) {
-        const codigo = e?.codigo === 413 ? 413 : 400;
-        res.writeHead(codigo, { 'content-type': 'text/plain; charset=utf-8', connection: 'close' })
-          .end(codigo === 413 ? 'Cuerpo demasiado grande (máximo 5 MB)' : 'Bad request');
-        // Se contesta PRIMERO y se cierra DESPUÉS: matar el socket antes deja al
-        // cliente sin respuesta (medido: `curl` terminaba en exit 56 sin HTTP).
-        res.on('finish', () => req.destroy());
-        return;
-      }
+      // Se cuenta YA, antes de esperar el cuerpo: si se contara después, varias
+      // peticiones a la vez pasarían todas la comprobación de arriba.
       atendiendose += 1;
       try {
+        let cuerpo;
+        try {
+          cuerpo = await leerCuerpo(req);
+        } catch (e) {
+          const codigo = e?.codigo === 413 ? 413 : 400;
+          res.writeHead(codigo, { 'content-type': 'text/plain; charset=utf-8', connection: 'close' })
+            .end(codigo === 413 ? 'Cuerpo demasiado grande (máximo 5 MB)' : 'Bad request');
+          // Se contesta PRIMERO y se cierra DESPUÉS: matar el socket antes deja al
+          // cliente sin respuesta (medido: `curl` terminaba en exit 56 sin HTTP).
+          res.on('finish', () => req.destroy());
+          return;
+        }
         // Quién llama, del propio `initialize`: sin estado, el servidor que
         // atiende el `notifications/initialized` es OTRO distinto del que vio el
         // `initialize`, así que allí no hay nombre que preguntar y el cuaderno se

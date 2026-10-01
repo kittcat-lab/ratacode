@@ -20,7 +20,7 @@
   },
   "scripts": {
     "postinstall": "node bin/instalacion.js",
-    "test": "node pruebas/piel.test.mjs && node pruebas/modos.test.mjs && node pruebas/parche.test.mjs && node pruebas/mcp-espacios.test.mjs && node pruebas/mcp-cerrado.test.mjs && node pruebas/mcp-lectura.test.mjs && node pruebas/mcp-actividad.test.mjs && node pruebas/mcp-sesiones.test.mjs"
+    "test": "node pruebas/claves.test.mjs && node pruebas/piel.test.mjs && node pruebas/modos.test.mjs && node pruebas/parche.test.mjs && node pruebas/mcp-espacios.test.mjs && node pruebas/mcp-http-tope.test.mjs && node pruebas/mcp-topes-carrera.test.mjs && node pruebas/mcp-cerrado.test.mjs && node pruebas/mcp-lectura.test.mjs && node pruebas/mcp-actividad.test.mjs && node pruebas/mcp-sesiones.test.mjs"
   },
   "files": [
     "bin",
