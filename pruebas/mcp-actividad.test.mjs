@@ -175,7 +175,9 @@ try {
 } finally {
   try { if (cliente !== null) await cliente.close(); } catch { /* da igual */ }
   try {
-    spawn(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', 'taskkill /pid ' + mcp.pid + ' /T /F'], { windowsHide: true, stdio: 'ignore' });
+    if (process.platform === 'win32') {
+      spawn(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', 'taskkill /pid ' + mcp.pid + ' /T /F'], { windowsHide: true, stdio: 'ignore' });
+    } else mcp.kill('SIGTERM');
   } catch { /* ya se fue */ }
   await esperar(1200);
   try { rmSync(base, { recursive: true, force: true }); } catch { /* da igual */ }

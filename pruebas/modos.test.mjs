@@ -170,8 +170,12 @@ function cargarModo(nombre, puerto) {
     });
   }).then((resultado) => {
     try {
-      spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'taskkill /pid ' + hijo.pid + '/T /F'],
-        { windowsHide: true, stdio: 'ignore' });
+      if (process.platform === 'win32') {
+        spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'taskkill /pid ' + hijo.pid + '/T /F'],
+          { windowsHide: true, stdio: 'ignore' });
+      } else if (hijo.exitCode === null) {
+        hijo.kill('SIGKILL');
+      }
     } catch { /* ya se fue */ }
     return resultado;
   });

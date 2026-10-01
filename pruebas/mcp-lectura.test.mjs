@@ -56,6 +56,16 @@ function comprobar(condicion, queja) {
   if (!condicion) fallos.push(queja);
   process.stdout.write((condicion ? 'OK   ' : 'MAL  ') + '  ' + queja + '\n');
 }
+/**
+ * Lo que sólo tiene sentido con rutas de Windows (`\\`, UNC, mayúsculas que
+ * no cuentan). Fuera de Windows NO se da por buena: se apunta como no comprobada.
+ */
+const sinComprobar = [];
+function comprobarEnWindows(condicion, queja) {
+  if (process.platform === 'win32') return comprobar(condicion, queja);
+  sinComprobar.push(queja);
+  process.stdout.write('SOLO WINDOWS  ' + queja + ' (sin comprobar en ' + process.platform + ')\n');
+}
 const di = (t) => process.stdout.write(t + '\n');
 
 // ── EL MONTAJE ─────────────────────────────────────────────────────────────
@@ -234,7 +244,8 @@ try {
   // ── 0 · EN FRÍO: EL JUICIO DE RUTAS, SIN MOTOR ──────────────────────────
   di('· en frío (sin motor): el juicio de rutas del cerco');
   const CRUDO_FUERA = join(fuera, 'canario.txt');
-  comprobar(!dentroDeAlguna('..\\..\\x.txt', [taller], taller).dentro, 'una relativa con `..` que sale queda fuera');
+  comprobarEnWindows(!dentroDeAlguna('..\\..\\x.txt', [taller], taller).dentro, 'una relativa con `..` que sale queda fuera');
+  comprobar(!dentroDeAlguna('../../x.txt', [taller], taller).dentro, 'una relativa con `../` que sale queda fuera');
   comprobar(dentroDeAlguna('sub\\nota.txt', [taller], taller).dentro, 'una relativa de dentro queda dentro');
   comprobar(!dentroDeAlguna(CRUDO_FUERA, [taller]).dentro, 'una ruta ABSOLUTA de fuera queda fuera');
   comprobar(!dentroDeAlguna('\\\\?\\' + CRUDO_FUERA, [taller]).dentro, 'el prefijo `\\\\?\\` no salta el cerco');
@@ -356,11 +367,16 @@ try {
     ...(CORTO_FUERA === null ? [] : [['por el nombre corto 8.3', join(base, CORTO_FUERA, 'canario.txt')]]),
     ['el fichero de la casa (ratacode.yaml)', join(casa, 'ratacode.yaml')],
     ['un fichero de la casa por `..`', '..\\casa\\AGENTS.md'],
+    // Las mismas por `/`, que es lo que separa en todas partes.
+    ['relativa con `../`', '../' + NOMBRE_FUERA + '/canario.txt'],
+    ['un fichero de la casa por `../`', '../casa/AGENTS.md'],
   ];
+  /** Las trampas con `\\` sólo son rutas en Windows: en otro sitio son un nombre raro. */
+  const deWindows = (ruta) => ruta.includes('\\') && !ruta.includes('/');
   for (const [como, ruta] of trampas) {
     const r = await respuestaDe(cliente, 'read_file', { ruta });
     const texto = r.content?.[0]?.text ?? '';
-    comprobar(r.isError === true && /Fuera de la carpeta autorizada/.test(texto) && !texto.includes(CANARIO),
+    (deWindows(ruta) ? comprobarEnWindows : comprobar)(r.isError === true && /Fuera de la carpeta autorizada/.test(texto) && !texto.includes(CANARIO),
       'read_file · ' + como + ' → rechazado por el SERVIDOR: ' + texto.slice(0, 100).replace(/\s+/g, ' '));
   }
   if (CORTO_TALLER !== null) {
@@ -446,6 +462,7 @@ try {
   di('');
   di(fallos.length === 0
     ? 'VERDE · el MCP lee lo suyo y nada más: sólo lectura de verdad, con el cerco en el servidor, y sin traerse nada de fuera.'
+      + (sinComprobar.length > 0 ? ' (' + sinComprobar.length + ' comprobación(es) sólo de Windows, sin comprobar aquí)' : '')
     : 'ROJO · ' + fallos.length + ' cosa(s) mal.');
   for (const f of fallos) di('  · ' + f);
   process.exitCode = fallos.length === 0 ? 0 : 1;

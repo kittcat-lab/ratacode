@@ -40,6 +40,16 @@ function comprobar(condicion, queja) {
   if (!condicion) fallos.push(queja);
   process.stdout.write((condicion ? 'OK     ' : 'MAL    ') + queja + '\n');
 }
+/**
+ * Lo que sólo tiene sentido con rutas de Windows (`\\`, UNC, mayúsculas que
+ * no cuentan). Fuera de Windows NO se da por buena: se apunta como no comprobada.
+ */
+const sinComprobar = [];
+function comprobarEnWindows(condicion, queja) {
+  if (process.platform === 'win32') return comprobar(condicion, queja);
+  sinComprobar.push(queja);
+  process.stdout.write('SOLO WINDOWS  ' + queja + ' (sin comprobar en ' + process.platform + ')\n');
+}
 const di = (t) => process.stdout.write(t + '\n');
 
 const casa = mkdtempSync(join(tmpdir(), 'ratacode-r28-'));
@@ -113,7 +123,7 @@ try {
   comprobar(dentroDeAlguna(join(taller, 'sub', '..', 'x.txt'), [taller]) === true, 'con `..` que no se sale');
   comprobar(dentroDeAlguna(join(taller, '..', 'fuera', 'x.txt'), [taller]) === false, 'con `..` que SÍ se sale: fuera');
   comprobar(dentroDeAlguna(fuera, [taller]) === false, 'otra carpeta: fuera');
-  comprobar(dentroDeAlguna(taller.toUpperCase(), [taller]) === true, 'las mayúsculas no cuentan (Windows)');
+  comprobarEnWindows(dentroDeAlguna(taller.toUpperCase(), [taller]) === true, 'las mayúsculas no cuentan (Windows)');
   comprobar(dentroDeAlguna('', [taller]) === false, 'sin carpeta, no hay permiso');
 
   // ── 5 · EL INTERRUPTOR: APAGADO POR DEFECTO ──────────────────────────────
@@ -147,7 +157,8 @@ try {
 
 di('');
 if (fallos.length === 0) {
-  di('VERDE · las piezas de R28 (elegir sesión, leer el registro, el cerco y el interruptor): ' + cuantas + ' comprobaciones.');
+  di('VERDE · las piezas de R28 (elegir sesión, leer el registro, el cerco y el interruptor): ' + cuantas + ' comprobaciones.'
+    + (sinComprobar.length > 0 ? ' (' + sinComprobar.length + ' sólo de Windows, sin comprobar aquí)' : ''));
 } else {
   di('ROJO · ' + fallos.length + ' cosa(s) mal de ' + cuantas + ':');
   for (const f of fallos) di('  · ' + f);
