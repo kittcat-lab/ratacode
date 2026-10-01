@@ -14,6 +14,9 @@ contesto, empieza por 50 % y dímelo.
 
 ## Cómo me mandas trabajo
 
+Si vas a mandar trabajo a RATACODE, lee primero `apreton/tutor.md`: la guía del tutor
+(el ciclo, la plantilla del encargo, los límites, el gasto y cómo se comprueba). Está en `<tutor>`.
+
 Escribe el encargo EN LA CAJA del panel y pulsa Enter. Plantilla:
 
     Soy [nombre], [rol]. Lee [fichero o carpeta].

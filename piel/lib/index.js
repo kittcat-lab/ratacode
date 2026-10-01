@@ -192,6 +192,20 @@ function urlDeEstaCasa(req) {
 }
 
 /**
+ * La ruta de `apreton\tutor.md` —la guía del tutor— que el agente puede abrir en
+ * ESTA instalación (R29). Se prefiere la del PAQUETE (la que deja
+ * `bin\ratacode.js` en `instalacion.txt`, con `mcp\` al lado); si esa pista no
+ * está (instalación antigua), vale la copia que viaja junto al plugin, que es
+ * este mismo `apreton\`. Nunca se inventa una ruta: son las dos que existen.
+ */
+function rutaDelTutor() {
+  const instalacion = instalacionDeEstaCasa();
+  return instalacion === null
+    ? join(AQUI, '..', 'apreton', 'tutor.md')
+    : join(instalacion, 'apreton', 'tutor.md');
+}
+
+/**
  * El texto de la conexión para ESTA casa: el `handshake.md` corto, con la casa y
  * la URL ya puestas arriba, para que quien lo reciba no tenga que buscar nada.
  * No lleva ninguna clave: el token de la URL es el de la sesión del navegador,
@@ -217,7 +231,10 @@ function textoDelHandshake(req) {
     '',
     '',
   ].join('\n');
-  return { texto: cabecera + crudo.split('<casa>').join(casa), url, casa };
+  // `<casa>` y `<tutor>` se cambian por rutas de VERDAD de esta instalación: el
+  // texto que se copia no lleva marcadores que el agente tenga que adivinar.
+  const texto = cabecera + crudo.split('<casa>').join(casa).split('<tutor>').join(rutaDelTutor());
+  return { texto, url, casa };
 }
 
 // ── el MCP para chats web ──────────────────────────────────────────────────
