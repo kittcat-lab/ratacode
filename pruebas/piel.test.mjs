@@ -15,6 +15,8 @@
  *       web (`/ratacode/mcp`, con los dos comandos y el texto del chat), y
  *       comprueba que el plugin de CLIENTE —la sección «Conexiones» de
  *       Ajustes— se sirve de verdad en `/plugins/??ratacode-piel/client.js`.
+ *       R29: ese mismo texto tiene que mandar leer `apreton/tutor.md` CON su
+ *       ruta real (la guía del tutor viaja en el paquete, 120 líneas o menos).
  *   B6 · R17: `/ratacode/clave` dice si al modelo por DEFECTO de la casa (esta
  *       prueba la estrena SIN claves en su entorno) le falta la clave, con el
  *       `describe` del servicio de credenciales del motor y sin devolver jamás
@@ -314,6 +316,19 @@ async function main() {
     const sinClaves = !/sk-[A-Za-z0-9]|API_KEY\s*[:=]\s*[A-Za-z0-9_-]{8}/.test(textoApreton);
     comprobar(sinClaves, 'el apretón servido parece llevar una clave dentro');
     di('      ' + (sinClaves ? 'OK   ' : 'MAL  ') + '  el apretón no lleva claves');
+    // R29 · la guía del tutor viaja CON el apretón: el agente que lo recibe tiene
+    // que poder abrirla, y con la ruta de ESTA instalación (ningún `<tutor>` suelto).
+    const guiaTutor = join(PRODUCTO, 'apreton', 'tutor.md');
+    const existeGuia = existsSync(guiaTutor);
+    const lineasGuia = existeGuia ? readFileSync(guiaTutor, 'utf8').split('\n').length : 0;
+    comprobar(textoApreton.includes('apreton/tutor.md'), 'el apretón servido no manda leer apreton/tutor.md');
+    comprobar(!textoApreton.includes('<tutor>'), 'el apretón servido deja el marcador <tutor> sin cambiar');
+    comprobar(textoApreton.includes(guiaTutor),
+      'el apretón servido no trae la ruta REAL de la guía del tutor («' + guiaTutor + '»)');
+    comprobar(existeGuia, 'no existe apreton/tutor.md');
+    comprobar(lineasGuia > 0 && lineasGuia <= 120, 'apreton/tutor.md tiene ' + lineasGuia + ' líneas (tope: 120)');
+    di('      ' + (textoApreton.includes('apreton/tutor.md') ? 'OK   ' : 'MAL  ')
+      + '  el apretón manda leer apreton/tutor.md (' + lineasGuia + ' líneas)');
 
     // B2b · POST: además lo DEJA en <casa>\handshake.md
     const guardado = await fetch(new URL('/ratacode/handshake', destino), { ...conGalleta, method: 'POST' });

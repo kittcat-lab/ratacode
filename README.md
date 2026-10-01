@@ -40,6 +40,14 @@ copia el prompt de instalación y lo cuenta en corto.
   panel te lo recuerda en una línea —«RATACODE ya no la usa: pega tu clave en Ajustes ›
   Models»— con su botón de cerrar. No copia ninguna clave y no vuelve.
 
+## Qué trae la 0.2.9
+
+- **La guía del tutor, dentro del producto:** [`apreton/tutor.md`](apreton/tutor.md) —cómo
+  encargar, vigilar, comprobar y resumir, con los límites, el gasto y los tropiezos— viaja en el
+  paquete y va enlazada desde Ajustes → Conexiones: el texto que se copia trae **la ruta real**
+  de la guía para que el agente la abra. Es genérica (sin nombres, rutas, dominios ni puertos de
+  nadie) y sirve para cualquier agente. Las instrucciones del servidor MCP también la nombran.
+
 ## Requisitos
 
 - **Windows** (la v1 solo está probada en Windows; Mac y Linux, después).
