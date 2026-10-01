@@ -12,6 +12,8 @@
  *       `ratacode-piel`, copiado dentro del perfil, que es como el cargador de
  *       DSH resuelve un plugin fuera del árbol) y `profiles/headless`
  *       (`dsh-base` + `dsh-headless`, el modo sin pantalla que DSH ya trae).
+ *   1b · ENCHUFES DE SERIE en los dos perfiles (ver {@link ENCHUFES}): se
+ *       apagan en `settings.yaml` › `ratacode.enchufes.<clave>: false`.
  *   2 · ESTRENA la casa (sólo la primera vez, si no hay `settings.yaml`):
  *       copia `fabrica\settings.yaml` — B.AI y OpenRouter de fábrica, el aviso
  *       «Internal Testing» ya aceptado y `permission.defaultPreset:
@@ -56,7 +58,7 @@
  *
  * Nada de esto toca `~/.dsh` ni el DSH de nadie más.
  */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import {
@@ -136,6 +138,99 @@ const PLANTILLA_PNPM = `packages:
 nodeLinker: hoisted
 autoInstallPeers: false
 `;
+
+/**
+ * LOS ENCHUFES DE SERIE (R32). Cada uno, sus filas del cargador (siempre dentro
+ * de un bloque «- insert:»: una fila suelta se ignora sin avisar, medido el
+ * 2-oct-2026) y, si no vienen con el motor, los paquetes que hay que instalar en
+ * el perfil con `dsh plugin --profile <p> add` (pnpm dentro del perfil).
+ * Se apagan en el `settings.yaml` de la casa: `ratacode.enchufes.<clave>: false`
+ * (y los que vienen apagados se encienden con `true`).
+ */
+const ENCHUFES = [
+  {
+    clave: 'navegador', porDefecto: true, ids: ['mcp-navegador'], filas: `
+# RATACODE · enchufe «navegador»: Playwright por MCP. Abre su propio Chrome, aparte del tuyo.
+- insert:
+    - id: mcp-navegador
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: navegador
+        transport: stdio
+        command: npx
+        args: ['-y', '@playwright/mcp@latest', '--browser', 'chrome', '--isolated']
+        toolCallTimeoutMs: 90000
+`,
+  },
+  {
+    clave: 'reloj', porDefecto: true, ids: ['time-context'], filas: `
+# RATACODE · enchufe «reloj»: la hora y la zona en cada paso.
+- insert:
+    - id: time-context
+      name: '@deepseek-ai/dsh-time-context'
+      config:
+        timeZone: Europe/Madrid
+`,
+  },
+  {
+    clave: 'agenda', porDefecto: true, ids: ['schedule'], filas: `
+# RATACODE · enchufe «agenda»: schedule_create / schedule_list / schedule_delete.
+- insert:
+    - id: schedule
+      name: '@deepseek-ai/dsh-schedule'
+`,
+  },
+  {
+    clave: 'preguntar', porDefecto: true, ids: ['tool-ask-user'], filas: `
+# RATACODE · enchufe «preguntar»: ask_user_question (sin pantalla falla con NO_PROVIDER, no se cuelga).
+- insert:
+    - id: tool-ask-user
+      name: '@deepseek-ai/dsh-tool-ask-user'
+`,
+  },
+  {
+    clave: 'codex', porDefecto: true, ids: ['tool-subagent-codex'],
+    paquetes: ['@deepseek-ai/dsh-subagent-codex@0.1.5-rc.3'], filas: `
+# RATACODE · enchufe «codex»: Codex de verdad como subagente (usa el login de Codex de tu PC).
+- insert:
+    - id: tool-subagent-codex
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: codex
+        toolName: subagent_codex
+        backgroundMode: one-shot
+        maxDepth: provider-managed
+`,
+  },
+  {
+    clave: 'claude', porDefecto: false, ids: ['tool-subagent-claude'],
+    paquetes: ['@deepseek-ai/dsh-subagent-claude-code@0.1.5-rc.3'], filas: `
+# RATACODE · enchufe «claude»: Claude Code de verdad como subagente (usa el login de Claude de tu PC).
+- insert:
+    - id: tool-subagent-claude
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: claude-code
+        toolName: subagent_claude
+        backgroundMode: one-shot
+        maxDepth: provider-managed
+`,
+  },
+  {
+    // La persistencia jsonl que piden los equipos ya la monta dsh-base (fila session-persistence-jsonl).
+    clave: 'equipos', porDefecto: false, ids: ['agent-team', 'tool-agent-team'],
+    paquetes: ['@deepseek-ai/dsh-experimental-agent-team@0.1.5-rc.3', '@deepseek-ai/dsh-experimental-tool-agent-team@0.1.5-rc.3'], filas: `
+# RATACODE · enchufe «equipos» (experimental): compañeros con buzón y tablero de tareas.
+- insert:
+    - id: agent-team
+      name: '@deepseek-ai/dsh-experimental-agent-team'
+    - id: tool-agent-team
+      name: '@deepseek-ai/dsh-experimental-tool-agent-team'
+`,
+  },
+];
+/** El puente de Codex fija 0.153.4 y OpenAI la rechaza: se fuerza ésta en el perfil (pnpm 11 sólo lo lee del workspace). */
+const CODEX_FORZADO = '0.160.0';
 
 /**
  * El primer proveedor con clave en el entorno, en este orden, y el modelo con
@@ -375,6 +470,94 @@ function prepararPerfil(perfil, nombre, bundles, patchReload) {
   escribirSiFalta(join(perfil, 'pnpm-workspace.yaml'), PLANTILLA_PNPM);
   const capa = asegurarCapaPresets(perfil);
   return capa;
+}
+
+/** Los ids de las filas de un parche, también los de dentro de cada `insert:`. */
+function idsDelParche(filas) {
+  const ids = new Set();
+  for (const fila of filas) {
+    if (fila === null || typeof fila !== 'object') continue;
+    if (typeof fila.id === 'string') ids.add(fila.id);
+    if (Array.isArray(fila.insert)) for (const f of fila.insert) if (typeof f?.id === 'string') ids.add(f.id);
+  }
+  return ids;
+}
+
+/** ¿El paquete (`@scope/nombre@versión`) ya está en el perfil? */
+function paqueteEnPerfil(perfil, spec) {
+  return existsSync(join(perfil, 'node_modules', ...spec.slice(0, spec.lastIndexOf('@')).split('/'), 'package.json'));
+}
+
+/** Fuerza `@openai/codex` en el `pnpm-workspace.yaml` del perfil, si el usuario no fuerza ya otra. */
+function forzarCodex(perfil) {
+  const ruta = join(perfil, 'pnpm-workspace.yaml');
+  let doc;
+  try { doc = yaml.load(readFileSync(ruta, 'utf8')) ?? {}; } catch { return; }
+  if (doc.overrides?.['@openai/codex']) return;
+  doc.overrides = { ...(doc.overrides ?? {}), '@openai/codex': CODEX_FORZADO };
+  // pnpm 11 no deja instalar lo publicado hace poco: la 0.160.0 y sus binarios, fuera de esa espera.
+  const v = CODEX_FORZADO;
+  doc.minimumReleaseAgeExclude = [...(doc.minimumReleaseAgeExclude ?? []),
+    `@openai/codex@${v}-darwin-arm64 || ${v}-darwin-x64 || ${v}-linux-arm64 || ${v}-linux-x64 || ${v}-win32-arm64 || ${v}-win32-x64 || ${v}`];
+  escribir(ruta, yaml.dump(doc));
+}
+
+/** Instala lo que falte con `dsh plugin add` (pnpm, a la vista en stderr). @returns true si queda todo. */
+function instalarPaquetes(motor, casa, nombre, perfil, paquetes) {
+  for (const spec of paquetes) {
+    if (paqueteEnPerfil(perfil, spec)) continue;
+    if (process.env.RATACODE_SIN_INSTALAR) return false;
+    process.stderr.write('RATACODE · instalando ' + spec + ' en el perfil ' + nombre + ' (pnpm; la primera vez tarda)\n');
+    const r = spawnSync(process.execPath, [motor.bin, 'plugin', '--profile', nombre, 'add', spec], {
+      env: { ...process.env, DSH_HOME: casa }, stdio: ['ignore', 2, 2], windowsHide: true,
+    });
+    if (r.status !== 0) return false;
+  }
+  return true;
+}
+
+/**
+ * Los enchufes de un perfil. Los encendidos se AÑADEN al final de su
+ * `cordis.patch.yml` (como la capa de presets), salvo que el fichero ya tenga
+ * una fila con ese id: la del usuario manda y no se toca. Los que llevan
+ * paquete sólo se añaden si el paquete está (o se acaba de instalar). Los
+ * apagados que el fichero ya tenga se apagan con un parche de arranque
+ * (`<casa>/perfiles-parche/<perfil>-enchufes.yml`, `disabled: true` por id): el
+ * fichero del usuario no se reescribe nunca.
+ * @returns `{puestos, apagados, sinInstalar, parche}` (parche: ruta o null).
+ */
+function asegurarEnchufes({ motor, casa, perfil, nombre, ajustes }) {
+  const salida = { puestos: [], apagados: [], sinInstalar: [], parche: null };
+  const ruta = join(perfil, 'cordis.patch.yml');
+  let texto;
+  try { texto = readFileSync(ruta, 'utf8'); } catch { return salida; }
+  const filas = filasDelParche(texto);
+  if (filas === null) return salida;
+  const hay = idsDelParche(filas);
+  const elegidos = ajustes?.ratacode?.enchufes ?? {};
+  const apagarIds = [];
+  for (const e of ENCHUFES) {
+    const encendido = typeof elegidos[e.clave] === 'boolean' ? elegidos[e.clave] : e.porDefecto;
+    const presentes = e.ids.filter((id) => hay.has(id));
+    if (!encendido) {
+      if (presentes.length > 0) { salida.apagados.push(e.clave); apagarIds.push(...presentes); }
+      continue;
+    }
+    if (presentes.length > 0) continue;
+    if (e.paquetes) {
+      if (e.clave === 'codex') forzarCodex(perfil);
+      if (!instalarPaquetes(motor, casa, nombre, perfil, e.paquetes)) { salida.sinInstalar.push(e.clave); continue; }
+    }
+    texto = (texto.endsWith('\n') ? texto : texto + '\n') + e.filas;
+    salida.puestos.push(e.clave);
+  }
+  if (salida.puestos.length > 0) escribir(ruta, texto);
+  if (apagarIds.length > 0) {
+    salida.parche = join(casa, 'perfiles-parche', nombre + '-enchufes.yml');
+    escribir(salida.parche, '# RATACODE · enchufes apagados en settings.yaml (ratacode.enchufes).\n'
+      + apagarIds.map((id) => '- id: ' + id + '\n  disabled: true\n').join(''));
+  }
+  return salida;
 }
 
 /**
@@ -880,8 +1063,8 @@ function entornoSinClaves(casa) {
 }
 
 // ── el encargo sin pantalla ─────────────────────────────────────────────────
-function correrHeadless({ motor, casa, carpeta, perfilHeadless, encargo, modelo }) {
-  const parches = [];
+function correrHeadless({ motor, casa, carpeta, perfilHeadless, encargo, modelo, parcheEnchufes }) {
+  const parches = parcheEnchufes ? [parcheEnchufes] : [];
   let temporales = [];
   if (modelo !== null) {
     const ajustes = leerAjustes(casa) ?? {};
@@ -992,10 +1175,12 @@ function esperarPuerto(url, plazoMs = 20000) {
   });
 }
 
-function correrPanel({ motor, casa, carpeta, ordenes }) {
+function correrPanel({ motor, casa, carpeta, ordenes, parcheEnchufes }) {
   const parche = parcheSelectorCarpeta(casa);
   const conClavesEnWindows = anotarVariablesDeClaves(casa);
-  const args = [motor.bin, '--profile', 'web', '--patch', parche, '--port', String(ordenes.puerto)];
+  // Los --patch, ANTES de --port: lo que va detrás es del app y no los admite (medido).
+  const args = [motor.bin, '--profile', 'web', '--patch', parche,
+    ...(parcheEnchufes ? ['--patch', parcheEnchufes] : []), '--port', String(ordenes.puerto)];
   if (!ordenes.abrir) args.push('--no-open');
   const rutaUrl = join(casa, 'url.txt');
   const empezo = Date.now();
@@ -1136,6 +1321,19 @@ async function main() {
   const perfilHeadless = join(casa, 'profiles', 'headless');
   const motor = binDelMotor();
 
+  const capaWeb = prepararPerfil(perfilWeb, 'dsh-profile-web',
+    ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', NOMBRE_PLUGIN], 'live');
+  prepararPerfil(perfilHeadless, 'dsh-profile-headless',
+    ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'], 'startup');
+  const estreno = estrenarCasa(casa, process.env);
+  // R32 · los enchufes de serie (navegador, reloj, agenda, preguntar, codex; y
+  // claude y equipos si se encienden). Antes de copiar la piel: pnpm toca el
+  // node_modules del perfil.
+  const ajustesEnchufes = leerAjustes(casa) ?? {};
+  const enchufes = {
+    web: asegurarEnchufes({ motor, casa, perfil: perfilWeb, nombre: 'web', ajustes: ajustesEnchufes }),
+    headless: asegurarEnchufes({ motor, casa, perfil: perfilHeadless, nombre: 'headless', ajustes: ajustesEnchufes }),
+  };
   const cuenta = copiarArbol(PIEL_ORIGEN, join(perfilWeb, 'node_modules', NOMBRE_PLUGIN), { copiados: 0, iguales: 0 });
   // El texto de la conexión viaja CON el plugin: la piel lo sirve en
   // /ratacode/handshake (Ajustes > Conexiones) y, copiada dentro del perfil, no
@@ -1145,11 +1343,6 @@ async function main() {
   // dentro), para que los dos comandos del MCP que enseña Ajustes > Conexiones
   // lleven la ruta de verdad y no un «<ruta>» que el usuario tenga que buscar.
   writeFileSync(join(perfilWeb, 'node_modules', NOMBRE_PLUGIN, 'instalacion.txt'), PAQUETE + '\n');
-  const capaWeb = prepararPerfil(perfilWeb, 'dsh-profile-web',
-    ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', NOMBRE_PLUGIN], 'live');
-  prepararPerfil(perfilHeadless, 'dsh-profile-headless',
-    ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'], 'startup');
-  const estreno = estrenarCasa(casa, process.env);
   // Los 9 modos se copian SIEMPRE, también en una casa que ya existía: los de
   // versiones anteriores salieron con dos campos obligatorios sin poner y NO
   // cargaban («invalid config: - $.x missing required value»). `asegurarModos`
@@ -1195,6 +1388,13 @@ async function main() {
   process.stdout.write('RATACODE · proveedores: ' + (estreno.nueva
     ? 'Ajustes › Models: las 8 APIs con clave (B.AI, OpenRouter, Groq, Google Gemini, NVIDIA NIM, SambaNova, Cloudflare Workers AI y DeepSeek nativo) · Ajustes › Modelos locales: Ollama y LM Studio, sin clave'
     : 'los que ya tuviera la casa (no se toca settings.yaml): añade a mano los que falten de las 8 APIs') + '\n');
+  for (const [nombre, e] of Object.entries(enchufes)) {
+    process.stdout.write('RATACODE · enchufes (' + nombre + '): '
+      + (e.puestos.length > 0 ? 'puestos ' + e.puestos.join(', ') : 'nada nuevo')
+      + (e.apagados.length > 0 ? ' · apagados ' + e.apagados.join(', ') : '')
+      + (e.sinInstalar.length > 0 ? ' · SIN INSTALAR ' + e.sinInstalar.join(', ') + ' (se reintenta al próximo arranque)' : '')
+      + ' · se apagan en settings.yaml › ratacode.enchufes\n');
+  }
   process.stdout.write('RATACODE · manos: el texto de la conexión y el MCP viven en Ajustes › Conexiones\n');
   process.stdout.write('RATACODE · idioma: ' + (idioma.cambiado
     ? 'español puesto por defecto (' + idioma.motivo + ')'
@@ -1232,7 +1432,7 @@ async function main() {
         return;
       }
     }
-    correrHeadless({ motor, casa, carpeta, perfilHeadless, encargo: ordenes.encargo, modelo: ordenes.modelo });
+    correrHeadless({ motor, casa, carpeta, perfilHeadless, encargo: ordenes.encargo, modelo: ordenes.modelo, parcheEnchufes: enchufes.headless.parche });
     return;
   }
   // El puerto, ANTES de arrancar el motor: si está ocupado, el fallo crudo del
@@ -1250,7 +1450,7 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  correrPanel({ motor, casa, carpeta, ordenes });
+  correrPanel({ motor, casa, carpeta, ordenes, parcheEnchufes: enchufes.web.parche });
 }
 
 main().catch((e) => {

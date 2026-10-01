@@ -60,6 +60,8 @@ import yaml from 'js-yaml';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const PRODUCTO = resolve(AQUI, '..');
+// R32 · sin instalar los enchufes con paquete (pnpm, red): eso lo mira enchufes.test.
+process.env.RATACODE_SIN_INSTALAR = '1';
 const RATACODE = join(PRODUCTO, 'bin', 'ratacode.js');
 const PIEL_CSS = join(PRODUCTO, 'piel', 'activos', 'ratacode-piel.css');
 
