@@ -27,6 +27,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { ajustesMcp } from './casa.js';
 import { catalogo, credencialDeProveedor, resolverRuta } from './modelos.js';
@@ -42,6 +43,14 @@ import { VERSION } from './version.js';
 
 /** La ventana del tope de tareas. */
 const VENTANA_MS = 3600_000;
+
+/**
+ * La guía del tutor (R29): `apreton\tutor.md` dentro del paquete, al lado de
+ * `mcp\`. Se compone desde ESTE fichero, así que la ruta es la de la
+ * instalación que de verdad está corriendo; si el paquete no la trae
+ * (`mcp` suelto), la línea no se pone: no se manda a leer lo que no existe.
+ */
+const GUIA_DEL_TUTOR = fileURLToPath(new URL('../../apreton/tutor.md', import.meta.url));
 
 /**
  * Las marcas de un herramienta de SOLO LECTURA, tal y como las documenta OpenAI
@@ -193,8 +202,17 @@ function guardarMarcas(casa, marcas) {
 
 /** El texto que el cliente MCP lee al conectar: cómo se usa esto. */
 function instrucciones(ajustes) {
+  // R29 · la guía del tutor viaja DENTRO del paquete (`apreton\tutor.md`, al lado
+  // de `mcp\`), así que se dice su ruta de verdad —y sólo si el fichero está—:
+  // un agente con el teclado de esta máquina la abre; un chat web no puede, y
+  // por eso la línea empieza por «si tienes acceso a los ficheros».
+  const guia = existsSync(GUIA_DEL_TUTOR)
+    ? ['Antes de mandar trabajo, si tienes acceso a los ficheros de esta máquina, lee la guía del tutor: '
+      + '`' + GUIA_DEL_TUTOR + '` (cómo se escribe el encargo, los límites que van siempre y cómo se comprueba la entrega).', '']
+    : [];
   return [
     'RATACODE está disponible como servidor MCP: úsalo para delegar trabajos a los modelos configurados en esta máquina.',
+    ...guia,
     '',
     'LEER ES GRATIS Y ESCRIBIR TAMBIÉN ESTÁ: ChatGPT Pro (conector propio en modo desarrollador) SÍ puede lanzar `run_task` —medido el 30-sep-2026, con la tarea `mcp-t-mun3aspp-7huh`—, además de las de sólo lectura. Si un plan o un cliente no deja usar `run_task`, quedan `ratacode_status`, `list_files` y `read_file`, que van marcadas como de sólo lectura y no gastan tokens ni claves.',
     '',

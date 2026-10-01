@@ -180,7 +180,10 @@ motor**; el de por defecto es **MODO-RATA**:
    `mcp.puerto`: 3778 de fábrica). `run_task` **espera solo** unos segundos (25 de fábrica) y, si
    la tarea acaba dentro, devuelve el resultado en la misma respuesta; cada tarea lleva topes de
    pasos y de tokens (`mcp.pasos_max`, `mcp.tokens_max`).
-   La guía para Patxi, en [`apreton/chatgpt.md`](apreton/chatgpt.md).
+   [`apreton/tutor.md`](apreton/tutor.md) cuenta cómo se tutoriza RATACODE —el ciclo, la
+   plantilla del encargo, los límites, el gasto y los tropiezos—; es genérica (sin nombres ni
+   rutas de nadie) y sirve para cualquier agente. La guía corta de ChatGPT, en
+   [`apreton/chatgpt.md`](apreton/chatgpt.md).
 
 > **Corregido en R27 (30-sep-2026):** con **ChatGPT Pro** y conector propio (modo desarrollador)
 > `run_task` **SÍ funciona** (medido: la tarea `mcp-t-mun3aspp-7huh` creó `PLAN.md`). Hasta ahora
@@ -193,8 +196,10 @@ motor**; el de por defecto es **MODO-RATA**:
 
 Para manejar RATACODE desde otro chat sin ayuda, abre **Ajustes → Conexiones** y usa sus dos
 tarjetas (el texto para los agentes con navegador y el MCP para chats web); los textos largos
-están en la carpeta [`apreton`](https://github.com/kittcat-lab/ratacode) del repositorio
-(navegador, headless o MCP).
+están en la carpeta [`apreton`](https://github.com/kittcat-lab/ratacode) del repositorio: la
+guía del tutor (**[`apreton/tutor.md`](apreton/tutor.md)**, empieza por ahí), y las de
+navegador, headless o MCP. La del tutor viaja dentro del paquete, y el texto de «Copiar» de
+Conexiones lleva su ruta puesta para que el agente la abra sin buscarla.
 
 ## Seguridad
 
@@ -285,7 +290,9 @@ and get the result back in your agent or chat.
   work with RATACODE; the other card turns the web-chat connection on and off, with the address
   to paste in ChatGPT › Settings › Connectors and its one-line warning. **MCP is the recommended
   route** (cheaper and more reliable), and every MCP task shows up in the panel sidebar with its
-  conversation.
+  conversation. The text also points at **`apreton/tutor.md`** — the tutor's guide, shipped inside
+  the package: how to commission work, the limits that always apply, spending, the known traps and
+  how to check the delivery.
 - **Three ways to use it:** browser (`ratacode`), headless (`ratacode headless "task"`),
   and MCP (`ratacode mcp`) so ChatGPT web, Claude Code, Codex, Rowboat or OpenClaw can
   delegate tasks (`list_models`, `run_task`, `get_task_status`, `get_task_result`, `cancel_task`).
