@@ -347,6 +347,22 @@ async function main() {
     comprobar(lineasFichero > 0 && lineasFichero <= 40, 'el handshake.md de la casa tiene ' + lineasFichero + ' líneas (tope: 40)');
     di('      ' + (existeHandshake ? 'OK   ' : 'MAL  ') + '  <casa>\\handshake.md escrito (' + lineasFichero + ' líneas)');
 
+    // B2c · R29 · sin `instalacion.txt` (instalación a medias o antigua), la ruta
+    // de la guía se busca donde vive la copia del plugin: es la otra que el
+    // agente puede abrir, y la que el producto deja ahí al arrancar.
+    const rutaInstalacion = join(args.casa, 'profiles', 'web', 'node_modules', 'ratacode-piel', 'instalacion.txt');
+    const instalacionGuardada = readFileSync(rutaInstalacion, 'utf8');
+    rmSync(rutaInstalacion, { force: true });
+    const sinPista = await (await fetch(new URL('/ratacode/handshake', destino), conGalleta)).json().catch(() => ({}));
+    const textoSinPista = String(sinPista.texto ?? '');
+    writeFileSync(rutaInstalacion, instalacionGuardada);
+    const copiaDelPlugin = join(args.casa, 'profiles', 'web', 'node_modules', 'ratacode-piel', 'apreton', 'tutor.md');
+    const rutaDicha = (/`([^`]*tutor\.md)`/.exec(textoSinPista.split('Está en ')[1] ?? '') ?? [null, '(sin ruta)'])[1];
+    comprobar(existeGuia && textoSinPista.includes(copiaDelPlugin),
+      'sin instalacion.txt el apretón no manda la guía a la copia del plugin: «' + rutaDicha + '»');
+    comprobar(!textoSinPista.includes('<tutor>'), 'sin instalacion.txt queda el marcador <tutor> sin cambiar');
+    di('  B2c · sin instalacion.txt → ' + (textoSinPista.includes(copiaDelPlugin) ? 'OK   ' : 'MAL  ') + '  ' + rutaDicha);
+
     // B3 · el MCP para chats web: estado, los dos comandos y el texto del chat
     // R25 · la casa declara su carpeta autorizada ANTES de preguntar: la tarjeta
     // de Conexiones tiene que decir ESA carpeta (la lee el plugin en cada

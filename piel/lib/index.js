@@ -192,17 +192,28 @@ function urlDeEstaCasa(req) {
 }
 
 /**
- * La ruta de `apreton\tutor.md` —la guía del tutor— que el agente puede abrir en
- * ESTA instalación (R29). Se prefiere la del PAQUETE (la que deja
- * `bin\ratacode.js` en `instalacion.txt`, con `mcp\` al lado); si esa pista no
- * está (instalación antigua), vale la copia que viaja junto al plugin, que es
- * este mismo `apreton\`. Nunca se inventa una ruta: son las dos que existen.
+ * Dónde está `apreton\tutor.md` —la guía del tutor (R29)— en ESTA instalación,
+ * buscándolo como el `handshake.md`: primero la del PAQUETE (la ruta que
+ * `bin\ratacode.js` deja en `instalacion.txt`), y si ahí no está, la copia que
+ * viaja junto al plugin (este mismo `apreton\`). Se devuelve una ruta que
+ * EXISTE; si no hay ninguna (instalación rota), la del plugin, que es donde
+ * viviría una guía copiada: nunca se compone una ruta inventada.
  */
+const TUTOR_CANDIDATOS = [
+  join(AQUI, '..', 'apreton', 'tutor.md'),
+  join(AQUI, '..', '..', 'apreton', 'tutor.md'),
+];
+
 function rutaDelTutor() {
   const instalacion = instalacionDeEstaCasa();
-  return instalacion === null
-    ? join(AQUI, '..', 'apreton', 'tutor.md')
-    : join(instalacion, 'apreton', 'tutor.md');
+  if (instalacion !== null) {
+    const enElPaquete = join(instalacion, 'apreton', 'tutor.md');
+    if (existsSync(enElPaquete)) return enElPaquete;
+  }
+  for (const candidato of TUTOR_CANDIDATOS) {
+    if (existsSync(candidato)) return candidato;
+  }
+  return TUTOR_CANDIDATOS[0];
 }
 
 /**
