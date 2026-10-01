@@ -43,7 +43,9 @@
     "ratacode"
   ],
   "dependencies": {
-    "@deepseek-ai/dsh": "0.1.5-rc.1",
-    "js-yaml": "^4.2.0"
+    "@deepseek-ai/dsh": "0.2.0-rc.2",
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "js-yaml": "^4.2.0",
+    "zod": "^4.6.5"
   }
 }

@@ -252,7 +252,7 @@ try {
     'g · pero la de DENTRO con mayúsculas sí pasa (Windows no distingue)');
 
   // ── 3 · EL PANEL NO SE TOCA: la casa sigue con «A rienda suelta» ────────
-  comprobar(readFileSync(join(casa, 'settings.yaml'), 'utf8').includes('defaultPreset: danger-full-access'),
+  comprobar(readFileSync(join(casa, 'profiles', 'web', 'cordis.patch.yml'), 'utf8').includes('defaultPreset: danger-full-access'),
     'el ajuste de la casa (el del panel) sigue siendo danger-full-access: el MCP no lo toca');
   comprobar(['a', 'b', 'c', 'd', 'e', 'f', 'g'].every((e) => hechos[e].recibo.modo === 'workspace-write'),
     'las 7 tareas corren en workspace-write aunque la casa diga danger-full-access');

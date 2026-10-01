@@ -1,6 +1,18 @@
 # La capa de RATACODE sobre el perfil web de DSH.
-# Una sola fila: la piel. Se monta sobre el árbol del motor y engancha en el
-# index que sirve dsh-host-frontend-static (ver lib/index.js).
+# La piel se monta sobre el árbol del motor y engancha en el index que sirve
+# dsh-host-frontend-static (ver lib/index.js).
 - insert:
     - id: ratacode-piel
       name: ratacode-piel
+
+# DSH 0.2 · los modos son filas `@deepseek-ai/dsh-agent-preset`: los 9 de
+# RATACODE van en `modos/<modo>/preset.patch.yml` (los escribe bin/ratacode.js)
+# y los 4 de serie del motor se apagan aquí.
+- id: preset-standard
+  disabled: true
+- id: preset-ptc
+  disabled: true
+- id: preset-minimal
+  disabled: true
+- id: preset-cordis
+  disabled: true

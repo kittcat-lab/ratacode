@@ -22,6 +22,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { entornoDelMotorSinClaves } from './claves.js';
 import { copiarCerco, parcheDePolitica } from './seguridad.js';
+import { parcheDeAjustes } from './casa.js';
 
 /** Cuánto se espera a que un hijo termine de irse antes de matarlo. */
 const GRACIA_MS = 2500;
@@ -60,6 +61,9 @@ export function lanzarTarea({
   copiarCerco(casa);
   const rutaParche = join(carpetaTemporal, 'politica-' + id + '.yml');
   writeFileSync(rutaParche, parcheDePolitica({ modo, espacio, raices: raices ?? [espacio] }));
+  // DSH 0.2 · el perfil sdk no tiene los proveedores ni el modelo del panel (viven
+  // en el parche del perfil web): van en un overlay ANTES de la política, que manda.
+  const rutaAjustes = parcheDeAjustes(casa, 'mcp-' + id + '.yml', { ids: ['agent-default-model', 'llm-pi-ai', 'llm-deepseek'] });
 
   // El hijo arranca SIN las variables de claves (ni las del cliente MCP ni las
   // de Windows): la única fuente de claves es el almacén de la casa, que es lo
@@ -68,7 +72,7 @@ export function lanzarTarea({
   const entorno = entornoDelMotorSinClaves(casa, { ...process.env, DSH_HOME: casa, DSH_PERMISSION_MODE: modo });
   for (const nombre of NO_HEREDAR) delete entorno[nombre];
 
-  const hijo = spawn(process.execPath, [dshBin, '--profile', 'sdk', '--patch', rutaParche], {
+  const hijo = spawn(process.execPath, [dshBin, '--profile', 'sdk', '--patch', rutaAjustes, '--patch', rutaParche], {
     cwd: espacio,
     env: entorno,
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -123,7 +127,7 @@ export function lanzarTarea({
     cerrar()
       .catch(() => { /* da igual: abajo se le mata si sigue vivo */ })
       .finally(() => {
-        try { rmSync(rutaParche, { force: true }); } catch { /* da igual */ }
+        try { rmSync(rutaParche, { force: true }); rmSync(rutaAjustes, { force: true }); } catch { /* da igual */ }
         resolver(resultado);
       });
   };

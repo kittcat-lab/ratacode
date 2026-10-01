@@ -354,7 +354,7 @@ try {
     ['UNC de otro equipo', '\\\\otro-pc\\recurso\\canario.txt'],
     ...(hayEnlace ? [['por la unión de dentro', join(ENLACE, 'canario.txt')]] : []),
     ...(CORTO_FUERA === null ? [] : [['por el nombre corto 8.3', join(base, CORTO_FUERA, 'canario.txt')]]),
-    ['el fichero de la casa (settings.yaml)', join(casa, 'settings.yaml')],
+    ['el fichero de la casa (ratacode.yaml)', join(casa, 'ratacode.yaml')],
     ['un fichero de la casa por `..`', '..\\casa\\AGENTS.md'],
   ];
   for (const [como, ruta] of trampas) {

@@ -74,7 +74,9 @@ function filas() {
   }
 }
 
-const capas = (f) => (f ?? []).filter((x) => x !== null && typeof x === 'object' && x.id === 'agent-presets');
+// DSH 0.2 · la capa es la fila del registro de modos; la de la 0.1.x (`agent-presets`) se quita.
+const capas = (f) => (f ?? []).filter((x) => x !== null && typeof x === 'object' && x.id === 'agent-preset-registry');
+const viejas = (f) => (f ?? []).filter((x) => x !== null && typeof x === 'object' && x.id === 'agent-presets');
 const ids = (f) => (f ?? []).map((x) => (x !== null && typeof x === 'object' ? x.id : String(x)));
 
 /** Escribe el parche de la casa ANTES de arrancar (como lo dejó la versión vieja). */
@@ -107,7 +109,8 @@ async function main() {
     let salida = await prepararCasa();
     let f = filas();
     comprobar(f !== null, 'el parche queda como YAML VÁLIDO (antes: «end of the stream or a document separator is expected»)');
-    comprobar(capas(f).length === 1, 'y con la capa agent-presets UNA sola vez (' + capas(f).length + ')');
+    comprobar(capas(f).length === 1, 'y con la capa agent-preset-registry UNA sola vez (' + capas(f).length + ')');
+    comprobar(viejas(f).length === 0, 'y sin la fila vieja agent-presets de la 0.1.x (' + viejas(f).length + ')');
     comprobar(/reparado/.test(salida), 'RATACODE dice que lo ha reparado');
     di('     ' + (salida.split(/\r?\n/).filter((l) => /reparad/.test(l))[0] ?? '(sin línea de reparación)'));
 
@@ -120,7 +123,9 @@ async function main() {
     salida = await prepararCasa();
     f = filas();
     comprobar(f !== null && capas(f).length === 1, 'con `[]`, el parche queda válido y con la capa puesta');
-    comprobar(ids(f).length === 1, 'y sin filas de más: ' + JSON.stringify(ids(f)));
+    // DSH 0.2 · el parche es también donde viven los ajustes: RATACODE vuelve a
+    // poner el aviso aceptado y el idioma si faltan, pero nada se repite.
+    comprobar(new Set(ids(f)).size === ids(f).length, 'y sin filas repetidas: ' + JSON.stringify(ids(f)));
 
     // ── caso 3 · filas del usuario: se respetan ─────────────────────────────
     di('');
