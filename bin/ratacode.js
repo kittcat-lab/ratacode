@@ -67,6 +67,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
+import { entornoDelMotorSinClaves } from '../mcp/lib/claves.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const PAQUETE = resolve(AQUI, '..');
@@ -866,17 +867,9 @@ function anotarVariablesDeClaves(casa) {
  * La única fuente de claves es la casa (lo que se pega en Ajustes › Models).
  */
 function entornoSinClaves(casa) {
-  const fuera = new Set(['B_AI_API_KEY', 'BAI_API_KEY', 'OPENROUTER_API_KEY', 'DEEPSEEK_API_KEY', 'GROQ_API_KEY',
-    'GEMINI_API_KEY', 'NVIDIA_API_KEY', 'SAMBANOVA_API_KEY', 'CLOUDFLARE_API_KEY', 'CLOUDFLARE_API_TOKEN']);
-  const ajustes = leerAjustes(casa) ?? {};
-  const nativa = ajustes?.['llm-deepseek']?.apiKeyEnv;
-  if (typeof nativa === 'string') fuera.add(nativa);
-  for (const perfil of Object.values(ajustes?.['llm-pi-ai']?.providers ?? {})) {
-    if (perfil && typeof perfil.apiKeyEnv === 'string') fuera.add(perfil.apiKeyEnv);
-  }
-  const env = { ...process.env, DSH_HOME: casa };
-  for (const k of Object.keys(env)) if (fuera.has(k.toUpperCase())) delete env[k];
-  return env;
+  // La misma regla que el MCP (`mcp/lib/claves.js`): se comparan en mayúsculas
+  // los DOS lados, también los `apiKeyEnv` propios de la casa.
+  return entornoDelMotorSinClaves(casa, { ...process.env, DSH_HOME: casa });
 }
 
 // ── el encargo sin pantalla ─────────────────────────────────────────────────

@@ -3,7 +3,7 @@
  *
  * Lo que se prueba aquí es lo que DECIDE, sin panel y sin motor delante:
  *   · elegir la sesión sin adivinar (por id, por título exacto, y con el
- *     AMBIGUOUS_SESSION cuando hay dos iguales —que es el caso que pidió Patxi:
+ *     AMBIGUOUS_SESSION cuando hay dos iguales —que es el caso que pidió el dueño:
  *     «si hay más de una coincidencia, NO envía y devuelve error»);
  *   · leer el registro durable de una sesión para encontrar el mensaje que
  *     entró por aquí (por su `requestId`, que es METADATA) y lo que vino

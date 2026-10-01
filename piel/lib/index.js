@@ -1056,7 +1056,7 @@ function leerPid(ruta) {
  *
  * ── POR QUÉ ASÍ (medido el 30-sep-2026) ────────────────────────────────────
  * Con la comprobación anterior («¿hay alguien escuchando en ese puerto?») salía
- * un «Conectado» falso de verdad: Patxi tenía su propio MCP en el puerto por
+ * un «Conectado» falso de verdad: el dueño tenía su propio MCP en el puerto por
  * defecto (3778, de la casa `casa-camel`), y el MCP de la casa de pruebas no
  * pudo escuchar (puerto ocupado), murió... y su `http-url.txt` se quedó escrito
  * apuntando a un puerto donde SÍ había alguien: el MCP de OTRA casa, con OTRA
@@ -1276,7 +1276,7 @@ async function encenderConexion(casa, opciones = {}) {
  * fábrica): si el puerto cambiara, la dirección que ChatGPT tiene pegada
  * dejaría de valer. Antes se arrancaba sin `--port`, así que tomaba el de
  * fábrica del MCP... que puede estar ocupado por el MCP de OTRA casa (medido:
- * el panel de Patxi tenía el 3778): ahí el hijo moría y quedaba un «conectado»
+ * el panel del dueño tenía el 3778): ahí el hijo moría y quedaba un «conectado»
  * falso. Ahora, si el puerto de la casa está ocupado por otra cosa, se dice.
  * @param casa - la casa de RATACODE.
  * @param guionMcp - la ruta del guion del MCP.
@@ -1659,7 +1659,7 @@ async function planDelTunelNombrado(req) {
     fichero: escrito ? rutaConfig : null,
     tiene_cloudflared: tieneCloudflared,
     configurado: ajustes.tunelHost !== null,
-    // Los TRES comandos que haría Patxi, tal cual (el paso 2 es en la web de
+    // Los TRES comandos que haría el dueño, tal cual (el paso 2 es en la web de
     // Cloudflare: ahí no se puede entrar desde aquí, ni se debe).
     comandos: [
       'cloudflared tunnel login',
@@ -1960,7 +1960,7 @@ function montarRutas(c) {
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/conexion/clave', handler: cambiarClave }), 'ratacode-piel.conexion-clave');
 
   // GET /ratacode/conexion/tunel-nombrado → (R27 §8) los TRES pasos y los TRES
-  // comandos que haría Patxi para tener una dirección FIJA (un subdominio suyo)
+  // comandos que haría el dueño para tener una dirección FIJA (un subdominio suyo)
   // en vez del dominio efímero del túnel rápido, que cambia cada vez que se
   // enciende. Aquí NO se hace login, ni se toca ninguna cuenta, ni se crea
   // ningún túnel, ni se leen las credenciales de `%USERPROFILE%\.cloudflared`:
@@ -2131,7 +2131,7 @@ function montarRutas(c) {
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/sesiones/marcas', handler: marcas }), 'ratacode-piel.sesiones-marcas');
 
   // POST /ratacode/sesiones/abierta → EL INTERRUPTOR de la cabecera del chat.
-  // Es lo único que abre una sesión a ChatGPT, y lo enciende Patxi a mano.
+  // Es lo único que abre una sesión a ChatGPT, y lo enciende el dueño a mano.
   const abierta = (req, res) => {
     if (!autorizada(req, res)) return;
     if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'Usa POST.' }); return; }

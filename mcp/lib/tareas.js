@@ -9,7 +9,7 @@
  * Una tarea = un hijo del motor. Cancelar = matar ese hijo. Por eso el estado
  * nunca miente: si el hijo se fue, la tarea está terminada.
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { anotar } from './actividad.js';
 import { ajustesMcp } from './casa.js';
@@ -21,6 +21,16 @@ function nuevoId() {
   const sello = Date.now().toString(36);
   const azar = Math.random().toString(36).slice(2, 6);
   return 't-' + sello + '-' + azar;
+}
+
+/**
+ * Escribir un fichero de estado DE UNA VEZ: a un temporal y `rename`. Así el
+ * panel, que lo lee mientras tanto, nunca ve medio JSON.
+ */
+function escribirEntero(ruta, texto) {
+  const temporal = ruta + '.' + process.pid + '.tmp';
+  writeFileSync(temporal, texto);
+  renameSync(temporal, ruta);
 }
 
 /** El registro de tareas de una casa. */
@@ -339,7 +349,7 @@ export class Tareas {
     try {
       mkdirSync(this.carpeta, { recursive: true });
       const { _mando, _cierre, ...guardable } = registro;
-      writeFileSync(join(this.carpeta, registro.task_id + '.json'), JSON.stringify(guardable, null, 2) + '\n');
+      escribirEntero(join(this.carpeta, registro.task_id + '.json'), JSON.stringify(guardable, null, 2) + '\n');
     } catch {
       // Que no poder escribir el cuaderno no tumbe la tarea.
     }
@@ -367,7 +377,7 @@ export class Tareas {
     };
     try {
       mkdirSync(join(this.casa, 'mcp'), { recursive: true });
-      writeFileSync(join(this.casa, 'mcp', 'estado.json'), JSON.stringify(estado, null, 2) + '\n');
+      escribirEntero(join(this.casa, 'mcp', 'estado.json'), JSON.stringify(estado, null, 2) + '\n');
     } catch {
       // Igual que arriba: el cuaderno no puede tumbar el servicio.
     }

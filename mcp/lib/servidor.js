@@ -372,28 +372,6 @@ export function registrarHerramientas(servidor, ctx) {
         );
       }
 
-      // Tope de tareas EN MARCHA a la vez: la URL abierta no puede ser una
-      // fábrica de procesos del motor.
-      const enMarcha = tareas.listar().filter((t) => t.estado === 'queued' || t.estado === 'running').length;
-      if (enMarcha >= ajustes.tareasALaVez) {
-        throw new Error(
-          'ya hay ' + enMarcha + ' tareas en marcha (máximo ' + ajustes.tareasALaVez + ' a la vez,'
-          + ' `mcp.tareas_a_la_vez` en ' + casa + '\\settings.yaml). Espera a que termine alguna'
-          + ' (get_task_status) o cancélala (cancel_task).',
-        );
-      }
-
-      // Tope de tareas por hora: falla cerrado antes de lanzar nada. Las marcas
-      // viven en la casa, así que un reinicio no regala cuota.
-      const ahora = Date.now();
-      while (marcasTarea.length > 0 && ahora - marcasTarea[0] > VENTANA_MS) marcasTarea.shift();
-      if (marcasTarea.length >= ctx.tareasPorHora) {
-        throw new Error(
-          'tope de tareas alcanzado: ' + marcasTarea.length + ' en la última hora'
-          + ' (máximo ' + ctx.tareasPorHora + '/h). Espera a que pasen las primeras antes de lanzar más.',
-        );
-      }
-
       const ruta = resolverRuta(casa, args.provider, args.model);
       // R27 §7c · EL MODELO SE VALIDA CONTRA EL CATÁLOGO. Si el chat pide un
       // modelo que esta casa no tiene, mejor decírselo AHORA (con la lista de
@@ -433,6 +411,31 @@ export function registrarHerramientas(servidor, ctx) {
         ? ajustes.timeoutPorDefectoMs
         : Math.min(timeoutPedido, ajustes.timeoutMaximoMs);
       const timeoutRecortado = timeoutPedido !== null && timeoutPedido > ajustes.timeoutMaximoMs;
+
+      // Los dos topes se miran AQUÍ, justo antes de apuntar y lanzar, sin ningún
+      // `await` por medio: mirados antes de las esperas de arriba (catálogo y
+      // credencial), dos llamadas a la vez pasaban las dos.
+      // Tope de tareas EN MARCHA a la vez: la URL abierta no puede ser una
+      // fábrica de procesos del motor.
+      const enMarcha = tareas.listar().filter((t) => t.estado === 'queued' || t.estado === 'running').length;
+      if (enMarcha >= ajustes.tareasALaVez) {
+        throw new Error(
+          'ya hay ' + enMarcha + ' tareas en marcha (máximo ' + ajustes.tareasALaVez + ' a la vez,'
+          + ' `mcp.tareas_a_la_vez` en ' + casa + '\\settings.yaml). Espera a que termine alguna'
+          + ' (get_task_status) o cancélala (cancel_task).',
+        );
+      }
+
+      // Tope de tareas por hora: falla cerrado antes de lanzar nada. Las marcas
+      // viven en la casa, así que un reinicio no regala cuota.
+      const ahora = Date.now();
+      while (marcasTarea.length > 0 && ahora - marcasTarea[0] > VENTANA_MS) marcasTarea.shift();
+      if (marcasTarea.length >= ctx.tareasPorHora) {
+        throw new Error(
+          'tope de tareas alcanzado: ' + marcasTarea.length + ' en la última hora'
+          + ' (máximo ' + ctx.tareasPorHora + '/h). Espera a que pasen las primeras antes de lanzar más.',
+        );
+      }
 
       // Sólo contabiliza la tarea si de verdad se lanza (no los intentos
       // denegados por falta de clave o espacio no autorizado).
@@ -648,7 +651,7 @@ export function registrarHerramientas(servidor, ctx) {
   // la piel), no este servidor: el MCP es un cliente fino. Y las reglas son
   // las de la casa, no las del mensaje:
   //   · la carpeta de la sesión tiene que estar en `mcp.workspaces`, y
-  //   · Patxi tiene que haberla marcado «Abierta a ChatGPT» en la cabecera de
+  //   · el dueño tiene que haberla marcado «Abierta a ChatGPT» en la cabecera de
   //     ese chat (apagado por defecto).
   // Si no, la respuesta es `SESSION_NOT_ALLOWED` y no se envía NADA. Y mientras
   // una sesión está abierta, sus turnos van ENCERRADOS en su carpeta (sin
