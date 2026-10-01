@@ -52,7 +52,7 @@ HAZLO sin pedir permiso.
 Cada punto tiene que poder comprobarse («el paquete contiene X», «la prueba sale verde», «la
 línea nueva se lee en la ruta Y») y los puntos no deben contradecirse entre sí. Lo que no se
 puede comprobar no es un encargo, es un deseo. Y pide el informe **con tope de líneas**: sin
-tope, los informes se van a 100 líneas.
+tope se van largos.
 
 ## Límites que van siempre en un encargo
 
@@ -61,7 +61,7 @@ tope, los informes se van a 100 líneas.
 - **Rama de git propia, y a `main` solo con las pruebas verdes.** Un commit por bloque.
 - **Casa y puertos de prueba propios** (`<puerto>` libre), nunca los del usuario.
 - **No tocar el panel ni el MCP que el usuario tiene en marcha.** Se mira, no se apaga.
-- **Sin credenciales.** Las claves las pone el usuario en Ajustes › Modelos; el agente nunca
+- **Sin credenciales.** Las claves las pone el usuario en Ajustes › Models; el agente nunca
   abre un fichero de claves ni las pide por chat.
 - **Sin publicar, sin desplegar, sin tocar cuentas.** Eso lo hace el usuario: tú le dejas el
   comando listo para pegar.
@@ -89,7 +89,7 @@ tarea o lectura, permitido o bloqueado). Nada de pruebas ocultas que gasten sald
 - **Para ver código nuevo hay que reiniciar el panel.** Lo que corre es lo instalado, no lo
   escrito en el disco.
 - **Comprueba la versión instalada antes de diagnosticar.** Muchos «fallos» son una versión
-  vieja: `ratacode --version` y el paquete de la casa.
+  vieja: la de RATACODE está en el `package.json` de la instalación, y la dice `ratacode_status`.
 - **Ficheros de ajustes con finales de línea Unix.** Editarlos desde Windows con el fin de
   línea equivocado los rompe.
 - **Cuidado con las barras invertidas de Windows** al escribir rutas desde un guion: una
