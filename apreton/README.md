@@ -18,11 +18,11 @@ funcione**. Alternativa, si quieres una versión concreta: el `.tgz` de la relea
 (sin git ni cuenta de npm):
 
 ```bash
-npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.2.0/ratacode-0.2.0.tgz
+npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.2.9/ratacode-0.2.9.tgz
 ```
 
 Último recurso, si la descarga falla:
-`git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.2.0.tgz`.
+`git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.2.9.tgz`.
 Después, `ratacode` (necesita Windows y Node 24).
 
 La web del producto, con el prompt listo para copiar: <https://kittcat.com/ratacode/>.

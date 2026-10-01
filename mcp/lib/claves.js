@@ -121,7 +121,7 @@ export function variablesDeClaves(casa) {
   try {
     const texto = readFileSync(join(casa, 'settings.yaml'), 'utf8');
     for (const linea of texto.split('\n')) {
-      const m = /^\s*apiKeyEnv\s*:\s*['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?\s*$/.exec(linea);
+      const m = /^\s*apiKeyEnv\s*:\s*['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?(?:\s+#.*)?\s*$/.exec(linea);
       if (m !== null) nombres.add(m[1]);
     }
   } catch { /* sin settings.yaml: quedan las conocidas */ }
