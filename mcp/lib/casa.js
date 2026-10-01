@@ -78,7 +78,7 @@ function texto(valor) {
  * Todo lo que limita el daño se lee de aquí, para que el humano lo pueda
  * cambiar sin tocar código.
  *
- * R27 · Y cuatro ajustes más, por lo que pidió Patxi («que vaya rápido y no
+ * R27 · Y cuatro ajustes más, por lo que pidió el dueño («que vaya rápido y no
  * gaste»):
  *   · `espera_por_defecto_segundos` — lo que `run_task` espera dentro de la
  *     MISMA llamada si el cliente no dice otra cosa (25 s de fábrica). Así el

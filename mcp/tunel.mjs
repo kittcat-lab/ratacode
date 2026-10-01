@@ -211,7 +211,7 @@ if (nombreTunel !== null && hostTunel !== null) {
     '  - service: http_status:404',
     '',
   ].join('\n'), { mode: 0o600 });
-  // `tunnel run --url <origen> <nombre>`: la forma corta y la que pidió Patxi.
+  // `tunnel run --url <origen> <nombre>`: la forma corta y la que pidió el dueño.
   args = ['tunnel', '--config', rutaConfig, 'run', '--url', origen, nombreTunel];
   urlFija = 'https://' + hostTunel + '/mcp/' + clave;
   console.log('\nTúnel CON NOMBRE: ' + nombreTunel + ' → https://' + hostTunel + ' (config: ' + rutaConfig + ')');

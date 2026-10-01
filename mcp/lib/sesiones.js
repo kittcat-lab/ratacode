@@ -2,7 +2,7 @@
  * sesiones — LAS CUATRO HERRAMIENTAS DE R28, del lado del MCP.
  *
  * `run_task` (lo de siempre) lanza trabajo INDEPENDIENTE: un hijo del motor con
- * su propia sesión `mcp-<task_id>`. Esto es OTRA capacidad, y la pidió Patxi
+ * su propia sesión `mcp-<task_id>`. Esto es OTRA capacidad, y la pidió el dueño
  * para un caso muy concreto: desde ChatGPT, «manda este mensaje al chat ESTO
  * SERA UN TEST DI» tiene que entrar EN ESA MISMA SESIÓN —la que él tiene
  * abierta en el panel—, verse aparecer en ese chat y que el agente conteste ahí.

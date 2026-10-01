@@ -70,10 +70,10 @@ Alternativa, si npm te falla o quieres una versión concreta: la **release de Gi
 (el `.tgz` que cuelga de ella; no hace falta ni git ni cuenta de npm):
 
 ```bash
-npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.2.0/ratacode-0.2.0.tgz
+npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.2.9/ratacode-0.2.9.tgz
 ```
 
-Último recurso, si la descarga falla: `git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.2.0.tgz`.
+Último recurso, si la descarga falla: `git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.2.9.tgz`.
 
 Y para abrirla (lo mismo en los tres casos):
 
@@ -279,8 +279,8 @@ and get the result back in your agent or chat.
 - **Install (one command):** `npm i -g ratacode`
   (the yellow npm 11 «allow-scripts» warnings during install are normal and do not stop it
   from working; alternative: the GitHub release tarball
-  `https://github.com/kittcat-lab/ratacode/releases/download/v0.2.0/ratacode-0.2.0.tgz`
-  — last resort: `git clone` the repo, `npm pack` and `npm i -g ./ratacode-0.2.0.tgz`) — then run `ratacode`.
+  `https://github.com/kittcat-lab/ratacode/releases/download/v0.2.9/ratacode-0.2.9.tgz`
+  — last resort: `git clone` the repo, `npm pack` and `npm i -g ./ratacode-0.2.9.tgz`) — then run `ratacode`.
 - **Bring your own keys:** eight APIs ship declared (`B.AI`, `OpenRouter`, `DeepSeek`,
   `Groq`, `Google Gemini`, `NVIDIA NIM`, `SambaNova`, `Cloudflare Workers AI` — the last one
   needs your `{account_id}` pasted into *Customized settings → Base URL*). Set each key in the

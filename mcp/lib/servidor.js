@@ -648,7 +648,7 @@ export function registrarHerramientas(servidor, ctx) {
   // la piel), no este servidor: el MCP es un cliente fino. Y las reglas son
   // las de la casa, no las del mensaje:
   //   · la carpeta de la sesión tiene que estar en `mcp.workspaces`, y
-  //   · Patxi tiene que haberla marcado «Abierta a ChatGPT» en la cabecera de
+  //   · el dueño tiene que haberla marcado «Abierta a ChatGPT» en la cabecera de
   //     ese chat (apagado por defecto).
   // Si no, la respuesta es `SESSION_NOT_ALLOWED` y no se envía NADA. Y mientras
   // una sesión está abierta, sus turnos van ENCERRADOS en su carpeta (sin

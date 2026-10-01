@@ -34,7 +34,7 @@
  *     lo de siempre), en la consulta (`/mcp?clave=<clave>`) o en la cabecera
  *     `Authorization: Bearer <clave>`. Sin dato de si ChatGPT acepta la clave
  *     dentro de la ruta, se dejan preparadas las otras dos: la ruta sigue
- *     siendo la forma que se le da a Patxi.
+ *     siendo la forma que se le da al dueño.
  *   · EL `Origin` DE OTRA WEB SE CORTA CON UN 403. Un navegador con una página
  *     abierta no tiene por qué hablarle a este servidor. Se permite el origen
  *     propio (loopback, cualquier puerto: el inspector de MCP vive en otro) y
