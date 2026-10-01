@@ -338,7 +338,7 @@ export function registrarHerramientas(servidor, ctx) {
         avisos: provider !== undefined && filtrados.length === 0
           ? [...avisos, 'no hay modelos declarados para el proveedor «' + provider + '»; mira list_providers']
           : avisos,
-        nota: 'El coste sólo aparece si el humano declaró precios en `mcp.precios` de settings.yaml. RATACODE no se inventa precios.',
+        nota: 'El coste sólo aparece si el humano declaró precios en `mcp.precios` de ratacode.yaml. RATACODE no se inventa precios.',
       });
     }),
   );
@@ -367,7 +367,7 @@ export function registrarHerramientas(servidor, ctx) {
       if (args.prompt.length > ajustes.promptMaxCaracteres) {
         throw new Error(
           'el encargo es demasiado largo: ' + args.prompt.length + ' caracteres (máximo '
-          + ajustes.promptMaxCaracteres + ', `mcp.prompt_max_caracteres` en ' + casa + '\\settings.yaml).'
+          + ajustes.promptMaxCaracteres + ', `mcp.prompt_max_caracteres` en ' + casa + '\\ratacode.yaml).'
           + ' Pásame el encargo en un fichero dentro del espacio de trabajo y pídeme que lo lea.',
         );
       }
@@ -421,7 +421,7 @@ export function registrarHerramientas(servidor, ctx) {
       if (enMarcha >= ajustes.tareasALaVez) {
         throw new Error(
           'ya hay ' + enMarcha + ' tareas en marcha (máximo ' + ajustes.tareasALaVez + ' a la vez,'
-          + ' `mcp.tareas_a_la_vez` en ' + casa + '\\settings.yaml). Espera a que termine alguna'
+          + ' `mcp.tareas_a_la_vez` en ' + casa + '\\ratacode.yaml). Espera a que termine alguna'
           + ' (get_task_status) o cancélala (cancel_task).',
         );
       }

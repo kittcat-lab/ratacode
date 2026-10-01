@@ -83,7 +83,7 @@ const puerto = o.port;
 
 /**
  * R27 §8 · EL TÚNEL CON NOMBRE de esta casa (dirección fija), si lo tiene:
- * `mcp.tunel_nombre` y `mcp.tunel_host` de `settings.yaml`. Los `--tunel-nombre`
+ * `mcp.tunel_nombre` y `mcp.tunel_host` de `ratacode.yaml`. Los `--tunel-nombre`
  * y `--tunel-host` de la línea de órdenes mandan sobre los ajustes (es lo que
  * usa la piel, que los lee del mismo sitio).
  */

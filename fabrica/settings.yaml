@@ -1,6 +1,9 @@
 # RATACODE · Settings de fábrica.
 # Lo copia `bin/ratacode.js` a `<casa>/settings.yaml` la PRIMERA vez que se
 # estrena una casa; si la casa ya existe, no se toca lo que haya puesto el usuario.
+# Con DSH 0.2, RATACODE pasa cada sección a una fila del parche del perfil web
+# (`<casa>/profiles/web/cordis.patch.yml`) antes de arrancar el motor, y deja
+# el original como `settings.yaml.imported` (ver `mcp/lib/casa.js`).
 #
 # 0 claves dentro. El usuario pone las suyas la primera vez y quedan en
 # <casa>\.credentials.yaml (la web Ajustes > Models las escribe) o bien
@@ -24,9 +27,6 @@
 # "deepseek"), pero duplicaría el proveedor en el selector y sustituiría su
 # catálogo real por una lista de modelos escrita a mano. Se usa el nativo.
 
-agent-presets:
-  default: modo-rata
-
 permission:
   defaultPreset: danger-full-access
 
@@ -35,7 +35,7 @@ agent-default-model:
   model: "deepseek-v4.1-flash"
 
 ui-onboarding:
-  welcomeNoticeVersion: 2026-08-13.1
+  welcomeNoticeVersion: 2026-09-28.1
 
 llm-pi-ai:
   providers:

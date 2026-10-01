@@ -21,7 +21,7 @@ import { randomBytes } from 'node:crypto';
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { binDelMotor, resolverCasa } from '../lib/casa.js';
+import { binDelMotor, importarAjustes, resolverCasa } from '../lib/casa.js';
 import { aviso, fallo } from '../lib/registro.js';
 import { montarServidor } from '../lib/servidor.js';
 import { iniciarServidorHttp } from '../lib/http.js';
@@ -166,6 +166,9 @@ async function main() {
     aviso('--acepto-lectura-total ya no hace falta: las tareas leen y escriben sólo dentro de las carpetas autorizadas');
   }
 
+  // DSH 0.2 · un settings.yaml que quede en la casa pasa al perfil web ANTES de
+  // que lo vea el motor (si no, se lo come el perfil sdk de la primera tarea).
+  importarAjustes(casa);
   const dshBin = binDelMotor(ordenes.motor);
   const { servidor, tareas, fabricaServidor } = montarServidor({
     casa,

@@ -17,8 +17,8 @@
  * {@link variablesDeClaves} y `nucleo.js`), para que resuelva las de la casa.
  */
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { leerAjustes } from './casa.js';
 import { pathToFileURL } from 'node:url';
 
 /** Las variables de claves que RATACODE conoce de fábrica. */
@@ -118,13 +118,12 @@ export function faltaLaClave(nombreVisible) {
  */
 export function variablesDeClaves(casa) {
   const nombres = new Set(VARIABLES_CONOCIDAS);
-  try {
-    const texto = readFileSync(join(casa, 'settings.yaml'), 'utf8');
-    for (const linea of texto.split('\n')) {
-      const m = /^\s*apiKeyEnv\s*:\s*['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?(?:\s+#.*)?\s*$/.exec(linea);
-      if (m !== null) nombres.add(m[1]);
-    }
-  } catch { /* sin settings.yaml: quedan las conocidas */ }
+  const { documento } = leerAjustes(casa);
+  const rutas = [documento['llm-deepseek'], ...Object.values(documento['llm-pi-ai']?.providers ?? {})];
+  for (const ruta of rutas) {
+    const nombre = ruta?.apiKeyEnv;
+    if (typeof nombre === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(nombre)) nombres.add(nombre);
+  }
   return [...nombres];
 }
 

@@ -685,7 +685,7 @@ window.__ModuleLoader__.load({
           ...plan.pasos.map((p, i) => e('p', { className: 'mr-ml-nota', key: 'paso' + i }, p)),
           e('p', { className: 'mr-ml-nota', key: 'comandos-titulo' }, 'Los tres comandos, en tu PC:'),
           ...(Array.isArray(plan.comandos) ? plan.comandos : []).map((c, i) => e('pre', { className: 'mr-cx-ejemplo', key: 'cmd' + i }, c)),
-          e('p', { className: 'mr-ml-nota', key: 'ajustes-titulo' }, 'Y estas dos líneas en settings.yaml:'),
+          e('p', { className: 'mr-ml-nota', key: 'ajustes-titulo' }, 'Y estas dos líneas en ratacode.yaml:'),
           e('pre', { className: 'mr-cx-ejemplo', key: 'ajustes' }, (Array.isArray(plan.ajustes) ? plan.ajustes : []).join('\n')),
           e('p', { className: 'mr-ml-nota', key: 'nota' }, plan.nota))));
       // R27 §2 · si la URL del MCP está escrita pero NO contesta como la nuestra

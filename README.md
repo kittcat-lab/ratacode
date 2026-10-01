@@ -253,7 +253,7 @@ rmdir /s /q "%USERPROFILE%\.ratacode"
 
 Dentro de esa carpeta van, en claro, **tus claves** (`<casa>\.credentials.yaml`), la clave del
 MCP por HTTP (`<casa>\mcp\http-secret.txt`), la URL del panel con su token (`<casa>\url.txt`),
-los ajustes (`<casa>\settings.yaml`) y los perfiles con la piel copiada. Borrar la carpeta lo
+los ajustes del panel (`<casa>\profiles\web\cordis.patch.yml`), los de RATACODE (`<casa>\ratacode.yaml`) y los perfiles con la piel copiada. Borrar la carpeta lo
 borra todo; no hay nada más que limpiar (RATACODE nunca escribe fuera de su casa, y si algún
 día exportaste `B_AI_API_KEY` en tu shell, eso se quita de tu perfil de shell).
 
