@@ -277,7 +277,7 @@ agente deciden el modelo; esta capa no elige por nadie.
   leer ningún valor) y el hijo del motor arranca SIN las variables de claves,
   para que resuelva las de la casa y no una vieja del entorno.
 
-## Ajustes (en `<casa>\settings.yaml`)
+## Ajustes (en `<casa>\ratacode.yaml`; con DSH 0.2 ya no van en `settings.yaml`)
 
 ```yaml
 mcp:

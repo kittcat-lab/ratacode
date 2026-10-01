@@ -9,7 +9,7 @@
  *   casa  = --home  >  $RATACODE_HOME  >  %USERPROFILE%\.ratacode
  *   motor = --dsh   >  @deepseek-ai/dsh del paquete (como bin/ratacode.js)
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -47,25 +47,139 @@ export function binDelMotor(indicada) {
 }
 
 /**
- * Los ajustes de la casa (`settings.yaml`). Es el MISMO documento que lee el
- * core (dsh-settings-file), así que leerlo aquí no duplica lógica: es leer la
- * configuración del usuario, que es exactamente lo que hace la web.
+ * DSH 0.2 ya no tiene `settings.yaml`: los ajustes que se tocan en la web
+ * (proveedores, modelo por defecto, idioma…) viven como filas `- id: X config:`
+ * en el parche del perfil web (`dsh-settings` → `configEditor`). Un
+ * `settings.yaml` que quede en la casa lo importa el motor UNA vez, en el perfil
+ * que arranque primero, y lo renombra a `settings.yaml.imported`; las secciones
+ * que no son del motor (la `mcp:` de RATACODE) se quedan sólo en ese fichero.
+ * Por eso RATACODE importa él mismo (`importarAjustes`), siempre al perfil web,
+ * y su sección `mcp:` pasa a `<casa>\ratacode.yaml`.
+ */
+const PARCHE_WEB = ['profiles', 'web', 'cordis.patch.yml'];
+/** Las secciones viejas cuya fila tiene otro id (la misma tabla que `dsh-settings`). */
+const ID_DE_SECCION = { 'ui-onboarding': 'ui-settings-general', 'ui-developer-tools': 'ui-settings' };
+/**
+ * Los presets de permiso de `dsh-base`. Una fila por id REEMPLAZA la config
+ * entera (no mezcla), así que `permission` tiene que repetirlos.
+ * ponytail: copia de dsh-base 0.2.0-rc.2; si el motor cambia sus presets, actualizar aquí.
+ */
+const PRESETS_DE_PERMISO = {
+  'read-only': { sandbox: 'read-only', approval: 'ask' },
+  'workspace-write': { sandbox: 'workspace-write', approval: 'ask' },
+  'danger-full-access': { sandbox: 'danger-full-access', approval: 'never' },
+};
+/** Las filas que los perfiles sin web (headless, sdk) necesitan del perfil web. */
+export const FILAS_COMPARTIDAS = ['permission', 'agent-default-model', 'llm-pi-ai', 'llm-deepseek'];
+/** El parche de un perfil puede llevar `!!js`: aquí sólo se leen datos, así que vale null. */
+const ESQUEMA = yaml.DEFAULT_SCHEMA.extend([new yaml.Type('tag:yaml.org,2002:js', { kind: 'scalar', construct: () => null })]);
+
+/** Un mapa YAML de un fichero; {} si no está; lanza si está roto. */
+function mapaDe(ruta) {
+  if (!existsSync(ruta)) return {};
+  const cargado = yaml.load(readFileSync(ruta, 'utf8'), { schema: ESQUEMA });
+  if (cargado === null || cargado === undefined) return {};
+  if (typeof cargado !== 'object' || Array.isArray(cargado)) throw new Error(ruta + ' no es un mapa');
+  return cargado;
+}
+
+/** Las filas `- id: X config: {…}` de primer nivel del parche web, como `{X: config}`. */
+function filasDelPerfilWeb(casa) {
+  const ruta = join(casa, ...PARCHE_WEB);
+  if (!existsSync(ruta)) return {};
+  const filas = yaml.load(readFileSync(ruta, 'utf8'), { schema: ESQUEMA }) ?? [];
+  if (!Array.isArray(filas)) throw new Error(ruta + ' no es una lista de filas');
+  const salida = {};
+  for (const fila of filas) {
+    if (fila === null || typeof fila !== 'object' || typeof fila.id !== 'string') continue;
+    if (fila.config !== null && typeof fila.config === 'object' && !Array.isArray(fila.config)) salida[fila.id] = fila.config;
+  }
+  return salida;
+}
+
+/**
+ * Los ajustes de la casa, con la forma de siempre (`{'llm-pi-ai': …, mcp: …}`):
+ * las filas del perfil web, encima un `settings.yaml` aún sin importar, y la
+ * sección `mcp:` de `<casa>\ratacode.yaml`.
  * @param {string} casa - la casa de RATACODE.
  * @returns {{documento: object, ruta: string, error: string|null}}
  */
 export function leerAjustes(casa) {
-  const ruta = join(casa, 'settings.yaml');
-  if (!existsSync(ruta)) return { documento: {}, ruta, error: null };
+  const ruta = join(casa, 'ratacode.yaml');
   try {
-    const cargado = yaml.load(readFileSync(ruta, 'utf8'));
-    if (cargado === null || cargado === undefined) return { documento: {}, ruta, error: null };
-    if (typeof cargado !== 'object' || Array.isArray(cargado)) {
-      return { documento: {}, ruta, error: 'settings.yaml no es un documento de ajustes (se esperaba un mapa)' };
+    const documento = filasDelPerfilWeb(casa);
+    for (const [seccion, valor] of Object.entries(mapaDe(join(casa, 'settings.yaml')))) {
+      documento[ID_DE_SECCION[seccion] ?? seccion] = valor;
     }
-    return { documento: cargado, ruta, error: null };
+    const propio = mapaDe(ruta);
+    if (propio.mcp !== undefined) documento.mcp = propio.mcp;
+    return { documento, ruta, error: null };
   } catch (e) {
-    return { documento: {}, ruta, error: 'no pude leer settings.yaml: ' + (e instanceof Error ? e.message : String(e)) };
+    return { documento: {}, ruta, error: 'no pude leer los ajustes de la casa: ' + (e instanceof Error ? e.message : String(e)) };
   }
+}
+
+/**
+ * Pasa un `settings.yaml` de la casa (el de fábrica de una casa nueva, o el de
+ * una casa de la 0.2.9) a donde lo quiere DSH 0.2, ANTES de arrancar el motor:
+ * cada sección del motor, como fila del parche web (las que ya estén no se
+ * pisan); `mcp:` a `ratacode.yaml`; `agent-presets` se tira (los modos van en
+ * el parche de la piel). El original queda como `settings.yaml.imported`.
+ * @param {string} casa - la casa de RATACODE.
+ * @returns {{importado: boolean, filas?: string[], motivo?: string}}
+ */
+export function importarAjustes(casa) {
+  const original = join(casa, 'settings.yaml');
+  if (!existsSync(original)) return { importado: false, motivo: 'no hay settings.yaml' };
+  let secciones;
+  let yaHay;
+  try {
+    secciones = mapaDe(original);
+    yaHay = filasDelPerfilWeb(casa);
+  } catch (e) {
+    return { importado: false, motivo: 'no lo puedo leer, no lo toco: ' + (e instanceof Error ? e.message : String(e)) };
+  }
+  const { mcp, 'agent-presets': _modos, ...delMotor } = secciones;
+  const propio = join(casa, 'ratacode.yaml');
+  if (mcp !== undefined && !existsSync(propio)) {
+    writeFileSync(propio, '# RATACODE · los ajustes propios de la casa (el motor no los lee).\n' + yaml.dump({ mcp }), { mode: 0o600 });
+  }
+  const filas = [];
+  for (const [seccion, valor] of Object.entries(delMotor)) {
+    const id = ID_DE_SECCION[seccion] ?? seccion;
+    if (id in yaHay) continue;
+    filas.push({ id, config: id === 'permission' ? { presets: PRESETS_DE_PERMISO, ...valor } : valor });
+  }
+  if (filas.length > 0) {
+    const parche = join(casa, ...PARCHE_WEB);
+    mkdirSync(dirname(parche), { recursive: true });
+    let base = existsSync(parche) ? readFileSync(parche, 'utf8') : '';
+    if ((yaml.load(base, { schema: ESQUEMA }) ?? []).length === 0) base = ''; // un `[]` no admite filas detrás
+    writeFileSync(parche, (base === '' ? '' : base.replace(/\s*$/, '\n\n'))
+      + '# RATACODE · importado de settings.yaml\n' + yaml.dump(filas, { lineWidth: -1 }), { mode: 0o600 });
+  }
+  const destino = original + '.imported';
+  renameSync(original, existsSync(destino) ? destino + '-' + Date.now() : destino);
+  return { importado: true, filas: filas.map((f) => f.id) };
+}
+
+/**
+ * El overlay `--patch` con las filas compartidas del perfil web, para los
+ * perfiles que no las tienen (headless, sdk).
+ * @param {string} casa - la casa de RATACODE.
+ * @param {string} nombre - nombre del fichero dentro de `<casa>\perfiles-parche`.
+ * @param {{ids?: string[], cambios?: object}} [opciones] - qué filas, y cuáles se cambian sólo para esta vez.
+ * @returns {string} la ruta del overlay.
+ */
+export function parcheDeAjustes(casa, nombre, { ids = FILAS_COMPARTIDAS, cambios = {} } = {}) {
+  const { documento } = leerAjustes(casa);
+  const filas = ids.filter((id) => documento[id] !== undefined || cambios[id] !== undefined)
+    .map((id) => ({ id, config: cambios[id] ?? documento[id] }));
+  const ruta = join(casa, 'perfiles-parche', nombre);
+  mkdirSync(dirname(ruta), { recursive: true });
+  writeFileSync(ruta, '# Generado por RATACODE en cada arranque: las filas del perfil web.\n'
+    + (filas.length === 0 ? '[]\n' : yaml.dump(filas, { lineWidth: -1 })), { mode: 0o600 });
+  return ruta;
 }
 
 /** Un texto no vacío, o undefined. */
@@ -134,7 +248,7 @@ export function ajustesMcp(casa) {
   };
 }
 
-/** Los topes de fábrica del MCP. Se pueden cambiar en `mcp:` de settings.yaml. */
+/** Los topes de fábrica del MCP. Se pueden cambiar en `mcp:` de ratacode.yaml. */
 /** Media hora por tarea si el cliente no dice otra cosa. */
 export const TIMEOUT_POR_DEFECTO_MS = 1_800_000;
 /** Y una hora como techo, aunque el cliente pida más. */

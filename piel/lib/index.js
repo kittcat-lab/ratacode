@@ -317,7 +317,7 @@ function textoParaPegar(url) {
 }
 
 /**
- * Los ajustes de `mcp:` que necesita la piel, leídos del TEXTO de `settings.yaml`
+ * Los ajustes de `mcp:` que necesita la piel, leídos del TEXTO de `ratacode.yaml`
  * (esta piel viaja copiada dentro del perfil del motor y no lleva dependencias:
  * no tiene js-yaml). Son cuatro valores sencillos, todos de una línea:
  *   · `puerto` — el puerto del MCP por HTTP de esta casa (3778 de fábrica). Se
@@ -330,7 +330,7 @@ function textoParaPegar(url) {
 function ajustesDeLaCasa() {
   const casa = casaDeEstaCasa();
   let texto;
-  try { texto = readFileSync(join(casa, 'settings.yaml'), 'utf8'); } catch {
+  try { texto = readFileSync(join(casa, 'ratacode.yaml'), 'utf8'); } catch {
     return { puerto: PUERTO_MCP_POR_DEFECTO, tunelNombre: null, tunelHost: null, workspaces: [] };
   }
   const salida = { puerto: PUERTO_MCP_POR_DEFECTO, tunelNombre: null, tunelHost: null, workspaces: [] };
@@ -505,6 +505,14 @@ function ultimasDelCuaderno(carpeta, cuantas) {
  * Un valor dentro de un objeto, por su camino de claves (`['providers','b-ai']`).
  * El `settingsPath` que declara cada proveedor configurable es justo eso.
  */
+/**
+ * El valor vivo de un namespace de ajustes. DSH 0.2 quitó `settings.get(ns)`:
+ * ahora `settings.describe()` da un formulario por fila, con su `value`.
+ */
+function ajusteVivo(settings, ns) {
+  return settings.describe().find((forma) => forma.ns === ns)?.value;
+}
+
 function porCamino(objeto, camino) {
   let actual = objeto;
   for (const trozo of camino ?? []) {
@@ -520,7 +528,7 @@ function porCamino(objeto, camino) {
  *   · el proveedor y el modelo, por `ctx.agentDefaultModel.currentSelection()`;
  *   · la credencial que esa ruta nombra (`apiKeyEnv`), por el `settingsPath` que
  *     declara el directorio de proveedores (`ctx.llm.listConfigurableProviders`)
- *     y el valor resuelto de su namespace (`ctx.settings.get`);
+ *     y el valor resuelto de su namespace (`ctx.settings.describe`);
  *   · si está puesta o no, por `ctx.credentials.describe` (`configured`).
  * Una ruta que NO nombra credencial (Ollama y LM Studio de fábrica) no pide
  * clave: esa es la regla del propio motor (`dsh-llm-pi-ai`: `namesCredential`).
@@ -539,7 +547,7 @@ async function estadoDeLaClave(c) {
   const seleccion = c.get('agentDefaultModel')?.currentSelection?.() ?? null;
   const proveedor = seleccion?.provider ?? null;
   const entrada = entradas.find((e) => e.provider === proveedor);
-  const perfil = entrada === undefined ? undefined : porCamino(settings.get(entrada.settingsNs), entrada.settingsPath);
+  const perfil = entrada === undefined ? undefined : porCamino(ajusteVivo(settings, entrada.settingsNs), entrada.settingsPath);
   const variable = typeof perfil?.apiKeyEnv === 'string' && perfil.apiKeyEnv !== '' ? perfil.apiKeyEnv : null;
   // Un nombre que no es un identificador de shell no puede ser una referencia:
   // `describe` lo rechazaría, así que se trata como «esta ruta no pide clave».
@@ -774,7 +782,7 @@ function baseURLDelRuntime(c, runtime) {
     try {
       const entrada = llm.listConfigurableProviders().find((e) => e.provider === runtime.id);
       if (entrada !== undefined) {
-        const perfil = porCamino(settings.get(entrada.settingsNs), entrada.settingsPath);
+        const perfil = porCamino(ajusteVivo(settings, entrada.settingsNs), entrada.settingsPath);
         if (typeof perfil?.baseURL === 'string' && perfil.baseURL !== '') return perfil.baseURL.replace(/\/+$/, '');
       }
     } catch { /* ajustes raros: se usa la de fábrica */ }
@@ -785,7 +793,7 @@ function baseURLDelRuntime(c, runtime) {
 /**
  * Cómo se cambia la dirección de un runtime local. La pestaña «Modelos locales»
  * lo dice con la ruta de ESTA casa, porque en Ajustes › Models ya no está (R18):
- * se toca el `baseURL` de su bloque en `settings.yaml` (o se levanta el runtime
+ * se toca el `baseURL` de su fila `llm-pi-ai` en el parche del perfil web (o se levanta el runtime
  * escuchando en otro puerto).
  * @param c - contexto de cordis.
  * @param runtime - la ficha del runtime.
@@ -795,7 +803,7 @@ function baseURLDelRuntime(c, runtime) {
 function comoCambiarLaDireccion(c, runtime, baseURL) {
   const casa = casaDeEstaCasa();
   const puerto = /:(\d+)\//.exec(baseURL + '/');
-  return 'Se cambia en ' + join(casa, 'settings.yaml') + ' → llm-pi-ai.providers.'
+  return 'Se cambia en ' + join(casa, 'profiles', 'web', 'cordis.patch.yml') + ' → fila llm-pi-ai → providers.'
     + runtime.id + '.baseURL (hoy ' + baseURL + (puerto === null ? '' : ', puerto ' + puerto[1]) + '). '
     + 'Para otro puerto, cambia las dos cosas: esa línea y el arranque del runtime (por ejemplo '
     + '`' + (runtime.id === 'ollama' ? 'OLLAMA_HOST=127.0.0.1:11435 ollama serve' : 'lms server start --port 1235') + '`).';
@@ -1107,8 +1115,8 @@ async function vivoElMcp() {
       url: '',
       puerto,
       motivo: esElPanel
-        ? 'en el puerto ' + puerto + ' está el PROPIO PANEL, no el MCP: `mcp.puerto` no puede ser el mismo que el del panel. Pon otro en settings.yaml'
-        : 'en el puerto ' + puerto + ' contesta otro servidor (no contesta como el MCP de esta casa: la clave no vale ahí); cierra lo que tengas en ese puerto o cambia `mcp.puerto` en settings.yaml',
+        ? 'en el puerto ' + puerto + ' está el PROPIO PANEL, no el MCP: `mcp.puerto` no puede ser el mismo que el del panel. Pon otro en ratacode.yaml'
+        : 'en el puerto ' + puerto + ' contesta otro servidor (no contesta como el MCP de esta casa: la clave no vale ahí); cierra lo que tengas en ese puerto o cambia `mcp.puerto` en ratacode.yaml',
     };
   }
   if (dicho === 'sin-clave') {
@@ -1119,7 +1127,7 @@ async function vivoElMcp() {
       vivo: false,
       url: '',
       puerto,
-      motivo: 'en el puerto ' + puerto + ' hay un servidor, pero la clave de esta casa no vale ahí (HTTP 404). Si acabas de cambiar la clave, espera unos segundos y vuelve a copiar la dirección; si no, es el MCP de otra casa: cierra lo que tengas en ese puerto o cambia `mcp.puerto` en settings.yaml',
+      motivo: 'en el puerto ' + puerto + ' hay un servidor, pero la clave de esta casa no vale ahí (HTTP 404). Si acabas de cambiar la clave, espera unos segundos y vuelve a copiar la dirección; si no, es el MCP de otra casa: cierra lo que tengas en ese puerto o cambia `mcp.puerto` en ratacode.yaml',
     };
   }
   // No contesta nadie. El fichero se limpia SÓLO si tampoco hay un hijo nuestro
@@ -1296,7 +1304,7 @@ async function encenderElMcp(casa, guionMcp, nuevaClave) {
     return {
       ok: false,
       motivo: 'el puerto ' + puerto + ' lo tiene otro programa (y no contesta como el MCP de esta casa).'
-        + ' Cierra lo que lo esté usando, o pon otro puerto en `mcp.puerto` de settings.yaml.',
+        + ' Cierra lo que lo esté usando, o pon otro puerto en `mcp.puerto` de ratacode.yaml.',
     };
   }
   // R27 · se borra la URL de ANTES de arrancar: si el MCP de la vez pasada se
@@ -1677,7 +1685,7 @@ async function planDelTunelNombrado(req) {
         + 'Las credenciales quedan en %USERPROFILE%\\.cloudflared y RATACODE no las lee.',
       '2 · En Cloudflare: añade el hostname ' + host + ' al túnel (o `cloudflared tunnel route dns ' + nombre + ' ' + host + '`) '
         + 'y apunta el servicio a http://127.0.0.1:' + puerto + '.',
-      '3 · En ' + join(casa, 'settings.yaml') + ' pon las dos líneas de abajo y pulsa «Encender»: '
+      '3 · En ' + join(casa, 'ratacode.yaml') + ' pon las dos líneas de abajo y pulsa «Encender»: '
         + 'la dirección será SIEMPRE https://' + host + '/mcp/<clave>, y el conector de ChatGPT se crea una sola vez.',
     ],
     nota: tieneCloudflared

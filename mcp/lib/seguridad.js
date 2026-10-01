@@ -148,7 +148,7 @@ export function resolverEspacio({ casa, pedido, cwdPorDefecto, http = false }) {
   if (http && ajustes.workspaces.length === 0) {
     throw new Error(
       'en modo HTTP hacen falta espacios declarados: pon `mcp.workspaces:` en ' + casa
-      + '\\settings.yaml con las carpetas donde puede trabajar (y `workspace_por_defecto:` si quieres'
+      + '\\ratacode.yaml con las carpetas donde puede trabajar (y `workspace_por_defecto:` si quieres'
       + ' una por defecto). Sin esa lista, la única raíz sería la carpeta desde la que arrancó el'
       + ' servidor, y eso, con la URL en la mano de cualquiera, es demasiado.',
     );
@@ -159,7 +159,7 @@ export function resolverEspacio({ casa, pedido, cwdPorDefecto, http = false }) {
     throw new Error(
       'no queda ningún espacio de trabajo admisible: ni la raíz de un disco ni tu carpeta de usuario ('
       + homedir() + ' y ' + dirname(homedir()) + ') valen. Declara `mcp.workspaces` en '
-      + casa + '\\settings.yaml con carpetas de trabajo de verdad.',
+      + casa + '\\ratacode.yaml con carpetas de trabajo de verdad.',
     );
   }
 
@@ -185,7 +185,7 @@ export function resolverEspacio({ casa, pedido, cwdPorDefecto, http = false }) {
     throw new Error(
       'el espacio de trabajo ' + candidato + ' está fuera de los espacios autorizados ('
       + raices.join(', ') + '). Si de verdad quieres trabajar ahí, añádelo a `mcp.workspaces` en '
-      + casa + '\\settings.yaml y vuelve a llamarme.',
+      + casa + '\\ratacode.yaml y vuelve a llamarme.',
     );
   }
   return { espacio: candidato, raiz, raices, avisos };
@@ -204,7 +204,7 @@ export function resolverModo({ casa, allowDangerous }) {
   if (!ajustes.permitirPeligroso) {
     throw new Error(
       'me pides `allow_dangerous` pero la casa no lo tiene permitido. Para habilitarlo, pon '
-      + '`mcp: { permitir_peligroso: true }` en ' + casa + '\\settings.yaml. Hasta entonces, la tarea '
+      + '`mcp: { permitir_peligroso: true }` en ' + casa + '\\ratacode.yaml. Hasta entonces, la tarea '
       + 'corre en `workspace-write`: escribe sólo dentro del espacio de trabajo (y lee, en los dos casos,'
       + ' sólo dentro de las carpetas autorizadas: mira `lib/lectura.js`).',
     );

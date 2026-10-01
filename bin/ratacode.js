@@ -15,11 +15,12 @@
  *   2 · ESTRENA la casa (sólo la primera vez, si no hay `settings.yaml`):
  *       copia `fabrica\settings.yaml` — B.AI y OpenRouter de fábrica, el aviso
  *       «Internal Testing» ya aceptado y `permission.defaultPreset:
- *       danger-full-access` (sin «Permitir» en cada paso) — copia los nueve
- *       modos de `modos\` a `<casa>/.agent-presets`, y pone el modelo por
+ *       danger-full-access` (sin «Permitir» en cada paso) — y pone el modelo por
  *       defecto del PRIMER PROVEEDOR CON CLAVE en el entorno (orden: B.AI,
  *       OpenRouter, DeepSeek). Si la casa YA existe, no se pisa nada del
- *       usuario.
+ *       usuario. Con DSH 0.2 ese settings.yaml pasa al parche del perfil web
+ *       (`importarAjustes`) y los nueve modos van dentro de la piel como
+ *       filas `dsh-agent-preset` (`asegurarModos`).
  *   3 · ESPACIO DE TRABAJO: la carpeta desde la que se lanza `ratacode` (o la
  *       de `--carpeta <ruta>`) queda REGISTRADA en `<casa>\storages\workspace.json`
  *       — el formato del registro de espacios de DSH — y es el `cwd` del motor.
@@ -67,6 +68,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
+import { importarAjustes, leerAjustes as leerAjustesDeLaCasa, parcheDeAjustes } from '../mcp/lib/casa.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const PAQUETE = resolve(AQUI, '..');
@@ -74,32 +76,31 @@ const PIEL_ORIGEN = join(PAQUETE, 'piel');
 const NOMBRE_PLUGIN = 'ratacode-piel';
 /** Los ajustes que se copian a una casa nueva (proveedores, aviso, permiso). */
 const FABRICA_ORIGEN = join(PAQUETE, 'fabrica', 'settings.yaml');
-/** Los nueve modos de fábrica, que van a `<casa>/.agent-presets`. */
+/** Los nueve modos de fábrica, que van dentro de la piel (ver `asegurarModos`). */
 const MODOS_ORIGEN = join(PAQUETE, 'modos');
 /** El texto de la conexión y su guía, que viajan copiados junto al plugin de la piel. */
 const APRETON_ORIGEN = join(PAQUETE, 'apreton');
 
 /** Puerto fijo y conocido de RATACODE. `--port` lo cambia. */
 const PUERTO_POR_DEFECTO = 3777;
-/** La versión del aviso «Internal Testing» que el cliente da por aceptada. */
-const AVISO_ACEPTADO = '2026-08-13.1';
+/** La versión del aviso «Internal Testing» que el cliente da por aceptada (DSH 0.2: `dsh-client-ui-settings-models`, NOTICE_VERSION). */
+const AVISO_ACEPTADO = '2026-09-28.1';
 /** Node mínimo: por debajo, los módulos nativos del motor no son los suyos. */
 const NODE_MINIMO = 24;
 /**
- * La capa que deja SÓLO los 9 modos de RATACODE en el selector: apaga la raíz
- * de fábrica del motor (sus 4 modos de serie no salen) y pone `modo-rata` por
- * defecto. Va en la COMPOSICIÓN porque el namespace de ajustes del motor sólo
- * admite `default` (`dsh-agent-presets/lib/index.js:1151`); `includeShippedRoot`
- * no cabe en `settings.yaml` y su única puerta es esta capa (`:1246`).
- * Va DESPUÉS de los bundles: la fila `agent-presets` la inserta `dsh-web-app`,
- * así que un `config` por id sólo la alcanza si se aplica por encima.
+ * La capa que pone `modo-rata` por defecto. En DSH 0.2 los modos son filas
+ * `@deepseek-ai/dsh-agent-preset` (las mete el parche de la piel, que además
+ * apaga los 4 de serie) y el registro sólo lee su `default` de la composición
+ * (`dsh-agent-preset-registry`: «neither scans directories nor accepts preset
+ * paths»). La elección del usuario va aparte (`selectedDefault`) y gana a esto.
  */
-const CAPA_PRESETS = `# RATACODE · los 9 modos de la casa, y NINGUNO de los que trae el motor de serie.
-- id: agent-presets
+const CAPA_PRESETS = `# RATACODE · modo-rata por defecto (los 9 modos los pone la piel).
+- id: agent-preset-registry
   config:
     default: modo-rata
-    includeShippedRoot: false
 `;
+/** La fila de la 0.1.x (`dsh-agent-presets`), que en la 0.2 ya no existe. */
+const FILA_VIEJA_PRESETS = /^- id: agent-presets[ \t]*\r?\n(?:[ \t]+.*(?:\r?\n|$))*/m;
 /** El preset de RATACODE que una casa usa si no dice otra cosa. */
 const PRESET_POR_DEFECTO = 'modo-rata';
 /**
@@ -115,17 +116,6 @@ const IDIOMA_POR_DEFECTO = 'es';
  */
 const TEMAS_DE_LA_CASA = ['ratacode-pink', 'ratacode-yellow', 'minimal'];
 const TEMA_POR_DEFECTO = TEMAS_DE_LA_CASA[0];
-/** Los presets que salieron en versiones anteriores de RATACODE y ya no existen. */
-const PRESETS_VIEJOS = ['enlazador', 'promptista', 'escritor'];
-/**
- * Los valores de `agent-presets.default` que hay que MIGRAR a modo-rata, y sólo
- * éstos: los que traía RATACODE de fábrica (`standard`), los que ya no existen
- * (los tres de arriba) y los de serie del motor (`minimal`, `ptc`, `cordis`),
- * que con `includeShippedRoot: false` no resuelven y dejan la sesión sin
- * componer (`preset "standard" not found`, medido en R14). Cualquier otro valor
- * —uno de los 9 modos, o un preset del usuario— NO se toca: es su elección.
- */
-const PRESETS_A_MIGRAR = ['standard', 'minimal', 'ptc', 'cordis', ...PRESETS_VIEJOS];
 const PLANTILLA_PARCHE = `# Tu capa de parches de este perfil, aplicada después de cada capa de bundle:
 # una lista YAML de filas del cargador (config por id, desactivaciones, inserts).
 ${CAPA_PRESETS}`;
@@ -303,7 +293,7 @@ function filasDelParche(texto) {
 
 /** ¿Estas filas ya traen la capa de presets? */
 function tieneLaCapa(filas) {
-  return filas.some((fila) => fila !== null && typeof fila === 'object' && !Array.isArray(fila) && fila.id === 'agent-presets');
+  return filas.some((fila) => fila !== null && typeof fila === 'object' && !Array.isArray(fila) && fila.id === 'agent-preset-registry');
 }
 
 /**
@@ -340,6 +330,11 @@ function asegurarCapaPresets(perfil) {
     if (filas === null) return { puesto: false, reparado: false, motivo: 'el cordis.patch.yml del perfil no se puede leer como YAML: no lo toco' };
     reparado = true;
     texto = limpio;
+  }
+  if (FILA_VIEJA_PRESETS.test(texto)) {
+    texto = texto.replace(FILA_VIEJA_PRESETS, '');
+    filas = filasDelParche(texto) ?? [];
+    reparado = true;
   }
   if (tieneLaCapa(filas)) {
     if (reparado) escribir(ruta, texto);
@@ -415,7 +410,7 @@ function aceptarAviso(casa) {
   const ruta = join(casa, 'settings.yaml');
   let actual = '';
   try { actual = readFileSync(ruta, 'utf8'); } catch { actual = ''; }
-  if (/welcomeNoticeVersion\s*:/.test(actual)) return 'ya estaba';
+  if (/welcomeNoticeVersion\s*:/.test(actual) || leerAjustes(casa)['ui-settings-general']?.welcomeNoticeVersion) return 'ya estaba';
   const seccion = (actual.trim() === '' ? '' : actual.replace(/\s*$/, '\n'))
     + 'ui-onboarding:\n  welcomeNoticeVersion: ' + AVISO_ACEPTADO + '\n';
   mkdirSync(casa, { recursive: true });
@@ -434,13 +429,9 @@ function primerProveedorConClave(entorno) {
   return null;
 }
 
-/** El `settings.yaml` de una casa, como objeto; null si no se puede leer. */
+/** Los ajustes de una casa (filas del perfil web + `ratacode.yaml`), como objeto. */
 function leerAjustes(casa) {
-  try {
-    return yaml.load(readFileSync(join(casa, 'settings.yaml'), 'utf8')) ?? {};
-  } catch {
-    return null;
-  }
+  return leerAjustesDeLaCasa(casa).documento;
 }
 
 /** El primer modelo que la casa declara para un proveedor, si declara alguno. */
@@ -470,7 +461,7 @@ function ponerModeloEnTexto(texto, proveedor, modelo) {
  */
 function estrenarCasa(casa, entorno) {
   const ruta = join(casa, 'settings.yaml');
-  if (existsSync(ruta)) return { nueva: false, aviso: aceptarAviso(casa), modelo: null };
+  if (existsSync(ruta) || existsSync(ruta + '.imported')) return { nueva: false, aviso: aceptarAviso(casa), modelo: null };
   mkdirSync(casa, { recursive: true });
   let texto = readFileSync(FABRICA_ORIGEN, 'utf8');
   const elegido = primerProveedorConClave(entorno);
@@ -490,61 +481,21 @@ function estrenarCasa(casa, entorno) {
 }
 
 /**
- * Deja el `settings.yaml` de una casa con `agent-presets.default: modo-rata`
- * cuando el valor que hay es uno de los que HAY QUE migrar
- * ({@link PRESETS_A_MIGRAR}: el `standard` de fábrica, los tres modos que ya no
- * existen y los de serie del motor, que no resuelven con la raíz de serie
- * apagada). Un valor elegido por el usuario —uno de los 9 modos de la casa, o su
- * propio preset— se respeta: no se pelea con quien manda en su casa.
- * Se hace sobre el TEXTO (como `ponerModeloEnTexto`) para no llevarse por
- * delante comentarios ni el orden del documento.
- */
-function ponerPresetPorDefecto(casa, preset = PRESET_POR_DEFECTO) {
-  const ruta = join(casa, 'settings.yaml');
-  if (!existsSync(ruta)) return { cambiado: false, motivo: 'la casa no tiene settings.yaml' };
-  const texto = readFileSync(ruta, 'utf8');
-  let actual;
-  try {
-    actual = (yaml.load(texto) ?? {})?.['agent-presets']?.default;
-  } catch {
-    return { cambiado: false, motivo: 'el settings.yaml de la casa no se puede leer como YAML: no lo toco' };
-  }
-  if (actual === preset) return { cambiado: false, motivo: 'ya estaba en ' + preset };
-  if (typeof actual === 'string' && actual.trim() !== '' && !PRESETS_A_MIGRAR.includes(actual)) {
-    return { cambiado: false, motivo: 'la casa tiene «' + actual + '» puesto a mano: se respeta' };
-  }
-  const bloque = 'agent-presets:\n  default: ' + preset + '\n';
-  const bloqueActual = /^agent-presets:[ \t]*\n(?:[ \t]+[^\n]*\n)*/m;
-  let nuevo;
-  if (bloqueActual.test(texto)) nuevo = texto.replace(bloqueActual, bloque);
-  else if (/^agent-presets:[ \t]*\S.*$/m.test(texto)) nuevo = texto.replace(/^agent-presets:[ \t]*\S.*$/m, bloque.trimEnd());
-  else nuevo = (texto.trim() === '' ? '' : texto.replace(/\s*$/, '\n')) + '\n' + bloque;
-  writeFileSync(ruta, nuevo, { mode: 0o600 });
-  return { cambiado: true, antes: actual ?? '(no estaba)', motivo: (actual ?? '(no estaba)') + ' → ' + preset };
-}
-
-/**
  * El IDIOMA de la casa: español (R21). DSH guarda el idioma elegido en
  * `settings.yaml` → `locale.preference` (esquema del paquete
  * `@deepseek-ai/dsh-client-locale`: `{preference: <etiqueta BCP 47>}`) y, si no
  * hay nada apuntado, se lo pregunta al navegador. RATACODE es una casa en
  * español, así que se apunta «es» —pero SÓLO si la casa no ha elegido ya otro
  * idioma: la elección del usuario no se toca nunca—. Se escribe sobre el TEXTO,
- * como `ponerPresetPorDefecto`, para no llevarse por delante comentarios ni el
+ * como `ponerModeloEnTexto`, para no llevarse por delante comentarios ni el
  * orden del documento.
  * @param casa - la casa de RATACODE.
  * @returns `{cambiado, motivo}`.
  */
 function ponerIdiomaPorDefecto(casa, idioma = IDIOMA_POR_DEFECTO) {
   const ruta = join(casa, 'settings.yaml');
-  if (!existsSync(ruta)) return { cambiado: false, motivo: 'la casa no tiene settings.yaml' };
-  const texto = readFileSync(ruta, 'utf8');
-  let actual;
-  try {
-    actual = (yaml.load(texto) ?? {})?.locale?.preference;
-  } catch {
-    return { cambiado: false, motivo: 'el settings.yaml de la casa no se puede leer como YAML: no lo toco' };
-  }
+  const texto = existsSync(ruta) ? readFileSync(ruta, 'utf8') : '';
+  const actual = leerAjustesDeLaCasa(casa).documento.locale?.preference;
   if (actual === idioma) return { cambiado: false, motivo: 'ya estaba en ' + idioma };
   if (typeof actual === 'string' && actual.trim() !== '') {
     return { cambiado: false, motivo: 'la casa tiene «' + actual + '» puesto a mano: se respeta' };
@@ -578,25 +529,37 @@ function ponerTemaPorDefecto(casa, tema = TEMA_POR_DEFECTO) {
 }
 
 /**
- * Los modos, EN TODA CASA (no sólo al estrenar): copia los 9 de RATACODE,
- * borra los presets que salieron en versiones anteriores (el enlazador, el
- * promptista y el escritor: `copiarArbol` sólo escribe, nunca borra) y pasa
- * `agent-presets.default` a `modo-rata` si apunta a algo que ya no resuelve
- * (ver {@link ponerPresetPorDefecto}). La elección del usuario se respeta.
+ * Los 9 modos, como filas `@deepseek-ai/dsh-agent-preset` (DSH 0.2: el registro
+ * ya no lee carpetas). Se copian dentro de la piel (`<plugin>\modos\<modo>`) y
+ * en cada uno se escribe `preset.patch.yml`, que la piel lista en su
+ * `dsh.bundle.patch`; así el `baseUrl` de cada parche es la carpeta del modo y
+ * NEX encuentra sus skills. Las filas del modo (`agent.cordis.yml`) van TAL
+ * CUAL, sangradas bajo `plugins:`.
+ * @param plugin - la carpeta de la piel dentro del perfil web.
  */
-function asegurarModos(casa) {
-  const presets = join(casa, '.agent-presets');
-  const cuenta = copiarArbol(MODOS_ORIGEN, presets, { copiados: 0, iguales: 0 });
-  const borrados = [];
-  for (const viejo of PRESETS_VIEJOS) {
-    const ruta = join(presets, viejo);
-    if (!existsSync(ruta)) continue;
-    try {
-      rmSync(ruta, { recursive: true, force: true });
-      borrados.push(viejo);
-    } catch { /* si no se deja borrar, el aviso de abajo lo dice */ }
+function asegurarModos(plugin) {
+  const destino = join(plugin, 'modos');
+  const cuenta = copiarArbol(MODOS_ORIGEN, destino, { copiados: 0, iguales: 0 });
+  for (const modo of readdirSync(MODOS_ORIGEN, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)) {
+    const ficha = yaml.load(readFileSync(join(MODOS_ORIGEN, modo, 'preset.yml'), 'utf8')) ?? {};
+    const filas = readFileSync(join(MODOS_ORIGEN, modo, 'agent.cordis.yml'), 'utf8')
+      .split(/\r?\n/).map((linea) => (linea.trim() === '' ? '' : '          ' + linea)).join('\n');
+    escribir(join(destino, modo, 'preset.patch.yml'), [
+      '# Generado por RATACODE desde agent.cordis.yml y preset.yml: no editar aquí.',
+      '- insert:',
+      '    - id: preset-' + modo,
+      "      name: '@deepseek-ai/dsh-agent-preset'",
+      '      config:',
+      '        id: ' + modo,
+      '        name: ' + JSON.stringify(String(ficha.name ?? modo)),
+      '        description: ' + JSON.stringify(String(ficha.description ?? '')),
+      '        order: ' + (Number.isInteger(ficha.order) ? ficha.order : 99),
+      '        plugins:',
+      filas,
+      '',
+    ].join('\n'));
   }
-  return { cuenta, borrados, preset: ponerPresetPorDefecto(casa), presets };
+  return { cuenta, presets: destino };
 }
 
 // ── 3 · el espacio de trabajo ───────────────────────────────────────────────
@@ -724,29 +687,6 @@ function resolverModelo(casa, pedido, porDefecto) {
   }
   const actual = ajustes?.['agent-default-model'] ?? porDefecto ?? PROVEEDORES_POR_ORDEN[0];
   return { proveedor: actual.provider ?? actual.proveedor, modelo: pedido };
-}
-
-/**
- * El parche de `--modelo`: el documento de ajustes del motor pasa a ser una
- * COPIA con el modelo cambiado. Así el encargo usa el modelo pedido sin tocar
- * el `settings.yaml` del usuario (la capa de usuario de DSH manda sobre la
- * composición, así que un parche de composición no bastaría).
- */
-function parcheModelo(casa, eleccion) {
-  const original = join(casa, 'settings.yaml');
-  const texto = existsSync(original) ? readFileSync(original, 'utf8') : '';
-  const copia = join(casa, 'perfiles-parche', 'headless-' + process.pid + '-settings.yaml');
-  escribir(copia, ponerModeloEnTexto(texto, eleccion.proveedor, eleccion.modelo));
-  const ruta = join(casa, 'perfiles-parche', 'headless-modelo.yml');
-  escribir(ruta, [
-    '# RATACODE · sólo para ESTE encargo: los ajustes son una copia con el modelo',
-    '# cambiado, así no se toca el modelo que el usuario tenga guardado.',
-    '- id: settings',
-    '  config:',
-    '    path: ' + JSON.stringify(copia),
-    '',
-  ].join('\n'));
-  return { parche: ruta, copia };
 }
 
 /**
@@ -881,15 +821,17 @@ function entornoSinClaves(casa) {
 
 // ── el encargo sin pantalla ─────────────────────────────────────────────────
 function correrHeadless({ motor, casa, carpeta, perfilHeadless, encargo, modelo }) {
-  const parches = [];
-  let temporales = [];
+  // DSH 0.2 · el perfil headless no tiene los ajustes del panel (viven en el
+  // parche del perfil web): van en un overlay, y `--modelo` cambia SÓLO ahí.
+  const cambios = {};
+  let eleccion = null;
   if (modelo !== null) {
-    const ajustes = leerAjustes(casa) ?? {};
-    const porDefecto = ajustes?.['agent-default-model'];
-    const eleccion = resolverModelo(casa, modelo, porDefecto);
-    const { parche, copia } = parcheModelo(casa, eleccion);
-    parches.push(parche);
-    temporales = [copia, parche];
+    eleccion = resolverModelo(casa, modelo, leerAjustes(casa)['agent-default-model']);
+    cambios['agent-default-model'] = { provider: eleccion.proveedor, model: eleccion.modelo };
+  }
+  const parches = [parcheDeAjustes(casa, 'headless-' + process.pid + '.yml', { cambios })];
+  let temporales = [...parches];
+  if (eleccion !== null) {
     process.stdout.write('RATACODE · headless · modelo de este encargo: ' + eleccion.modelo
       + ' (proveedor ' + eleccion.proveedor + ')\n');
   }
@@ -1101,12 +1043,8 @@ function correrMcp({ casa, argv }) {
   const soloMira = argv.some((a) => a === '-h' || a === '--help' || a === '--status');
   if (!soloMira) {
     const estreno = estrenarCasa(casa, process.env);
-    // Los 9 modos, también en una casa que ya existía: el MCP compone sesiones
-    // por el mismo camino que el panel y necesita el mismo roster.
-    const modos = asegurarModos(casa);
-    process.stderr.write('RATACODE · casa ' + (estreno.nueva ? 'NUEVA estrenada: ' : 'ya existía: ') + casa
-      + ' · modos por defecto: ' + PRESET_POR_DEFECTO
-      + (modos.borrados.length > 0 ? ' · fuera los viejos: ' + modos.borrados.join(', ') : '') + '\n');
+    importarAjustes(casa);
+    process.stderr.write('RATACODE · casa ' + (estreno.nueva ? 'NUEVA estrenada: ' : 'ya existía: ') + casa + '\n');
   }
   const hijo = spawn(process.execPath, [bin, ...argv], { env: entornoSinClaves(casa), stdio: 'inherit', windowsHide: true });
   hijo.on('error', (e) => {
@@ -1150,13 +1088,8 @@ async function main() {
   prepararPerfil(perfilHeadless, 'dsh-profile-headless',
     ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'], 'startup');
   const estreno = estrenarCasa(casa, process.env);
-  // Los 9 modos se copian SIEMPRE, también en una casa que ya existía: los de
-  // versiones anteriores salieron con dos campos obligatorios sin poner y NO
-  // cargaban («invalid config: - $.x missing required value»). `asegurarModos`
-  // sólo escribe lo que cambia, borra los presets de RATACODE que ya no existen
-  // (enlazador, promptista, escritor) y deja `agent-presets.default` en
-  // modo-rata; los presets del USUARIO no se rozan.
-  const modos = asegurarModos(casa);
+  // Los 9 modos, dentro de la piel (ver `asegurarModos`): sólo escribe lo que cambia.
+  const modos = asegurarModos(join(perfilWeb, 'node_modules', NOMBRE_PLUGIN));
   // R21 · el español de la casa: se apunta `locale.preference: es` si la casa no
   // ha elegido ya otro idioma (el inglés y el chino siguen en Ajustes › General ›
   // Language, y la elección del usuario se respeta siempre).
@@ -1164,6 +1097,9 @@ async function main() {
   // R21 · el aspecto: se apunta el tema de fábrica (RATACODE PINK) si la casa no
   // tiene ninguno apuntado. La elección del usuario no se toca.
   const aspecto = ponerTemaPorDefecto(casa);
+  // DSH 0.2 · el settings.yaml (el de fábrica, o el de una casa vieja) pasa al
+  // parche del perfil web ANTES de que lo vea el motor (ver mcp/lib/casa.js).
+  const importados = importarAjustes(casa);
 
   const carpeta = exigirCarpeta(ordenes.carpeta ?? process.cwd());
   const espacio = registrarEspacio(casa, carpeta);
@@ -1185,9 +1121,11 @@ async function main() {
   process.stdout.write('RATACODE · piel: ' + cuenta.copiados + ' fichero(s) puesto(s), ' + cuenta.iguales + ' ya estaban igual'
     + ' · conexiones: ' + cuentaApreton.copiados + ' puesto(s), ' + cuentaApreton.iguales + ' igual\n');
   process.stdout.write('RATACODE · modos: ' + modos.cuenta.copiados + ' fichero(s) puesto(s), ' + modos.cuenta.iguales
-    + ' ya estaban igual en ' + modos.presets
-    + (modos.borrados.length > 0 ? ' · fuera los viejos: ' + modos.borrados.join(', ') : '')
-    + ' · por defecto: ' + (modos.preset.cambiado ? 'puesto en ' + PRESET_POR_DEFECTO + ' (' + modos.preset.motivo + ')' : modos.preset.motivo) + '\n');
+    + ' ya estaban igual en ' + modos.presets + ' · por defecto: ' + PRESET_POR_DEFECTO + '\n');
+  if (importados.importado) {
+    process.stdout.write('RATACODE · ajustes: settings.yaml pasado al perfil web (' + importados.filas.join(', ')
+      + ') y guardado como settings.yaml.imported\n');
+  }
   if (capaWeb.reparado) {
     process.stdout.write('RATACODE · tu perfil tenía el parche roto (un `[]` pegado delante de las filas, de la 0.2.0):'
       + ' reparado · ' + capaWeb.motivo + '\n');
