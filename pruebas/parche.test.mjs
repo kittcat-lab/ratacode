@@ -26,6 +26,8 @@ import { fileURLToPath } from 'node:url';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const PRODUCTO = resolve(AQUI, '..');
+// R32 · sin instalar los enchufes con paquete (pnpm, red): eso lo mira enchufes.test.
+process.env.RATACODE_SIN_INSTALAR = '1';
 const CASA = join(PRODUCTO, '_pruebaR23-parche');
 const TALLER = join(PRODUCTO, '_pruebaR23-parche-taller');
 const PUERTO_OCUPADO = 3333;
@@ -120,7 +122,9 @@ async function main() {
     salida = await prepararCasa();
     f = filas();
     comprobar(f !== null && capas(f).length === 1, 'con `[]`, el parche queda válido y con la capa puesta');
-    comprobar(ids(f).length === 1, 'y sin filas de más: ' + JSON.stringify(ids(f)));
+    // R32 · los enchufes de serie van en sus propios bloques «- insert:»: no cuentan aquí.
+    const sueltas = (f ?? []).filter((x) => !Array.isArray(x?.insert));
+    comprobar(ids(sueltas).length === 1, 'y sin filas de más: ' + JSON.stringify(ids(sueltas)));
 
     // ── caso 3 · filas del usuario: se respetan ─────────────────────────────
     di('');

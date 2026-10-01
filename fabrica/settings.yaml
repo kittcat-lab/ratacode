@@ -273,3 +273,15 @@ llm-pi-ai:
 #         entrada_por_millon: 0.14
 #         salida_por_millon: 0.28
 #         moneda: EUR
+
+# Enchufes de serie (R32). Para apagar uno, quita el # de su linea y pon false;
+# claude y equipos vienen apagados: se encienden con true.
+# ratacode:
+#   enchufes:
+#     navegador: true   # Playwright por MCP (su propio Chrome)
+#     reloj: true       # la hora de Madrid en cada paso
+#     agenda: true      # schedule_create / list / delete
+#     preguntar: true   # ask_user_question
+#     codex: true       # Codex como subagente (se instala solo; usa tu login de Codex)
+#     claude: false     # Claude Code como subagente (usa tu login de Claude)
+#     equipos: false    # equipos de agentes (experimental)
