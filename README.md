@@ -183,6 +183,9 @@ motor**; el de por defecto es **MODO-RATA**:
    **`list_sessions`**, **`get_session`**, **`send_to_session`** y **`get_session_reply`** (el
    mensaje entra EN ESA conversación, se ve aparecer en ese chat y el agente contesta ahí; hace
    falta marcar la sesión «Abierta a ChatGPT» en la cabecera de su chat, apagado por defecto).
+   Ese interruptor decide **sólo** eso: quién puede escribir en la sesión. Desde R32 la sesión
+   abierta **no pierde nada** (conserva su permiso y todas sus herramientas: terminal, procesos,
+   red, subagentes y ficheros), mientras que el cerco de las tareas de `run_task` sigue igual.
    Por HTTP (para ChatGPT web) hace falta `ratacode mcp --http` y `mcp.workspaces`
    declarado; el túnel es `node mcp/tunel.mjs --home <casa>` (el puerto del MCP lo dice
    `mcp.puerto`: 3778 de fábrica). `run_task` **espera solo** unos segundos (25 de fábrica) y, si

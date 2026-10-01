@@ -1360,10 +1360,11 @@ window.__ModuleLoader__.load({
      * 16695-16698` y `:15077`), así que el dueño de la cabecera nos pasa el
      * `sessionId` (`dsh-client-ui-session/lib/client.js:64-69`).
      *
-     * APAGADO POR DEFECTO, y se enciende A MANO: mientras esté encendido, los
-     * turnos de esa sesión van encerrados en su carpeta, sin terminal, sin
-     * procesos, sin red y sin subagentes. Eso se dice aquí mismo, en la
-     * cabecera, que es lo que pidió Patxi.
+     * APAGADO POR DEFECTO, y se enciende A MANO: es lo ÚNICO que decide si
+     * ChatGPT puede escribir en esta sesión por el MCP. Hasta R32, además, los
+     * turnos de esa sesión iban encerrados (sin terminal, sin procesos, sin red y
+     * sin subagentes); R32 lo derogó: la sesión conserva su permiso y todas sus
+     * herramientas. Lo que se dice aquí, en la cabecera, es eso.
      *
      * Y deja el id de la sesión a la vista en `<html data-ratacode-sesion>`:
      * de ahí tira el guion de la piel para pintar «GPT WEB →» en la fila que
@@ -1415,7 +1416,7 @@ window.__ModuleLoader__.load({
           'aria-pressed': abierta ? 'true' : 'false',
           disabled: enCurso || (sesion !== null && !abierta && !puede),
           title: puede || abierta
-            ? 'Mientras esté abierta, los turnos de esta sesión van encerrados en su carpeta: sin terminal, sin procesos, sin red y sin subagentes.'
+            ? 'Con esto encendido, ChatGPT puede escribir en ESTA sesión por el MCP (sus mensajes salen marcados «GPT WEB →»). No le quita nada a la sesión: conserva su permiso y todas sus herramientas.'
             : (sesion?.motivo ?? 'esta sesión todavía no se puede abrir'),
           onClick: cambiar,
         }, abierta ? 'Sí' : 'No'),

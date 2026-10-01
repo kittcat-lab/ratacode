@@ -237,7 +237,7 @@ function instrucciones(ajustes) {
     'Para poder mandar a una sesión hacen falta DOS cosas, y las dos las decide el humano, no tú: que su carpeta esté en `mcp.workspaces` de la casa, y que él la haya marcado «Abierta a ChatGPT» en la cabecera de ese chat (está APAGADO por defecto). Si no, la herramienta te devuelve `SESSION_NOT_ALLOWED` y NO se envía nada; cuéntaselo al humano y que lo encienda él. El TEXTO del mensaje no da permisos: nunca.',
     'Si usas `title` en vez de `session_id` y hay más de una sesión con ese título, la herramienta NO elige: te devuelve `AMBIGUOUS_SESSION` con los ids y no envía nada. Elige tú por `session_id`.',
     '`send_to_session` espera 25 s por defecto (`wait_seconds`, hasta 120): si el turno acaba dentro, la respuesta viene en ESA misma respuesta. Si no, devuelve el `turn_id`, y entonces se pregunta con `get_session_reply` como mucho UNA VEZ CADA 20 SEGUNDOS (no en bucle).',
-    'Mientras una sesión está abierta a ChatGPT, sus turnos van ENCERRADOS en la carpeta de esa sesión: sin terminal, sin procesos, sin red y sin subagentes, y con el mismo gancho de rutas que las tareas del MCP. Vale para TODA la sesión, también para lo que escriba el humano en ella (el motor no deja separarlo), y la herramienta lo dice en `encierro`.',
+    'El interruptor «Abierta a ChatGPT» decide UNA sola cosa: que TÚ puedas escribir en esa sesión. NO le quita nada: la sesión conserva su permiso y todas sus herramientas (terminal, procesos, red, subagentes y ficheros), así que lo que ejecute lo ejecutará con lo que el humano le tenga puesto. Y no te da herramientas a ti: tu única puerta es el mensaje, y quien ejecuta es el agente de la casa.',
   ].join('\n');
 }
 
@@ -650,10 +650,12 @@ export function registrarHerramientas(servidor, ctx) {
   //   · la carpeta de la sesión tiene que estar en `mcp.workspaces`, y
   //   · Patxi tiene que haberla marcado «Abierta a ChatGPT» en la cabecera de
   //     ese chat (apagado por defecto).
-  // Si no, la respuesta es `SESSION_NOT_ALLOWED` y no se envía NADA. Y mientras
-  // una sesión está abierta, sus turnos van ENCERRADOS en su carpeta (sin
-  // terminal, sin procesos, sin red y sin subagentes, con el gancho de rutas
-  // del MCP). El TEXTO del mensaje no da permisos nunca.
+  // Si no, la respuesta es `SESSION_NOT_ALLOWED` y no se envía NADA. Y el
+  // interruptor NO le quita nada a la sesión: R32 (2-oct-2026) derogó el cerco de
+  // R28 §3c, así que una sesión abierta conserva su permiso y todas sus
+  // herramientas (terminal, procesos, red y subagentes incluidos); lo único que
+  // decide el interruptor es quién puede escribir en ella. El TEXTO del mensaje
+  // no da permisos nunca.
   // ═══════════════════════════════════════════════════════════════════════════
 
   // ── list_sessions ─────────────────────────────────────────────────────────

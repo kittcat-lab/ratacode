@@ -196,13 +196,18 @@ Dos condiciones, y las dos las decide el humano (el TEXTO del mensaje no da perm
 2. el usuario tiene que haberla marcado **«Abierta a ChatGPT»** en la cabecera de ese chat. Está
    **apagado por defecto**.
 
-Si no se cumplen, la herramienta devuelve `SESSION_NOT_ALLOWED` y **no envía nada**. Y mientras una
-sesión está abierta, sus turnos van **encerrados en la carpeta de esa sesión**: sin terminal, sin
-procesos, sin red y sin subagentes, y con el mismo gancho de rutas del MCP
-(`lib/lectura.js`). El motor no deja aplicar el gancho sólo a los turnos del chat —el gancho ve la
-llamada, no el remitente—, así que vale para **toda la sesión** mientras esté abierta: el panel lo
-dice en su cabecera y la herramienta en `encierro`. Al cerrar el interruptor se le devuelve a la
-sesión el permiso que tenía.
+Si no se cumplen, la herramienta devuelve `SESSION_NOT_ALLOWED` y **no envía nada**.
+
+Y el interruptor decide **una sola cosa**: que ChatGPT pueda escribir en esa sesión. **No le quita
+nada a la sesión.** Hasta R32, mientras estaba abierta sus turnos iban encerrados en su carpeta
+(sin terminal, sin procesos, sin red y sin subagentes, con el gancho de rutas del MCP); **R32
+(2-oct-2026) derogó ese cerco entero**: la sesión conserva su permiso y todas sus herramientas
+—terminal, procesos, red, subagentes y ficheros— y no se le acota ninguna ruta por estar abierta.
+El cerco de las **tareas** del MCP (`run_task`) sigue igual: es otro camino y no se ha tocado.
+
+La consecuencia, dicha clara: quien tenga la URL-capacidad del MCP puede acabar moviendo, a través
+de una sesión abierta, lo que esa sesión pueda hacer. Es una decisión consciente (R32: primero
+funcionar; el gate por origen del turno y la seguridad se diseñan después, en R39).
 
 Para que esto funcione, el panel tiene que estar **abierto**: el MCP canjea el token de
 `<casa>\url.txt` por la cookie de sesión del navegador (el mismo camino que hace el navegador al

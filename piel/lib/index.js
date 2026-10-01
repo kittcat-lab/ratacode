@@ -70,14 +70,12 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  cargarCerco,
   devolverPermiso,
   enviarMensaje,
   leerAbiertas,
   leerEnviados,
   listarSesiones,
   marcarAbierta,
-  montarCerco,
   respuestaDe,
 } from './sesiones.js';
 
@@ -1763,27 +1761,13 @@ function leerPedido(req, tope) {
 }
 
 /**
- * R28 · El estado del cerco en ESTE proceso: el módulo del gancho de rutas
- * (`mcp/lib/lectura.js`, cargado por `cargarCerco`) vive aquí porque el gancho
- * se monta al arrancar la piel y el módulo se carga en paralelo.
+ * R32 · Aquí vivía el estado del cerco de las sesiones abiertas a ChatGPT
+ * (`CERCO`, el módulo del gancho de rutas `mcp/lib/lectura.js` que montaba
+ * `montarCerco`, y `anotarCerco`, su línea en Actividad). R32 lo quitó entero:
+ * el interruptor «Abierta a ChatGPT» sólo decide quién puede escribir en esa
+ * sesión, y la sesión conserva su permiso y todas sus herramientas. El gancho de
+ * rutas sigue en las tareas del MCP (`mcp/lib/lectura.js`), que son otro camino.
  */
-const CERCO = { cerco: null };
-
-/** R28 · Una línea al cuaderno de Actividad por cada herramienta que se para. */
-function anotarCerco(casa, juicio) {
-  try {
-    appendFileSync(join(casa, 'mcp', 'actividad.jsonl'), JSON.stringify({
-      tipo: 'lectura',
-      hora: new Date().toISOString(),
-      cliente: 'ChatGPT (sesión abierta)',
-      herramienta: juicio.herramienta ?? 'herramienta',
-      ruta: juicio.fuera ?? (juicio.session_id ?? ''),
-      permitido: false,
-      motivo: 'sesión abierta a ChatGPT: ' + (juicio.motivo ?? 'bloqueado'),
-      detalle: null,
-    }) + '\n');
-  } catch { /* el cuaderno no puede tumbar el turno */ }
-}
 
 /**
  * R28 §2 · Una línea al cuaderno por cada mensaje que entra desde un chat web.
@@ -2122,10 +2106,9 @@ function montarRutas(c) {
         etiqueta: 'GPT WEB →',
       })),
       abiertas: Object.keys(abiertas),
-      cerco: {
-        montado: CERCO.cerco !== null,
-        motivo: CERCO.cerco === null ? 'el gancho de rutas del MCP todavía no está cargado' : null,
-      },
+      // R32: aquí iba el estado del cerco (`cerco: {montado, motivo}`). Ya no hay
+      // cerco que montar en las sesiones abiertas: el interruptor sólo decide
+      // quién puede escribir en ellas.
     });
   };
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/sesiones/marcas', handler: marcas }), 'ratacode-piel.sesiones-marcas');
@@ -2141,7 +2124,10 @@ function montarRutas(c) {
       const sessionId = typeof pedido.session_id === 'string' ? pedido.session_id : '';
       if (sessionId === '') { json(res, 400, { ok: false, error: 'hace falta `session_id`' }); return; }
       if (pedido.abierta !== true) {
-        // Cerrar: se le devuelve el permiso que tenía, si se le cambió.
+        // Cerrar: deja de poder escribir ChatGPT en ella. Y si esta casa arrastra
+        // una sesión ENCERRADA por la versión anterior (R28 §3c guardaba ahí su
+        // `permiso_previo`), se le devuelve el permiso que tenía. Con las sesiones
+        // de ahora `previo` es null y esto no hace nada.
         const previo = leerAbiertas(casa).sesiones[sessionId]?.permiso_previo ?? null;
         marcarAbierta(casa, sessionId, false);
         const devuelto = devolverPermisoDeLaSesion(c, sessionId, previo);
@@ -2167,11 +2153,11 @@ function montarRutas(c) {
         ok: true,
         session_id: sessionId,
         abierta: true,
-        encierro: {
-          aviso: 'Mientras esté abierta a ChatGPT, los turnos de esta sesión van encerrados en su carpeta: sin terminal, sin procesos, sin red y sin subagentes, y con el gancho de rutas del MCP. Vale para toda la sesión, no sólo para los mensajes del chat (el motor no deja separarlo).',
-          cerco_montado: CERCO.cerco !== null,
-          motivo: CERCO.cerco === null ? 'el gancho de rutas del MCP todavía no está cargado: hasta que lo esté, esta sesión no deja pasar ninguna herramienta' : null,
-        },
+        // R32: aquí iba el objeto `encierro` (el aviso de que la sesión perdía
+        // terminal, procesos, red, subagentes y el permiso). Ya no hay encierro
+        // que anunciar: lo ÚNICO que cambia al encender el interruptor es que
+        // ChatGPT puede escribir en esta sesión por el MCP.
+        aviso: 'Abierta a ChatGPT: desde ahora ChatGPT puede meter mensajes en ESTA sesión por el MCP (con la marca «GPT WEB →»). No se le quita nada a la sesión: conserva su permiso y todas sus herramientas.',
       });
     }, () => json(res, 400, { ok: false, error: 'cuerpo JSON inválido' }));
   };
@@ -2228,27 +2214,15 @@ function montarRutas(c) {
   };
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/sesiones/respuesta', handler: respuesta }), 'ratacode-piel.sesiones-respuesta');
 
-  // ── R28 §3c · EL CERCO DE LAS SESIONES ABIERTAS ─────────────────────────
-  // Se monta UNA vez, al arrancar la piel, y no hace nada mientras no haya
-  // ninguna sesión abierta a ChatGPT. El módulo del gancho (`mcp/lib/lectura.js`
-  // de la instalación) se carga en paralelo: hasta que esté, una sesión abierta
-  // falla cerrada (`montarCerco` lo dice).
-  const raizInstalacion = raizDeLaInstalacion();
-  cargarCerco(raizInstalacion).then((modulo) => {
-    CERCO.cerco = modulo;
-    c.logger?.[modulo === null ? 'warn' : 'info']?.(
-      modulo === null
-        ? 'ratacode-piel: no encuentro el gancho de rutas del MCP en ' + join(raizInstalacion, 'mcp', 'lib', 'lectura.js')
-          + ': las sesiones abiertas a ChatGPT no dejarán pasar ninguna herramienta'
-        : 'ratacode-piel: cerco de sesiones abiertas montado con el gancho de rutas del MCP (mcp/lib/lectura.js)',
-    );
-  });
-  c.effect(() => montarCerco(c, {
-    casa: casaDeEstaCasa(),
-    raices: () => ajustesDeLaCasa().workspaces,
-    cerco: () => CERCO.cerco,
-    alDenegar: (juicio) => anotarCerco(casaDeEstaCasa(), juicio),
-  }), 'ratacode-piel.cerco-sesiones');
+  // ── R32 · AQUÍ ESTABA EL CERCO DE LAS SESIONES ABIERTAS ─────────────────
+  // R28 §3c montaba en este punto un gancho `tools/pre-execute` (con el módulo de
+  // `mcp/lib/lectura.js` cargado por `cargarCerco`) para acotar a su carpeta las
+  // herramientas con ruta de una sesión abierta a ChatGPT, y antes de eso le
+  // denegaba por nombre el terminal, los procesos, la red y los subagentes. R32
+  // quitó las dos cosas: una sesión abierta conserva su permiso y todas sus
+  // herramientas, y el interruptor sólo decide quién puede escribir en ella
+  // (`enviarMensaje` es quien lo comprueba). El gancho de rutas sigue donde
+  // nació, en las tareas del MCP (`mcp/lib/lectura.js`), que no se tocan.
 
   c.logger?.info?.('ratacode-piel: el texto de la conexión se sirve en /ratacode/handshake, el MCP en /ratacode/mcp, la conexión con botón en /ratacode/conexion, la clave que falta en /ratacode/clave, los runtimes locales en /ratacode/runtimes y el aspecto en /ratacode/tema');}
 

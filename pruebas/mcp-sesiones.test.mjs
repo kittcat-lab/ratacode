@@ -8,8 +8,9 @@
  *   · leer el registro durable de una sesión para encontrar el mensaje que
  *     entró por aquí (por su `requestId`, que es METADATA) y lo que vino
  *     después: el turno y la respuesta;
- *   · las herramientas que se cierran a una sesión abierta (las vías de escape)
- *     y las que no;
+ *   · que el cerco de R28 §3c YA NO ESTÁ: ni la lista de vías de escape (terminal,
+ *     procesos, red, subagentes) ni el gancho de rutas de las sesiones abiertas
+ *     —R32 los derogó: el interruptor sólo decide quién puede escribir—;
  *   · qué carpetas están dentro de las autorizadas;
  *   · y el estado del interruptor «Abierta a ChatGPT», que viene APAGADO.
  *
@@ -23,15 +24,16 @@ import {
   buscarEnElRegistro,
   dentroDeAlguna,
   elegirSesion,
-  esEscape,
   estaAbierta,
   leerAbiertas,
   leerEnviados,
   marcarAbierta,
-  motivoEscape,
   rutaDeAbiertas,
   textoAsistente,
 } from '../piel/lib/sesiones.js';
+// El módulo entero, aparte: así se puede comprobar que lo que R32 quitó no está
+// (una función que no existe no se puede llamar).
+import * as moduloSesiones from '../piel/lib/sesiones.js';
 
 let cuantas = 0;
 const fallos = [];
@@ -96,15 +98,19 @@ try {
   comprobar(textoAsistente({ content: [{ type: 'text', text: 'a' }, { type: 'image' }, { type: 'text', text: 'b' }] }) === 'a\nb',
     'de un mensaje del asistente sólo se sacan los bloques de texto');
 
-  // ── 3 · LAS VÍAS DE ESCAPE, CERRADAS ─────────────────────────────────────
-  di('· las vías de escape que se cierran a una sesión abierta (R28 §3c)');
-  for (const nombre of ['bash', 'pwsh', 'shell', 'terminal', 'job_kill', 'job_output', 'web_fetch', 'web_search', 'subagent', 'subagent_fork', 'workflow', 'mcp__algo']) {
-    comprobar(esEscape(nombre) === true, 'se cierra: ' + nombre);
+  // ── 3 · EL CERCO DE R28 §3c, DEROGADO (R32) ──────────────────────────────
+  di('· el cerco de las sesiones abiertas que R32 derogó: comprobar que YA NO ESTÁ');
+  // Lo que se prueba aquí es que no vuelve por la puerta de atrás: en R28 esta
+  // sección comprobaba que `esEscape('pwsh')` era true. Ahora el módulo ni
+  // siquiera publica esas funciones: no hay lista de vías de escape ni gancho de
+  // rutas para las sesiones abiertas (el de las tareas del MCP es otro fichero y
+  // no se toca). La prueba REAL de que `pwsh` funciona la hizo R32 con el panel
+  // delante (trabajo\R32\pantalla.mjs): aquí sólo se fija que no vuelva.
+  for (const nombre of ['esEscape', 'motivoEscape', 'montarCerco', 'cargarCerco', 'encerrarPermiso']) {
+    comprobar(moduloSesiones[nombre] === undefined, 'ya NO existe `' + nombre + '` (R32 quitó el cerco)');
   }
-  for (const nombre of ['read', 'write', 'edit', 'glob', 'grep', 'todo_write', 'read_image', 'skill']) {
-    comprobar(esEscape(nombre) === false, 'NO se cierra (es trabajo normal): ' + nombre);
-  }
-  comprobar(/abierta a ChatGPT/.test(motivoEscape('bash')), 'y el motivo lo dice claro: ' + motivoEscape('bash').slice(0, 60) + '…');
+  comprobar(typeof moduloSesiones.devolverPermiso === 'function',
+    '`devolverPermiso` SÍ se queda: sólo para devolverle su permiso a una casa que arrastre una sesión encerrada por la versión anterior');
 
   // ── 4 · LAS CARPETAS ─────────────────────────────────────────────────────
   di('· dentro de las carpetas autorizadas (con `..`, y sin distinguir mayúsculas en Windows)');
@@ -120,12 +126,14 @@ try {
   di('· el interruptor «Abierta a ChatGPT» (apagado por defecto, y se apunta)');
   comprobar(estaAbierta(casa, 'session-aaa') === false, 'sin fichero, NINGUNA sesión está abierta');
   comprobar(JSON.stringify(leerAbiertas(casa).sesiones) === '{}', 'y el estado de fábrica es el vacío');
-  marcarAbierta(casa, 'session-aaa', true, { titulo: 'ESTO SERA UN TEST DI', carpeta: taller, permisoPrevio: 'danger-full-access' });
+  marcarAbierta(casa, 'session-aaa', true, { titulo: 'ESTO SERA UN TEST DI', carpeta: taller });
   comprobar(estaAbierta(casa, 'session-aaa') === true, 'al abrirla, queda abierta');
   comprobar(estaAbierta(casa, 'session-bbb') === false, 'y las demás siguen cerradas');
   const guardado = JSON.parse(readFileSync(rutaDeAbiertas(casa), 'utf8'));
-  comprobar(guardado.sesiones['session-aaa'].permiso_previo === 'danger-full-access',
-    'se apunta el permiso que tenía, para devolvérselo al cerrar');
+  comprobar(guardado.sesiones['session-aaa'].titulo === 'ESTO SERA UN TEST DI' && guardado.sesiones['session-aaa'].carpeta === taller,
+    'y se apunta su título y su carpeta');
+  comprobar(guardado.sesiones['session-aaa'].permiso_previo === undefined && guardado.sesiones['session-aaa'].encerrada === undefined,
+    'R32: NO se apunta ningún permiso previo ni encierro (ya no se le cambia el permiso a la sesión)');
   marcarAbierta(casa, 'session-aaa', false);
   comprobar(estaAbierta(casa, 'session-aaa') === false, 'al cerrarla, deja de estar abierta');
   comprobar(leerAbiertas(casa).sesiones['session-aaa'] === undefined, 'y no se queda basura que pudiera reabrirla sola');
@@ -147,7 +155,7 @@ try {
 
 di('');
 if (fallos.length === 0) {
-  di('VERDE · las piezas de R28 (elegir sesión, leer el registro, el cerco y el interruptor): ' + cuantas + ' comprobaciones.');
+  di('VERDE · las piezas de R28/R32 (elegir sesión, leer el registro, el interruptor y el cerco derogado): ' + cuantas + ' comprobaciones.');
 } else {
   di('ROJO · ' + fallos.length + ' cosa(s) mal de ' + cuantas + ':');
   for (const f of fallos) di('  · ' + f);

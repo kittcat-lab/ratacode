@@ -11,8 +11,10 @@
  * las rutas de la piel (`<casa>\url.txt` → cookie del navegador → `/ratacode/
  * sesiones/...`), y quien decide es el proceso del panel, que es el único que
  * puede escribir en una sesión viva. Las reglas (carpeta autorizada,
- * interruptor «Abierta a ChatGPT», turnos encerrados, `SESSION_NOT_ALLOWED`)
- * viven allí; aquí sólo se traducen a algo que un agente pueda leer.
+ * interruptor «Abierta a ChatGPT», `SESSION_NOT_ALLOWED`) viven allí; aquí sólo
+ * se traducen a algo que un agente pueda leer. Y el interruptor decide UNA cosa
+ * —quién escribe—: la sesión abierta conserva su permiso y sus herramientas
+ * (R32 derogó el cerco que le quitaba terminal, red, subagentes y rutas).
  *
  * Y una cosa que NO se hace nunca: leer el texto del mensaje para decidir nada.
  * El texto es del humano que lo escribió en el chat; los permisos los da el

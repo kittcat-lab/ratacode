@@ -19,7 +19,7 @@
  *
  * Así que el reparto de R28 es este:
  *   · el MCP (`mcp/lib/sesiones.js`) es un CLIENTE FINO de estas rutas;
- *   · aquí, en el proceso del panel, se decide, se encierra y se escribe.
+ *   · aquí, en el proceso del panel, se decide y se escribe.
  *
  * ── LA VÍA, MEDIDA CON EL CÓDIGO DELANTE ────────────────────────────────────
  *   · la caja de escribir del panel → `dsh-client-ui-conversation/lib/client.js:2958`
@@ -41,30 +41,35 @@
  * fila de ESA sesión y ESE turno (`data-chat-flow-kind="user"` +
  * `data-chat-turn`, `dsh-client-ui-chat/lib/client.js:1608-1609`).
  *
- * ── LA SEGURIDAD (R28 §3), que es lo más importante ─────────────────────────
- * Las sesiones del panel van, de fábrica, en «A rienda suelta»
- * (`fabrica/settings.yaml`: `permission.defaultPreset: danger-full-access`) y
- * SIN el cerco del MCP. Un mensaje de ChatGPT no puede convertirse en acceso a
- * todo el PC. Por eso, aquí:
+ * ── LA SEGURIDAD (R28 §3 · REVISADA Y RECORTADA EN R32) ────────────────────
+ * El interruptor «Abierta a ChatGPT» decide UNA sola cosa: QUIÉN puede escribir
+ * en esa sesión (ChatGPT por el MCP, o Patxi en la caja). NO tulle a la sesión.
+ * R32 (2-oct-2026) derogó el cerco ENTERO de R28 §3c, que mientras la sesión
+ * estaba abierta le denegaba por nombre el terminal, los procesos, la red y los
+ * subagentes (`ESCAPES`), le montaba el gancho de rutas del MCP sobre su carpeta
+ * y le cambiaba el permiso a `workspace-write`. Orden de Patxi: «el interruptor
+ * solo decide si ChatGPT puede escribir en esa sesión por MCP». Las tareas
+ * `run_task` del MCP SÍ siguen con su cerco: eso no se toca aquí.
+ * Por eso, ahora:
  *   a) sólo se atiende a sesiones cuya carpeta esté en `mcp.workspaces`;
  *   b) y sólo a las que Patxi haya marcado «Abierta a ChatGPT» en la cabecera
- *      del chat (apagado por defecto);
- *   c) mientras una sesión está abierta, sus turnos van ENCERRADOS: se le fija
- *      el permiso en `workspace-write` (si el motor deja) y, sobre todo, se
- *      monta EL MISMO gancho de rutas del MCP (`mcp/lib/lectura.js`, el fichero
- *      de verdad, importado desde la instalación) más la lista de herramientas
- *      de escape (terminal, procesos, red, subagentes y guiones), que se
- *      deniegan por nombre. El motor no deja aplicar el gancho SÓLO a los turnos
- *      de ChatGPT —el gancho ve la llamada, no el remitente—, así que se aplica
- *      a TODA la sesión mientras esté abierta: eso se dice en la cabecera y en
- *      cada respuesta;
- *   d) cualquier otra sesión: `SESSION_NOT_ALLOWED`, y no se envía nada.
+ *      del chat (apagado por defecto). Cualquier otra: `SESSION_NOT_ALLOWED`, y
+ *      no se envía nada;
+ *   c) la sesión abierta CONSERVA su permiso y TODAS sus herramientas: terminal,
+ *      procesos, red, subagentes y ficheros. Ninguna se le deniega por estar
+ *      abierta, y ninguna ruta se le acota por estar abierta;
+ *   d) ChatGPT no recibe herramientas por abrir esto: su única puerta es este
+ *      mensaje dentro de la sesión. Quien ejecuta es el agente de la casa.
  * El TEXTO del mensaje no da nunca permisos: no se lee para decidir nada.
+ *
+ * Dicho claro, porque es la consecuencia de (c): quien tenga la URL-capacidad
+ * del MCP puede acabar moviendo, a través de una sesión abierta, lo que esa
+ * sesión pueda hacer. Es una decisión consciente de R32 (primero funcionar; la
+ * seguridad se diseña al final, en R39).
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 
 // ── 1 · EL ESTADO: QUÉ SESIONES ESTÁN ABIERTAS A CHATGPT ───────────────────
 
@@ -117,7 +122,7 @@ export function estaAbierta(casa, sessionId) {
  * @param {string} casa
  * @param {string} sessionId
  * @param {boolean} abierta
- * @param {object} [datos] - título, carpeta y el permiso que tenía la sesión.
+ * @param {object} [datos] - título y carpeta de la sesión.
  * @returns {object} la entrada como quedó.
  */
 export function marcarAbierta(casa, sessionId, abierta, datos = {}) {
@@ -133,9 +138,11 @@ export function marcarAbierta(casa, sessionId, abierta, datos = {}) {
     desde: new Date().toISOString(),
     titulo: datos.titulo ?? null,
     carpeta: datos.carpeta ?? null,
-    // El permiso que tenía la sesión ANTES de encerrarla, para poder devolvérselo.
-    permiso_previo: datos.permisoPrevio ?? null,
-    encerrada: datos.encerrada === true,
+    // R32: aquí se apuntaban `permiso_previo` y `encerrada` porque al escribir
+    // por MCP se le encerraba el permiso. Ya no se encierra a nadie, así que no
+    // se apuntan. (Una casa que los arrastre de la versión anterior los sigue
+    // teniendo en su fichero, y al cerrar el interruptor se le devuelve el suyo:
+    // mira `devolverPermiso`.)
   };
   guardarAbiertas(casa, estado);
   return estado.sesiones[clave];
@@ -292,103 +299,24 @@ function textoDe(valor) {
   return typeof valor === 'string' && valor.trim() !== '' ? valor : null;
 }
 
-// ── 4 · EL CERCO DE LAS SESIONES ABIERTAS (R28 §3c) ────────────────────────
-
-/**
- * Las herramientas que se DENIEGAN a una sesión abierta a ChatGPT, por nombre.
- * Es la lista de «vías de escape» del MCP (`mcp/lib/seguridad.js:68-79`) vista
- * desde el otro lado: allí se apagan FILAS del motor, aquí se deniegan NOMBRES
- * de herramienta, que es lo único que ve `tools/pre-execute`.
- */
-const ESCAPES = [
-  'bash', 'pwsh', 'powershell', 'shell', 'terminal', 'cmd', 'exec',
-  'job_list', 'job_output', 'job_kill', 'jobs',
-  'web_search', 'web_fetch', 'web',
-  'subagent', 'subagent_fork', 'subagent_control', 'list_agents', 'send_message', 'interrupt_agent',
-  'workflow', 'ralph',
-];
-
-/**
- * ¿Esta herramienta es una vía de escape? Además de la lista, se miran los
- * prefijos que el motor usa de verdad (`job_*`, `web_*`, `subagent*`), porque
- * un nombre nuevo de la misma familia no puede colarse por no estar apuntado.
- * @param {string} nombre
- * @returns {boolean}
- */
-export function esEscape(nombre) {
-  const n = String(nombre ?? '').toLowerCase();
-  if (n === '') return false;
-  if (ESCAPES.includes(n)) return true;
-  return n.startsWith('job_') || n.startsWith('web_') || n.startsWith('subagent') || n.startsWith('mcp__');
-}
-
-/** La línea que ve el agente cuando una vía de escape se para. */
-export function motivoEscape(nombre) {
-  return 'Esta sesión está abierta a ChatGPT: «' + nombre + '» está cerrada mientras lo esté (sin terminal, sin procesos, sin red y sin subagentes).';
-}
-
-/**
- * Cargar el gancho de rutas DE VERDAD, el del MCP: `mcp/lib/lectura.js` de la
- * instalación. No se copia ni se reescribe: se importa el mismo fichero que
- * montan las tareas del MCP, así lo que se prueba es lo que se monta.
- * @param {string} instalacion - la carpeta del paquete RATACODE.
- * @returns {Promise<object|null>}
- */
-export async function cargarCerco(instalacion) {
-  if (typeof instalacion !== 'string' || instalacion === '') return null;
-  const ruta = join(instalacion, 'mcp', 'lib', 'lectura.js');
-  if (!existsSync(ruta)) return null;
-  try {
-    const modulo = await import(pathToFileURL(ruta).href);
-    return typeof modulo.decidir === 'function' ? modulo : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Montar el gancho `tools/pre-execute` para las sesiones abiertas a ChatGPT.
- *
- * Es el MISMO gancho que llevan las tareas del MCP (`mcp/lib/lectura.js:202`),
- * con una diferencia que aquí es la clave: la lista de carpetas no es fija, se
- * resuelve POR LLAMADA a partir de la sesión que la hace. Una llamada de una
- * sesión que NO está abierta pasa de largo sin tocarla.
- *
- * `cerco` es una FUNCIÓN que devuelve el módulo del gancho (o null mientras se
- * carga): así el gancho queda montado desde el primer instante y, si el módulo
- * no estuviera, una sesión abierta falla CERRADO en vez de quedarse sin cerco.
- * @param {object} ctx - contexto de cordis del panel.
- * @param {{casa: string, raices: () => string[], cerco: () => object|null, alDenegar?: Function}} opciones
- * @returns {Function} el desmontaje.
- */
-export function montarCerco(ctx, { casa, raices, cerco, alDenegar }) {
-  const apuntar = (juicio) => {
-    try { alDenegar?.(juicio); } catch { /* el cuaderno no puede tumbar el turno */ }
-  };
-  return ctx.on('tools/pre-execute', async (exec, next) => {
-    const sesion = exec?.agent?.session;
-    const id = sesion?.id ?? sesion?.header?.id;
-    if (typeof id !== 'string' || id === '') return next();
-    if (!estaAbierta(casa, id)) return next();
-    const nombre = String(exec?.name ?? '');
-    if (esEscape(nombre)) {
-      apuntar({ session_id: id, herramienta: nombre, fuera: null, motivo: 'vía de escape' });
-      return { kind: 'deny', reason: motivoEscape(nombre) };
-    }
-    const modulo = typeof cerco === 'function' ? cerco() : cerco;
-    if (modulo === null || modulo === undefined) {
-      apuntar({ session_id: id, herramienta: nombre, fuera: null, motivo: 'sin cerco de rutas' });
-      return { kind: 'deny', reason: 'Esta sesión está abierta a ChatGPT y el cerco de rutas no está montado: no dejo pasar ninguna herramienta.' };
-    }
-    // La carpeta de ESA sesión es su única raíz: ni las demás de `mcp.workspaces`.
-    const cwd = sesion?.header?.cwd;
-    const propias = typeof cwd === 'string' && cwd !== '' ? [cwd] : raices();
-    const juicio = modulo.decidir({ entrada: exec?.arguments ?? {}, raices: propias, cwd });
-    if (juicio === null) return next();
-    apuntar({ session_id: id, herramienta: nombre, fuera: juicio.fuera, motivo: 'fuera de su carpeta' });
-    return { kind: 'deny', reason: modulo.motivoFuera(juicio.fuera) };
-  });
-}
+// ── 4 · LO QUE R32 QUITÓ DE AQUÍ (el cerco de las sesiones abiertas) ───────
+//
+// R32 (2-oct-2026) derogó el cerco de R28 §3c entero. En este punto del fichero
+// vivían dos cosas, y ya no están:
+//
+//   · `ESCAPES` + `esEscape` + `motivoEscape` — la lista de «vías de escape»
+//     (bash, pwsh, job_*, web_*, subagent*, workflow, ralph, mcp__*) que se
+//     DENEGABAN por nombre a una sesión abierta a ChatGPT. Una sesión abierta ya
+//     no pierde ninguna herramienta: el interruptor sólo decide quién escribe.
+//   · `cargarCerco` + `montarCerco` — el gancho `tools/pre-execute` que, para
+//     una sesión abierta, acotaba sus herramientas CON RUTA a su propia carpeta
+//     (importando `mcp/lib/lectura.js` de la instalación). También se quitó: por
+//     estar abierta, a una sesión no se le acota ninguna ruta.
+//
+// El gancho de rutas sigue existiendo donde nació y donde tiene sentido: en las
+// tareas del MCP (`mcp/lib/lectura.js`), que son otro camino y no se tocan aquí.
+// Lo que SÍ sigue decidiendo el interruptor es quién puede escribir en la
+// sesión: {@link enviarMensaje} (`SESSION_NOT_ALLOWED`).
 
 // ── 5 · LEER EL REGISTRO DE UNA SESIÓN (la respuesta y el turno) ────────────
 
@@ -454,7 +382,14 @@ export function buscarEnElRegistro(eventos, requestId) {
   return { seq: propio, turno, respuesta: null, terminado: false, error: null };
 }
 
-// ── 6 · EL PERMISO DE UNA SESIÓN ABIERTA (workspace-write) ──────────────────
+// ── 6 · EL PERMISO DE UNA SESIÓN (ya NO se toca) ───────────────────────────
+//
+// R32 derogó el «encierro» de R28 §3c: mientras una sesión está abierta a
+// ChatGPT ya NO se le cambia el permiso a `workspace-write`. El interruptor sólo
+// decide quién puede escribir en ella; el permiso que Patxi le tenga puesto es
+// suyo y no se toca. `devolverPermiso` se queda sólo por si una casa arrastra
+// una sesión encerrada por la versión anterior: al cerrar el interruptor se le
+// devuelve el suyo.
 
 /** El servicio de presets de permiso del motor, o null. */
 function presetsDe(ctx) {
@@ -473,39 +408,11 @@ export function permisoActual(ctx, sessionId) {
 }
 
 /**
- * Encerrar el permiso de una sesión en `workspace-write` (lo que pide R28 §3c).
- *
- * Se hace con la vía del propio motor: el servicio de presets escribe el
- * evento durable `permission/preset` + `sandbox/mode` + `approval/policy` en la
- * sesión (`dsh-permission-presets/lib/index.js:274-286`), así que el modo lo
- * aplican TODAS las capacidades que confinan (bash, ficheros, terminal).
- *
- * Es BEST EFFORT a propósito: si este motor no monta el servicio, o la sesión
- * no está viva, se dice y se sigue —porque el cerco que de verdad para las
- * cosas es el gancho de rutas de {@link montarCerco}, que no depende de esto.
- * @returns {{encerrada: boolean, permiso_previo: string|null, motivo: string|null}}
- */
-export function encerrarPermiso(ctx, sessionId) {
-  const servicio = presetsDe(ctx);
-  const vivas = sesionesVivas(ctx);
-  if (servicio === null) return { encerrada: false, permiso_previo: null, motivo: 'este motor no publica `permissionPresets`' };
-  if (vivas === null) return { encerrada: false, permiso_previo: null, motivo: 'este motor no publica `sessions`' };
-  const sesion = vivas.get(String(sessionId));
-  if (sesion === undefined || sesion === null) return { encerrada: false, permiso_previo: null, motivo: 'la sesión no está viva en el panel: el cerco queda sólo en el gancho de rutas' };
-  let previo = null;
-  try { previo = servicio.current(sesion) ?? null; } catch { previo = null; }
-  if (previo === 'workspace-write') return { encerrada: true, permiso_previo: previo, motivo: null };
-  try {
-    servicio.set(sesion, 'workspace-write');
-    return { encerrada: true, permiso_previo: previo, motivo: null };
-  } catch (e) {
-    return { encerrada: false, permiso_previo: previo, motivo: 'no pude fijar `workspace-write`: ' + (e?.message ?? e) };
-  }
-}
-
-/**
- * Devolverle a la sesión el permiso que tenía antes de encerrarla. Sólo si
- * está viva (si no, no se toca nada: se apunta y lo dice el estado).
+ * Devolverle a la sesión el permiso que tenía antes de encerrarla (lo que hacía
+ * la versión anterior de R28 §3c). R32 ya no encierra a nadie, así que esto sólo
+ * sirve para una casa que arrastre una sesión encerrada de antes: al cerrar el
+ * interruptor se le devuelve el suyo. Sólo si está viva (si no, no se toca nada:
+ * se apunta y lo dice el estado).
  * @returns {{devuelto: boolean, motivo: string|null}}
  */
 export function devolverPermiso(ctx, sessionId, previo) {
@@ -525,7 +432,7 @@ export function devolverPermiso(ctx, sessionId, previo) {
   }
 }
 
-// ── 7 · ATENDER EL ENVÍO: ELEGIR LA SESIÓN, ENCERRARLA Y ESCRIBIR ──────────
+// ── 7 · ATENDER EL ENVÍO: ELEGIR LA SESIÓN Y ESCRIBIR ─────────────────────
 
 /** Cuánto se espera entre dos miradas al registro mientras corre el turno. */
 const MS_ENTRE_MIRADAS = 400;
@@ -577,12 +484,10 @@ export function elegirSesion(lista, { sessionId, titulo }) {
  *   1 · elegir la sesión (sin adivinar: `AMBIGUOUS_SESSION`);
  *   2 · comprobar que está ABIERTA y que su carpeta está autorizada
  *       (`SESSION_NOT_ALLOWED`): el texto del mensaje no da permisos nunca;
- *   3 · ENCERRARLA (permiso `workspace-write` si el motor deja) — el gancho de
- *       rutas ya está montado desde que se abrió, así que el cerco no depende
- *       de que esto salga bien;
- *   4 · escribir el mensaje con la MISMA función del motor que la caja 🔲 del
- *       panel (`sessionController.prompt`), con un `requestId` propio;
- *   5 · esperar `esperar_segundos` a que el turno acabe, y devolver la
+ *   3 · escribir el mensaje con la MISMA función del motor que la caja 🔲 del
+ *       panel (`sessionController.prompt`), con un `requestId` propio. R32: NO
+ *       se le cambia el permiso ni se le quita ninguna herramienta a la sesión;
+ *   4 · esperar `esperar_segundos` a que el turno acabe, y devolver la
  *       respuesta si acabó.
  * @param {{ctx: object, casa: string, raices: string[], sessionId?: string, titulo?: string, mensaje: string, esperarSegundos?: number, cliente?: string}} opciones
  * @returns {Promise<object>}
@@ -617,23 +522,10 @@ export async function enviarMensaje({ ctx, casa, raices, sessionId, titulo, mens
     };
   }
 
-  // El agente, VIVO antes de encerrar y de escribir: si la sesión estaba fría,
-  // esto la levanta (es lo mismo que hace `prompt` por dentro,
+  // El agente, VIVO antes de escribir: si la sesión estaba fría, esto la levanta
+  // (es lo mismo que hace `prompt` por dentro,
   // `dsh-api-session-controller/lib/index.js:740`).
   try { await control.resolveAgent?.(sesion.session_id); } catch { /* si no se puede, `prompt` lo dirá */ }
-
-  const cerco = encerrarPermiso(ctx, sesion.session_id);
-  const estado = leerAbiertas(casa);
-  const entrada = estado.sesiones[sesion.session_id];
-  if (entrada !== undefined) {
-    // OJO: el permiso previo se apunta UNA vez, cuando se encierra la primera
-    // vez. Si se pisara en cada mensaje, al cerrar la sesión se le devolvería
-    // «workspace-write» (el que le pusimos nosotros) en vez del suyo —medido en
-    // R28, con la primera versión de esto—.
-    if (entrada.encerrada !== true) entrada.permiso_previo = cerco.permiso_previo ?? null;
-    entrada.encerrada = cerco.encerrada === true;
-    guardarAbiertas(casa, estado);
-  }
 
   const requestId = randomUUID();
   const esperaSegundos = Number.isFinite(esperarSegundos) && esperarSegundos > 0
@@ -689,14 +581,10 @@ export async function enviarMensaje({ ctx, casa, raices, sessionId, titulo, mens
     titulo: sesion.titulo,
     carpeta: sesion.carpeta,
     remitente: { sender: 'openai-mcp', source: 'chatgpt-web', cliente: cliente ?? 'MCP' },
-    encierro: {
-      permiso: cerco.encerrada === true ? 'workspace-write' : null,
-      // El permiso que tenía la sesión ANTES de encerrarla (se apunta la primera
-      // vez, no se pisa): es el que se le devuelve al cerrar el interruptor.
-      permiso_previo: entrada?.permiso_previo ?? cerco.permiso_previo ?? null,
-      motivo: cerco.motivo ?? null,
-      aviso: 'Mientras esta sesión esté abierta a ChatGPT sus turnos van encerrados en su carpeta, sin terminal, sin procesos, sin red y sin subagentes. El motor no deja aplicarlo sólo a los turnos del chat, así que vale para toda la sesión.',
-    },
+    // R32: aquí iba un objeto `encierro` (permiso `workspace-write`, el permiso
+    // previo y el aviso de «sin terminal, sin procesos, sin red y sin
+    // subagentes»). Ya no hay encierro: la sesión conserva su permiso y todas
+    // sus herramientas, así que no hay nada que contar aquí.
     espera: { pedida_segundos: esperaSegundos, agotada: ultimo.terminado !== true, esperada_ms: Date.now() - antes },
   };
   if (ultimo.error !== null) {
