@@ -48,6 +48,16 @@ function comprobar(condicion, queja) {
   if (!condicion) fallos.push(queja);
   process.stdout.write((condicion ? 'OK   ' : 'MAL  ') + '  ' + queja + '\n');
 }
+/**
+ * Lo que sólo tiene sentido con rutas de Windows (`\`, `C:`, mayúsculas que no
+ * cuentan). Fuera de Windows NO se da por buena: se apunta como no comprobada.
+ */
+const sinComprobar = [];
+function comprobarEnWindows(condicion, queja) {
+  if (process.platform === 'win32') return comprobar(condicion, queja);
+  sinComprobar.push(queja);
+  process.stdout.write('SOLO WINDOWS  ' + queja + ' (sin comprobar en ' + process.platform + ')\n');
+}
 const di = (t) => process.stdout.write(t + '\n');
 
 const base = mkdtempSync(join(tmpdir(), 'ratacode-cerco-'));
@@ -174,12 +184,12 @@ try {
   // ── 0 · LO QUE SE PUEDE COMPROBAR SIN MOTOR ─────────────────────────────
   di('· el juicio de rutas, en frío (sin motor)');
   comprobar(!dentroDeAlguna('\\\\otro-pc\\recurso\\x.txt', [taller]).dentro, 'una ruta UNC de otro equipo queda fuera');
-  comprobar(!dentroDeAlguna('..\\..\\otro\\x.txt', [taller], taller).dentro, 'una ruta relativa con `..` que sale queda fuera');
+  comprobarEnWindows(!dentroDeAlguna('..\\..\\otro\\x.txt', [taller], taller).dentro, 'una ruta relativa con `..` que sale queda fuera');
   comprobar(dentroDeAlguna('sub\\x.txt', [taller], taller).dentro, 'una ruta relativa de dentro queda dentro');
-  comprobar(dentroDeAlguna(join(taller.toUpperCase(), 'x.txt'), [taller]).dentro, 'en Windows las mayúsculas no cambian de carpeta');
+  comprobarEnWindows(dentroDeAlguna(join(taller.toUpperCase(), 'x.txt'), [taller]).dentro, 'en Windows las mayúsculas no cambian de carpeta');
   comprobar(!dentroDeAlguna('\\\\?\\' + CANARIO_CRUDO, [taller]).dentro, 'el prefijo `\\\\?\\` no salta el cerco');
-  comprobar(canonica('C:\\a\\..\\b\\c.txt').toLowerCase() === 'c:\\b\\c.txt', 'la forma canónica quita el `..`');
-  comprobar(estaDentro(taller + '\\x.txt', taller) && !estaDentro(taller + 'ajena\\x.txt', taller), 'la frontera es la carpeta, no el prefijo de su nombre');
+  comprobarEnWindows(canonica('C:\\a\\..\\b\\c.txt').toLowerCase() === 'c:\\b\\c.txt', 'la forma canónica quita el `..`');
+  comprobarEnWindows(estaDentro(taller + '\\x.txt', taller) && !estaDentro(taller + 'ajena\\x.txt', taller), 'la frontera es la carpeta, no el prefijo de su nombre');
   comprobar(rutasDe({ file_path: 'x', files: [{ path: 'y' }], content: 'C:\\no-es-ruta' }).join(',') === 'x,y', 'las rutas se sacan de sus claves, no del texto libre');
   comprobar(decidir({ entrada: { file_path: 'x' }, raices: [] }) !== null, 'sin carpetas autorizadas no pasa nada (falla cerrado)');
 
@@ -248,11 +258,11 @@ try {
       'g · ruta trampa ' + como + ' → denegada: ' + String(hechos.g.pasos[i]?.resultado ?? '').slice(0, 110));
   }
   const ultimo = hechos.g.pasos[TRAMPAS.length];
-  comprobar(!DENEGADO.test(ultimo?.resultado ?? '') && String(ultimo?.resultado ?? '').includes(DENTRO),
+  comprobarEnWindows(!DENEGADO.test(ultimo?.resultado ?? '') && String(ultimo?.resultado ?? '').includes(DENTRO),
     'g · pero la de DENTRO con mayúsculas sí pasa (Windows no distingue)');
 
   // ── 3 · EL PANEL NO SE TOCA: la casa sigue con «A rienda suelta» ────────
-  comprobar(readFileSync(join(casa, 'settings.yaml'), 'utf8').includes('defaultPreset: danger-full-access'),
+  comprobar(readFileSync(join(casa, 'profiles', 'web', 'cordis.patch.yml'), 'utf8').includes('defaultPreset: danger-full-access'),
     'el ajuste de la casa (el del panel) sigue siendo danger-full-access: el MCP no lo toca');
   comprobar(['a', 'b', 'c', 'd', 'e', 'f', 'g'].every((e) => hechos[e].recibo.modo === 'workspace-write'),
     'las 7 tareas corren en workspace-write aunque la casa diga danger-full-access');
@@ -260,6 +270,7 @@ try {
   di('');
   di(fallos.length === 0
     ? 'VERDE · el MCP va encerrado: ni lee ni escribe fuera, ni tiene terminal, ni rutas trampa.'
+      + (sinComprobar.length > 0 ? ' (' + sinComprobar.length + ' comprobación(es) sólo de Windows, sin comprobar aquí)' : '')
     : 'ROJO · ' + fallos.length + ' cosa(s) mal.');
   for (const f of fallos) di('  · ' + f);
   process.exitCode = fallos.length === 0 ? 0 : 1;

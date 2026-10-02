@@ -25,7 +25,7 @@
  * sondea `/v1/models` sin bloquear la página), sus modelos con una etiqueta
  * corta, el botón de encender/apagar y la recomendación según la tarjeta del PC.
  * Así Ajustes › Models queda SÓLO para las APIs con clave, que es lo que pidió
- * Patxi.
+ * el dueño.
  *
  * R21 · Añade, por la vía OFICIAL de idiomas de DSH (`ctx.locale`), el IDIOMA
  * ESPAÑOL: `addLanguage({id:'es', label:'Español', fallback:'en'})` y un
@@ -507,7 +507,7 @@ window.__ModuleLoader__.load({
      * pasos 1-2-3 y un botón por acción. Lo que se explica largo va plegado.
      *
      * R27 §4 · La tarjeta de «ChatGPT y Claude web», con los pasos REALES de
-     * ChatGPT (los que se midieron con Patxi) y un plegable «Cómo usarlo» con
+     * ChatGPT (los que se midieron con el dueño) y un plegable «Cómo usarlo» con
      * tres ejemplos listos para pegar. Lo que NO cambia: aquí no se inventa nada
      * —los pasos son los de la documentación de OpenAI y los del propio ChatGPT—
      * y todo lo largo va plegado, como en OpenAI y Anthropic.
@@ -685,7 +685,7 @@ window.__ModuleLoader__.load({
           ...plan.pasos.map((p, i) => e('p', { className: 'mr-ml-nota', key: 'paso' + i }, p)),
           e('p', { className: 'mr-ml-nota', key: 'comandos-titulo' }, 'Los tres comandos, en tu PC:'),
           ...(Array.isArray(plan.comandos) ? plan.comandos : []).map((c, i) => e('pre', { className: 'mr-cx-ejemplo', key: 'cmd' + i }, c)),
-          e('p', { className: 'mr-ml-nota', key: 'ajustes-titulo' }, 'Y estas dos líneas en settings.yaml:'),
+          e('p', { className: 'mr-ml-nota', key: 'ajustes-titulo' }, 'Y estas dos líneas en ratacode.yaml:'),
           e('pre', { className: 'mr-cx-ejemplo', key: 'ajustes' }, (Array.isArray(plan.ajustes) ? plan.ajustes : []).join('\n')),
           e('p', { className: 'mr-ml-nota', key: 'nota' }, plan.nota))));
       // R27 §2 · si la URL del MCP está escrita pero NO contesta como la nuestra
@@ -1354,7 +1354,7 @@ window.__ModuleLoader__.load({
      * R28 §3b · EL INTERRUPTOR DE LA CABECERA DEL CHAT: «Abierta a ChatGPT».
      *
      * Por qué está aquí y no en Ajustes: porque es de UNA sesión, y la sesión
-     * que manda es la que Patxi tiene delante. Va en el asiento que el motor
+     * que manda es la que el dueño tiene delante. Va en el asiento que el motor
      * tiene para esto (`conversation.session.header.utilities`, un asiento
      * «list» de ámbito de sesión: `dsh-client-ui-conversation/lib/client.js:
      * 16695-16698` y `:15077`), así que el dueño de la cabecera nos pasa el
@@ -1363,7 +1363,7 @@ window.__ModuleLoader__.load({
      * APAGADO POR DEFECTO, y se enciende A MANO: mientras esté encendido, los
      * turnos de esa sesión van encerrados en su carpeta, sin terminal, sin
      * procesos, sin red y sin subagentes. Eso se dice aquí mismo, en la
-     * cabecera, que es lo que pidió Patxi.
+     * cabecera, que es lo que pidió el dueño.
      *
      * Y deja el id de la sesión a la vista en `<html data-ratacode-sesion>`:
      * de ahí tira el guion de la piel para pintar «GPT WEB →» en la fila que

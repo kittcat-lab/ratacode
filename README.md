@@ -48,6 +48,22 @@ copia el prompt de instalación y lo cuenta en corto.
   de la guía para que el agente la abra. Es genérica (sin nombres, rutas, dominios ni puertos de
   nadie) y sirve para cualquier agente. Las instrucciones del servidor MCP también la nombran.
 
+## Qué trae la integración 0.3 (motor DSH 0.2.0-rc.2)
+
+- **El motor DSH 0.2.0-rc.2.** Todos los paquetes `@deepseek-ai/dsh*` van en esa misma
+  versión: con otra distinta el motor no arranca (lo vigila `pruebas/versiones.test.mjs`).
+- **Enchufes de serie**, que se apagan en `<casa>\ratacode.yaml` › `enchufes:` (RATACODE deja
+  ahí la lista comentada): navegador (Playwright, con su propio Chrome), reloj (hora de
+  Madrid), agenda, preguntar, voz (dictado en local), la terminal del panel lateral y Codex
+  como subagente. Claude Code como subagente y los equipos de agentes vienen apagados. El
+  navegador y los subagentes se instalan solos en el perfil la primera vez (pnpm, con red).
+- **La telemetría del motor, apagada de serie:** el interruptor «Upload Session Log» de
+  Ajustes › General arranca apagado (y así va también a headless y al MCP). Si lo enciendes, se
+  respeta.
+- **La fábrica ya no se rompe con CRLF:** en una copia de Windows `fabrica\settings.yaml`
+  podía dejar `agent-default-model` repetido (YAML inválido). Las casas que quedaron así se
+  importan igual (gana el último).
+
 ## Requisitos
 
 - **Windows** (la v1 solo está probada en Windows; Mac y Linux, después).
@@ -70,10 +86,10 @@ Alternativa, si npm te falla o quieres una versión concreta: la **release de Gi
 (el `.tgz` que cuelga de ella; no hace falta ni git ni cuenta de npm):
 
 ```bash
-npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.2.0/ratacode-0.2.0.tgz
+npm i -g https://github.com/kittcat-lab/ratacode/releases/download/v0.2.9/ratacode-0.2.9.tgz
 ```
 
-Último recurso, si la descarga falla: `git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.2.0.tgz`.
+Último recurso, si la descarga falla: `git clone https://github.com/kittcat-lab/ratacode && cd ratacode && npm pack && npm i -g ./ratacode-0.2.9.tgz`.
 
 Y para abrirla (lo mismo en los tres casos):
 
@@ -253,7 +269,7 @@ rmdir /s /q "%USERPROFILE%\.ratacode"
 
 Dentro de esa carpeta van, en claro, **tus claves** (`<casa>\.credentials.yaml`), la clave del
 MCP por HTTP (`<casa>\mcp\http-secret.txt`), la URL del panel con su token (`<casa>\url.txt`),
-los ajustes (`<casa>\settings.yaml`) y los perfiles con la piel copiada. Borrar la carpeta lo
+los ajustes del panel (`<casa>\profiles\web\cordis.patch.yml`), los de RATACODE (`<casa>\ratacode.yaml`) y los perfiles con la piel copiada. Borrar la carpeta lo
 borra todo; no hay nada más que limpiar (RATACODE nunca escribe fuera de su casa, y si algún
 día exportaste `B_AI_API_KEY` en tu shell, eso se quita de tu perfil de shell).
 
@@ -279,8 +295,8 @@ and get the result back in your agent or chat.
 - **Install (one command):** `npm i -g ratacode`
   (the yellow npm 11 «allow-scripts» warnings during install are normal and do not stop it
   from working; alternative: the GitHub release tarball
-  `https://github.com/kittcat-lab/ratacode/releases/download/v0.2.0/ratacode-0.2.0.tgz`
-  — last resort: `git clone` the repo, `npm pack` and `npm i -g ./ratacode-0.2.0.tgz`) — then run `ratacode`.
+  `https://github.com/kittcat-lab/ratacode/releases/download/v0.2.9/ratacode-0.2.9.tgz`
+  — last resort: `git clone` the repo, `npm pack` and `npm i -g ./ratacode-0.2.9.tgz`) — then run `ratacode`.
 - **Bring your own keys:** eight APIs ship declared (`B.AI`, `OpenRouter`, `DeepSeek`,
   `Groq`, `Google Gemini`, `NVIDIA NIM`, `SambaNova`, `Cloudflare Workers AI` — the last one
   needs your `{account_id}` pasted into *Customized settings → Base URL*). Set each key in the

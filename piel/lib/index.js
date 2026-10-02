@@ -317,7 +317,7 @@ function textoParaPegar(url) {
 }
 
 /**
- * Los ajustes de `mcp:` que necesita la piel, leídos del TEXTO de `settings.yaml`
+ * Los ajustes de `mcp:` que necesita la piel, leídos del TEXTO de `ratacode.yaml`
  * (esta piel viaja copiada dentro del perfil del motor y no lleva dependencias:
  * no tiene js-yaml). Son cuatro valores sencillos, todos de una línea:
  *   · `puerto` — el puerto del MCP por HTTP de esta casa (3778 de fábrica). Se
@@ -330,7 +330,7 @@ function textoParaPegar(url) {
 function ajustesDeLaCasa() {
   const casa = casaDeEstaCasa();
   let texto;
-  try { texto = readFileSync(join(casa, 'settings.yaml'), 'utf8'); } catch {
+  try { texto = readFileSync(join(casa, 'ratacode.yaml'), 'utf8'); } catch {
     return { puerto: PUERTO_MCP_POR_DEFECTO, tunelNombre: null, tunelHost: null, workspaces: [] };
   }
   const salida = { puerto: PUERTO_MCP_POR_DEFECTO, tunelNombre: null, tunelHost: null, workspaces: [] };
@@ -505,6 +505,14 @@ function ultimasDelCuaderno(carpeta, cuantas) {
  * Un valor dentro de un objeto, por su camino de claves (`['providers','b-ai']`).
  * El `settingsPath` que declara cada proveedor configurable es justo eso.
  */
+/**
+ * El valor vivo de un namespace de ajustes. DSH 0.2 quitó `settings.get(ns)`:
+ * ahora `settings.describe()` da un formulario por fila, con su `value`.
+ */
+function ajusteVivo(settings, ns) {
+  return settings.describe().find((forma) => forma.ns === ns)?.value;
+}
+
 function porCamino(objeto, camino) {
   let actual = objeto;
   for (const trozo of camino ?? []) {
@@ -520,7 +528,7 @@ function porCamino(objeto, camino) {
  *   · el proveedor y el modelo, por `ctx.agentDefaultModel.currentSelection()`;
  *   · la credencial que esa ruta nombra (`apiKeyEnv`), por el `settingsPath` que
  *     declara el directorio de proveedores (`ctx.llm.listConfigurableProviders`)
- *     y el valor resuelto de su namespace (`ctx.settings.get`);
+ *     y el valor resuelto de su namespace (`ctx.settings.describe`);
  *   · si está puesta o no, por `ctx.credentials.describe` (`configured`).
  * Una ruta que NO nombra credencial (Ollama y LM Studio de fábrica) no pide
  * clave: esa es la regla del propio motor (`dsh-llm-pi-ai`: `namesCredential`).
@@ -539,7 +547,7 @@ async function estadoDeLaClave(c) {
   const seleccion = c.get('agentDefaultModel')?.currentSelection?.() ?? null;
   const proveedor = seleccion?.provider ?? null;
   const entrada = entradas.find((e) => e.provider === proveedor);
-  const perfil = entrada === undefined ? undefined : porCamino(settings.get(entrada.settingsNs), entrada.settingsPath);
+  const perfil = entrada === undefined ? undefined : porCamino(ajusteVivo(settings, entrada.settingsNs), entrada.settingsPath);
   const variable = typeof perfil?.apiKeyEnv === 'string' && perfil.apiKeyEnv !== '' ? perfil.apiKeyEnv : null;
   // Un nombre que no es un identificador de shell no puede ser una referencia:
   // `describe` lo rechazaría, así que se trata como «esta ruta no pide clave».
@@ -774,7 +782,7 @@ function baseURLDelRuntime(c, runtime) {
     try {
       const entrada = llm.listConfigurableProviders().find((e) => e.provider === runtime.id);
       if (entrada !== undefined) {
-        const perfil = porCamino(settings.get(entrada.settingsNs), entrada.settingsPath);
+        const perfil = porCamino(ajusteVivo(settings, entrada.settingsNs), entrada.settingsPath);
         if (typeof perfil?.baseURL === 'string' && perfil.baseURL !== '') return perfil.baseURL.replace(/\/+$/, '');
       }
     } catch { /* ajustes raros: se usa la de fábrica */ }
@@ -785,7 +793,7 @@ function baseURLDelRuntime(c, runtime) {
 /**
  * Cómo se cambia la dirección de un runtime local. La pestaña «Modelos locales»
  * lo dice con la ruta de ESTA casa, porque en Ajustes › Models ya no está (R18):
- * se toca el `baseURL` de su bloque en `settings.yaml` (o se levanta el runtime
+ * se toca el `baseURL` de su fila `llm-pi-ai` en el parche del perfil web (o se levanta el runtime
  * escuchando en otro puerto).
  * @param c - contexto de cordis.
  * @param runtime - la ficha del runtime.
@@ -795,7 +803,7 @@ function baseURLDelRuntime(c, runtime) {
 function comoCambiarLaDireccion(c, runtime, baseURL) {
   const casa = casaDeEstaCasa();
   const puerto = /:(\d+)\//.exec(baseURL + '/');
-  return 'Se cambia en ' + join(casa, 'settings.yaml') + ' → llm-pi-ai.providers.'
+  return 'Se cambia en ' + join(casa, 'profiles', 'web', 'cordis.patch.yml') + ' → fila llm-pi-ai → providers.'
     + runtime.id + '.baseURL (hoy ' + baseURL + (puerto === null ? '' : ', puerto ' + puerto[1]) + '). '
     + 'Para otro puerto, cambia las dos cosas: esa línea y el arranque del runtime (por ejemplo '
     + '`' + (runtime.id === 'ollama' ? 'OLLAMA_HOST=127.0.0.1:11435 ollama serve' : 'lms server start --port 1235') + '`).';
@@ -1056,7 +1064,7 @@ function leerPid(ruta) {
  *
  * ── POR QUÉ ASÍ (medido el 30-sep-2026) ────────────────────────────────────
  * Con la comprobación anterior («¿hay alguien escuchando en ese puerto?») salía
- * un «Conectado» falso de verdad: Patxi tenía su propio MCP en el puerto por
+ * un «Conectado» falso de verdad: el dueño tenía su propio MCP en el puerto por
  * defecto (3778, de la casa `casa-camel`), y el MCP de la casa de pruebas no
  * pudo escuchar (puerto ocupado), murió... y su `http-url.txt` se quedó escrito
  * apuntando a un puerto donde SÍ había alguien: el MCP de OTRA casa, con OTRA
@@ -1107,8 +1115,8 @@ async function vivoElMcp() {
       url: '',
       puerto,
       motivo: esElPanel
-        ? 'en el puerto ' + puerto + ' está el PROPIO PANEL, no el MCP: `mcp.puerto` no puede ser el mismo que el del panel. Pon otro en settings.yaml'
-        : 'en el puerto ' + puerto + ' contesta otro servidor (no contesta como el MCP de esta casa: la clave no vale ahí); cierra lo que tengas en ese puerto o cambia `mcp.puerto` en settings.yaml',
+        ? 'en el puerto ' + puerto + ' está el PROPIO PANEL, no el MCP: `mcp.puerto` no puede ser el mismo que el del panel. Pon otro en ratacode.yaml'
+        : 'en el puerto ' + puerto + ' contesta otro servidor (no contesta como el MCP de esta casa: la clave no vale ahí); cierra lo que tengas en ese puerto o cambia `mcp.puerto` en ratacode.yaml',
     };
   }
   if (dicho === 'sin-clave') {
@@ -1119,7 +1127,7 @@ async function vivoElMcp() {
       vivo: false,
       url: '',
       puerto,
-      motivo: 'en el puerto ' + puerto + ' hay un servidor, pero la clave de esta casa no vale ahí (HTTP 404). Si acabas de cambiar la clave, espera unos segundos y vuelve a copiar la dirección; si no, es el MCP de otra casa: cierra lo que tengas en ese puerto o cambia `mcp.puerto` en settings.yaml',
+      motivo: 'en el puerto ' + puerto + ' hay un servidor, pero la clave de esta casa no vale ahí (HTTP 404). Si acabas de cambiar la clave, espera unos segundos y vuelve a copiar la dirección; si no, es el MCP de otra casa: cierra lo que tengas en ese puerto o cambia `mcp.puerto` en ratacode.yaml',
     };
   }
   // No contesta nadie. El fichero se limpia SÓLO si tampoco hay un hijo nuestro
@@ -1276,7 +1284,7 @@ async function encenderConexion(casa, opciones = {}) {
  * fábrica): si el puerto cambiara, la dirección que ChatGPT tiene pegada
  * dejaría de valer. Antes se arrancaba sin `--port`, así que tomaba el de
  * fábrica del MCP... que puede estar ocupado por el MCP de OTRA casa (medido:
- * el panel de Patxi tenía el 3778): ahí el hijo moría y quedaba un «conectado»
+ * el panel del dueño tenía el 3778): ahí el hijo moría y quedaba un «conectado»
  * falso. Ahora, si el puerto de la casa está ocupado por otra cosa, se dice.
  * @param casa - la casa de RATACODE.
  * @param guionMcp - la ruta del guion del MCP.
@@ -1296,7 +1304,7 @@ async function encenderElMcp(casa, guionMcp, nuevaClave) {
     return {
       ok: false,
       motivo: 'el puerto ' + puerto + ' lo tiene otro programa (y no contesta como el MCP de esta casa).'
-        + ' Cierra lo que lo esté usando, o pon otro puerto en `mcp.puerto` de settings.yaml.',
+        + ' Cierra lo que lo esté usando, o pon otro puerto en `mcp.puerto` de ratacode.yaml.',
     };
   }
   // R27 · se borra la URL de ANTES de arrancar: si el MCP de la vez pasada se
@@ -1659,7 +1667,7 @@ async function planDelTunelNombrado(req) {
     fichero: escrito ? rutaConfig : null,
     tiene_cloudflared: tieneCloudflared,
     configurado: ajustes.tunelHost !== null,
-    // Los TRES comandos que haría Patxi, tal cual (el paso 2 es en la web de
+    // Los TRES comandos que haría el dueño, tal cual (el paso 2 es en la web de
     // Cloudflare: ahí no se puede entrar desde aquí, ni se debe).
     comandos: [
       'cloudflared tunnel login',
@@ -1677,7 +1685,7 @@ async function planDelTunelNombrado(req) {
         + 'Las credenciales quedan en %USERPROFILE%\\.cloudflared y RATACODE no las lee.',
       '2 · En Cloudflare: añade el hostname ' + host + ' al túnel (o `cloudflared tunnel route dns ' + nombre + ' ' + host + '`) '
         + 'y apunta el servicio a http://127.0.0.1:' + puerto + '.',
-      '3 · En ' + join(casa, 'settings.yaml') + ' pon las dos líneas de abajo y pulsa «Encender»: '
+      '3 · En ' + join(casa, 'ratacode.yaml') + ' pon las dos líneas de abajo y pulsa «Encender»: '
         + 'la dirección será SIEMPRE https://' + host + '/mcp/<clave>, y el conector de ChatGPT se crea una sola vez.',
     ],
     nota: tieneCloudflared
@@ -1960,7 +1968,7 @@ function montarRutas(c) {
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/conexion/clave', handler: cambiarClave }), 'ratacode-piel.conexion-clave');
 
   // GET /ratacode/conexion/tunel-nombrado → (R27 §8) los TRES pasos y los TRES
-  // comandos que haría Patxi para tener una dirección FIJA (un subdominio suyo)
+  // comandos que haría el dueño para tener una dirección FIJA (un subdominio suyo)
   // en vez del dominio efímero del túnel rápido, que cambia cada vez que se
   // enciende. Aquí NO se hace login, ni se toca ninguna cuenta, ni se crea
   // ningún túnel, ni se leen las credenciales de `%USERPROFILE%\.cloudflared`:
@@ -2131,7 +2139,7 @@ function montarRutas(c) {
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/sesiones/marcas', handler: marcas }), 'ratacode-piel.sesiones-marcas');
 
   // POST /ratacode/sesiones/abierta → EL INTERRUPTOR de la cabecera del chat.
-  // Es lo único que abre una sesión a ChatGPT, y lo enciende Patxi a mano.
+  // Es lo único que abre una sesión a ChatGPT, y lo enciende el dueño a mano.
   const abierta = (req, res) => {
     if (!autorizada(req, res)) return;
     if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'Usa POST.' }); return; }

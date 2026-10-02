@@ -21,7 +21,18 @@
   ],
   "dsh": {
     "bundle": {
-      "patch": "./cordis.patch.yml"
+      "patch": [
+        "./cordis.patch.yml",
+        "./modos/arquitecto/preset.patch.yml",
+        "./modos/capataz/preset.patch.yml",
+        "./modos/faro/preset.patch.yml",
+        "./modos/gepeto/preset.patch.yml",
+        "./modos/hero/preset.patch.yml",
+        "./modos/modo-rata/preset.patch.yml",
+        "./modos/nex/preset.patch.yml",
+        "./modos/pix/preset.patch.yml",
+        "./modos/tirita/preset.patch.yml"
+      ]
     },
     "client": {
       "platform": "web",

@@ -50,7 +50,7 @@ cloudflared tunnel create ratacode
 cloudflared tunnel route dns ratacode ratacode.tudominio.com
 ```
 
-Y en `<casa>\settings.yaml` (la casa es `%USERPROFILE%\.ratacode` salvo que uses `--home`):
+Y en `<casa>\ratacode.yaml` (la casa es `%USERPROFILE%\.ratacode` salvo que uses `--home`):
 
 ```yaml
 mcp:

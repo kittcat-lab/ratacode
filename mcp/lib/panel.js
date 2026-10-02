@@ -3,7 +3,7 @@
  *
  * ── QUÉ PROBLEMA RESUELVE ───────────────────────────────────────────────────
  * El MCP corre en OTRO proceso que el panel. Para meter un mensaje en una
- * sesión que Patxi tiene abierta hay que hablar con el panel EN MARCHA, porque
+ * sesión que el dueño tiene abierta hay que hablar con el panel EN MARCHA, porque
  * sólo su proceso puede escribir en el registro durable de esa sesión por la
  * vía de verdad (`sessionController.prompt`, la misma función en la que acaba
  * la caja de escribir del panel). Y esa puerta está cerrada con el cerco del
@@ -11,7 +11,7 @@
  * navegador (`dsh-client-connection/lib/index.js:553-556`).
  *
  * ── CÓMO SE ENTRA, SIN NINGÚN SECRETO NUEVO ─────────────────────────────────
- * La misma puerta que usa el navegador cuando Patxi abre el panel:
+ * La misma puerta que usa el navegador cuando el dueño abre el panel:
  *   · `<casa>\url.txt` guarda `http://127.0.0.1:<puerto>/?token=<token>`, que es
  *     la dirección CON TOKEN que el motor imprime al arrancar y que
  *     `bin/ratacode.js:1027-1041` deja escrita sólo cuando el puerto ya escucha;

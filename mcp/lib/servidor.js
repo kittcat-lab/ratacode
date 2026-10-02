@@ -338,7 +338,7 @@ export function registrarHerramientas(servidor, ctx) {
         avisos: provider !== undefined && filtrados.length === 0
           ? [...avisos, 'no hay modelos declarados para el proveedor «' + provider + '»; mira list_providers']
           : avisos,
-        nota: 'El coste sólo aparece si el humano declaró precios en `mcp.precios` de settings.yaml. RATACODE no se inventa precios.',
+        nota: 'El coste sólo aparece si el humano declaró precios en `mcp.precios` de ratacode.yaml. RATACODE no se inventa precios.',
       });
     }),
   );
@@ -367,30 +367,8 @@ export function registrarHerramientas(servidor, ctx) {
       if (args.prompt.length > ajustes.promptMaxCaracteres) {
         throw new Error(
           'el encargo es demasiado largo: ' + args.prompt.length + ' caracteres (máximo '
-          + ajustes.promptMaxCaracteres + ', `mcp.prompt_max_caracteres` en ' + casa + '\\settings.yaml).'
+          + ajustes.promptMaxCaracteres + ', `mcp.prompt_max_caracteres` en ' + casa + '\\ratacode.yaml).'
           + ' Pásame el encargo en un fichero dentro del espacio de trabajo y pídeme que lo lea.',
-        );
-      }
-
-      // Tope de tareas EN MARCHA a la vez: la URL abierta no puede ser una
-      // fábrica de procesos del motor.
-      const enMarcha = tareas.listar().filter((t) => t.estado === 'queued' || t.estado === 'running').length;
-      if (enMarcha >= ajustes.tareasALaVez) {
-        throw new Error(
-          'ya hay ' + enMarcha + ' tareas en marcha (máximo ' + ajustes.tareasALaVez + ' a la vez,'
-          + ' `mcp.tareas_a_la_vez` en ' + casa + '\\settings.yaml). Espera a que termine alguna'
-          + ' (get_task_status) o cancélala (cancel_task).',
-        );
-      }
-
-      // Tope de tareas por hora: falla cerrado antes de lanzar nada. Las marcas
-      // viven en la casa, así que un reinicio no regala cuota.
-      const ahora = Date.now();
-      while (marcasTarea.length > 0 && ahora - marcasTarea[0] > VENTANA_MS) marcasTarea.shift();
-      if (marcasTarea.length >= ctx.tareasPorHora) {
-        throw new Error(
-          'tope de tareas alcanzado: ' + marcasTarea.length + ' en la última hora'
-          + ' (máximo ' + ctx.tareasPorHora + '/h). Espera a que pasen las primeras antes de lanzar más.',
         );
       }
 
@@ -433,6 +411,31 @@ export function registrarHerramientas(servidor, ctx) {
         ? ajustes.timeoutPorDefectoMs
         : Math.min(timeoutPedido, ajustes.timeoutMaximoMs);
       const timeoutRecortado = timeoutPedido !== null && timeoutPedido > ajustes.timeoutMaximoMs;
+
+      // Los dos topes se miran AQUÍ, justo antes de apuntar y lanzar, sin ningún
+      // `await` por medio: mirados antes de las esperas de arriba (catálogo y
+      // credencial), dos llamadas a la vez pasaban las dos.
+      // Tope de tareas EN MARCHA a la vez: la URL abierta no puede ser una
+      // fábrica de procesos del motor.
+      const enMarcha = tareas.listar().filter((t) => t.estado === 'queued' || t.estado === 'running').length;
+      if (enMarcha >= ajustes.tareasALaVez) {
+        throw new Error(
+          'ya hay ' + enMarcha + ' tareas en marcha (máximo ' + ajustes.tareasALaVez + ' a la vez,'
+          + ' `mcp.tareas_a_la_vez` en ' + casa + '\\ratacode.yaml). Espera a que termine alguna'
+          + ' (get_task_status) o cancélala (cancel_task).',
+        );
+      }
+
+      // Tope de tareas por hora: falla cerrado antes de lanzar nada. Las marcas
+      // viven en la casa, así que un reinicio no regala cuota.
+      const ahora = Date.now();
+      while (marcasTarea.length > 0 && ahora - marcasTarea[0] > VENTANA_MS) marcasTarea.shift();
+      if (marcasTarea.length >= ctx.tareasPorHora) {
+        throw new Error(
+          'tope de tareas alcanzado: ' + marcasTarea.length + ' en la última hora'
+          + ' (máximo ' + ctx.tareasPorHora + '/h). Espera a que pasen las primeras antes de lanzar más.',
+        );
+      }
 
       // Sólo contabiliza la tarea si de verdad se lanza (no los intentos
       // denegados por falta de clave o espacio no autorizado).
@@ -648,7 +651,7 @@ export function registrarHerramientas(servidor, ctx) {
   // la piel), no este servidor: el MCP es un cliente fino. Y las reglas son
   // las de la casa, no las del mensaje:
   //   · la carpeta de la sesión tiene que estar en `mcp.workspaces`, y
-  //   · Patxi tiene que haberla marcado «Abierta a ChatGPT» en la cabecera de
+  //   · el dueño tiene que haberla marcado «Abierta a ChatGPT» en la cabecera de
   //     ese chat (apagado por defecto).
   // Si no, la respuesta es `SESSION_NOT_ALLOWED` y no se envía NADA. Y mientras
   // una sesión está abierta, sus turnos van ENCERRADOS en su carpeta (sin

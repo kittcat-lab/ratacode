@@ -60,6 +60,8 @@ import yaml from 'js-yaml';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const PRODUCTO = resolve(AQUI, '..');
+// R32 · sin instalar los enchufes con paquete (pnpm, red): eso lo mira enchufes.test.
+process.env.RATACODE_SIN_INSTALAR = '1';
 const RATACODE = join(PRODUCTO, 'bin', 'ratacode.js');
 const PIEL_CSS = join(PRODUCTO, 'piel', 'activos', 'ratacode-piel.css');
 
@@ -367,9 +369,8 @@ async function main() {
     // R25 · la casa declara su carpeta autorizada ANTES de preguntar: la tarjeta
     // de Conexiones tiene que decir ESA carpeta (la lee el plugin en cada
     // petición, así que vale escribirla aquí).
-    const rutaAjustes = join(args.casa, 'settings.yaml');
-    writeFileSync(rutaAjustes, readFileSync(rutaAjustes, 'utf8')
-      + '\nmcp:\n  workspaces:\n    - ' + JSON.stringify(args.taller) + '\n');
+    // DSH 0.2 · la sección `mcp:` vive en <casa>\ratacode.yaml (settings.yaml ya no existe).
+    writeFileSync(join(args.casa, 'ratacode.yaml'), 'mcp:\n  workspaces:\n    - ' + JSON.stringify(args.taller) + '\n');
     const estadoMcp = await fetch(new URL('/ratacode/mcp', destino), conGalleta);
     const cuerpoMcp = await estadoMcp.json().catch(() => ({}));
     di('  B3 · GET /ratacode/mcp → ' + estadoMcp.status + ' · http:' + (cuerpoMcp.http?.abierto === true)
@@ -398,7 +399,8 @@ async function main() {
     di('      ' + (comandos.split('\n').length === 2 ? 'OK   ' : 'MAL  ') + '  los dos comandos van en un bloque pegable');
 
     // B4 · el plugin de CLIENTE (la sección «Conexiones» de Ajustes) se sirve
-    const urlBundle = /\/plugins\/\?\?ratacode-piel\/client\.js&rev=([\w-]+)/.exec(html);
+    // DSH 0.2 sirve la ruta RELATIVA (`plugins/??…`), sin la barra delante.
+    const urlBundle = /\/?plugins\/\?\?ratacode-piel\/client\.js&rev=([\w-]+)/.exec(html);
     comprobar(urlBundle !== null, 'el index no trae el plugin de cliente ratacode-piel en el grafo de arranque');
     if (urlBundle !== null) {
       const respuestaBundle = await fetch(new URL('/plugins/??ratacode-piel/client.js&rev=' + urlBundle[1], destino), conGalleta);
@@ -513,8 +515,8 @@ async function main() {
       'cada runtime tiene que traer su enlace de descarga');
     comprobar(typeof porId.ollama?.encendido === 'boolean' && Array.isArray(porId.ollama?.modelos),
       'el estado de encendido y la lista de modelos tienen que venir siempre (aunque esté apagado)');
-    comprobar(/settings\.yaml/.test(String(porId.ollama?.cambiar ?? '')) && /baseURL/.test(String(porId.ollama?.cambiar ?? '')),
-      'la ruta tiene que decir CÓMO se cambia la dirección (settings.yaml → baseURL)');
+    comprobar(/cordis\.patch\.yml/.test(String(porId.ollama?.cambiar ?? '')) && /baseURL/.test(String(porId.ollama?.cambiar ?? '')),
+      'la ruta tiene que decir CÓMO se cambia la dirección (parche del perfil web → baseURL)');
     const tarjetas = Array.isArray(cuerpoRuntimes.tarjetas) ? cuerpoRuntimes.tarjetas : [];
     comprobar(tarjetas.map((t) => t.tarjeta).join('|') === '8 GB|12 GB|16 GB|24 GB|Solo CPU',
       'la recomendación por tarjeta tiene que ser la del README: ' + JSON.stringify(tarjetas.map((t) => t.tarjeta)));

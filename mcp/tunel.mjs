@@ -83,7 +83,7 @@ const puerto = o.port;
 
 /**
  * R27 §8 · EL TÚNEL CON NOMBRE de esta casa (dirección fija), si lo tiene:
- * `mcp.tunel_nombre` y `mcp.tunel_host` de `settings.yaml`. Los `--tunel-nombre`
+ * `mcp.tunel_nombre` y `mcp.tunel_host` de `ratacode.yaml`. Los `--tunel-nombre`
  * y `--tunel-host` de la línea de órdenes mandan sobre los ajustes (es lo que
  * usa la piel, que los lee del mismo sitio).
  */
@@ -211,7 +211,7 @@ if (nombreTunel !== null && hostTunel !== null) {
     '  - service: http_status:404',
     '',
   ].join('\n'), { mode: 0o600 });
-  // `tunnel run --url <origen> <nombre>`: la forma corta y la que pidió Patxi.
+  // `tunnel run --url <origen> <nombre>`: la forma corta y la que pidió el dueño.
   args = ['tunnel', '--config', rutaConfig, 'run', '--url', origen, nombreTunel];
   urlFija = 'https://' + hostTunel + '/mcp/' + clave;
   console.log('\nTúnel CON NOMBRE: ' + nombreTunel + ' → https://' + hostTunel + ' (config: ' + rutaConfig + ')');

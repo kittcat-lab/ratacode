@@ -1,7 +1,7 @@
 {
   "name": "ratacode",
   "version": "0.2.9",
-  "description": "RATACODE Â· la terminal de trabajo con IA: le mandas el trabajo pesado a modelos baratos (o a los tuyos, en local) y el resultado vuelve a tu agente o a tu chat.",
+  "description": "RATACODE · la terminal de trabajo con IA: le mandas el trabajo pesado a modelos baratos (o a los tuyos, en local) y el resultado vuelve a tu agente o a tu chat.",
   "license": "MIT",
   "author": {
     "name": "Patxi"
@@ -20,7 +20,7 @@
   },
   "scripts": {
     "postinstall": "node bin/instalacion.js",
-    "test": "node pruebas/piel.test.mjs && node pruebas/modos.test.mjs && node pruebas/parche.test.mjs && node pruebas/mcp-espacios.test.mjs && node pruebas/mcp-cerrado.test.mjs && node pruebas/mcp-lectura.test.mjs && node pruebas/mcp-actividad.test.mjs && node pruebas/mcp-sesiones.test.mjs"
+    "test": "node pruebas/versiones.test.mjs && node pruebas/claves.test.mjs && node pruebas/fabrica.test.mjs && node pruebas/piel.test.mjs && node pruebas/modos.test.mjs && node pruebas/parche.test.mjs && node pruebas/enchufes.test.mjs && node pruebas/mcp-espacios.test.mjs && node pruebas/mcp-http-tope.test.mjs && node pruebas/mcp-topes-carrera.test.mjs && node pruebas/mcp-cerrado.test.mjs && node pruebas/mcp-lectura.test.mjs && node pruebas/mcp-actividad.test.mjs && node pruebas/mcp-sesiones.test.mjs && node pruebas/headless.test.mjs"
   },
   "files": [
     "bin",
@@ -43,7 +43,11 @@
     "ratacode"
   ],
   "dependencies": {
-    "@deepseek-ai/dsh": "0.1.5-rc.1",
-    "js-yaml": "^4.2.0"
+    "@deepseek-ai/dsh": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-sidebar-terminal": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-experimental-voice-input-bundle": "0.2.0-rc.2",
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "js-yaml": "^4.2.0",
+    "zod": "^4.6.5"
   }
 }
