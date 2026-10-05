@@ -581,6 +581,21 @@ async function main() {
     const guionOk = html.includes("replace(/DeepSeek Harness/gi,'RATACODE')");
     comprobar(guionOk, 'el guion de la piel no lleva el interceptor de document.title');
     di('      ' + (guionOk ? 'OK   ' : 'MAL  ') + '  el guion intercepta document.title');
+    // El panel se puede instalar como app (Chrome › Instalar): manifest propio sin nada del
+    // motor, y los dos iconos PNG del emblema.
+    const manifiestoOk = html.includes('href="/ratacode/manifest.webmanifest"');
+    comprobar(manifiestoOk, 'el index no enlaza el manifest propio de RATACODE');
+    di('      ' + (manifiestoOk ? 'OK   ' : 'MAL  ') + '  el index enlaza el manifest propio');
+    for (const ruta of ['/ratacode/manifest.webmanifest', '/ratacode/icono-192.png', '/ratacode/icono-512.png']) {
+      const r = await fetch(new URL(ruta, url));
+      const cuerpo = Buffer.from(await r.arrayBuffer());
+      const texto = cuerpo.toString('utf8');
+      const bueno = r.status === 200 && (ruta.endsWith('.png')
+        ? cuerpo.subarray(1, 4).toString('latin1') === 'PNG'
+        : /"name":"RATACODE"/.test(texto) && !/DeepSeek|DSH/i.test(texto));
+      comprobar(bueno, ruta + ' no sirve lo esperado (estado ' + r.status + ')');
+      di('      ' + (bueno ? 'OK   ' : 'MAL  ') + '  ' + ruta + ' → ' + r.status);
+    }
 
     // B2 · el texto de la conexión (Ajustes > Conexiones), por su ruta protegida
     const cabeceraGalleta = [...galletas.entries()].map(([n, v]) => n + '=' + v).join('; ');

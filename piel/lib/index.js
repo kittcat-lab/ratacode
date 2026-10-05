@@ -143,7 +143,12 @@ export function vestir(html) {
   // sirve uno propio); y el documento nace en español, no en inglés.
   salida = salida.replace(/<link rel="icon"[^>]*>/i,
     '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,' + encodeURIComponent(leer('ratacode-emblema.svg')) + '">');
+  // Y el manifest PROPIO (`/ratacode/manifest.webmanifest`): es lo que deja a
+  // Chrome «Instalar RATACODE» como app, con el emblema como icono (también al
+  // anclarla a la barra de tareas) y sin una sola palabra del motor.
   salida = salida.replace(/\s*<link rel="manifest"[^>]*>/i, '');
+  salida = salida.replace(/(<link rel="icon"[^>]*>)/i,
+    '$1<link rel="manifest" href="/ratacode/manifest.webmanifest" crossorigin="use-credentials">');
   salida = salida.replace(/<html lang="en">/i, '<html lang="es">');
   const cabeza = /<head(?:\s[^>]*)?>/i.exec(salida);
   salida = cabeza === null ? estilo + salida : salida.slice(0, cabeza.index + cabeza[0].length) + estilo + salida.slice(cabeza.index + cabeza[0].length);
@@ -2055,6 +2060,37 @@ function montarRutas(c) {
     writeFileSync(ruta, texto, { mode: 0o600 });
     return ruta;
   };
+
+  // GET /ratacode/manifest.webmanifest y /ratacode/icono-{192,512}.png → lo que
+  // hace falta para instalar el panel como app. No llevan nada secreto: el nombre
+  // y el emblema, los mismos que ya ve cualquiera que abra la página.
+  const soloLeer = (req, res) => {
+    if (req.method === 'GET' || req.method === 'HEAD') return true;
+    json(res, 405, { ok: false, error: 'Usa GET.' });
+    return false;
+  };
+  const manifiesto = (req, res) => {
+    if (!soloLeer(req, res)) return;
+    res.writeHead(200, { 'content-type': 'application/manifest+json; charset=utf-8', 'cache-control': 'no-cache' });
+    res.end(JSON.stringify({
+      id: '/', name: 'RATACODE', short_name: 'RATACODE', description: 'Trabajo bruto. Control total.',
+      lang: 'es', start_url: '/', scope: '/', display: 'standalone',
+      background_color: '#151619', theme_color: '#151619',
+      icons: [192, 512].map((n) => ({ src: '/ratacode/icono-' + n + '.png', sizes: n + 'x' + n, type: 'image/png', purpose: 'any' })),
+    }));
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/manifest.webmanifest', handler: manifiesto }), 'ratacode-piel.manifiesto');
+  for (const n of [192, 512]) {
+    const icono = (req, res) => {
+      if (!soloLeer(req, res)) return;
+      let png;
+      try { png = readFileSync(join(ACTIVOS, 'ratacode-icono-' + n + '.png')); }
+      catch { json(res, 404, { ok: false, error: 'falta el icono ' + n }); return; }
+      res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-cache' });
+      res.end(png);
+    };
+    c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/icono-' + n + '.png', handler: icono }), 'ratacode-piel.icono-' + n);
+  }
 
   // GET /ratacode/handshake → el texto corto de ESTA casa, sin escribir nada.
   // POST /ratacode/handshake → lo mismo, y además lo deja en `<casa>\handshake.md`.
