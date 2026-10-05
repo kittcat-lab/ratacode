@@ -17,6 +17,8 @@
  }catch(e){/* si no se puede, queda el reemplazo del index y el de apply() */}
  window.__ratacodeSkinObserver?.disconnect();
  document.documentElement.dataset.ratacodePiel='punk-1';
+ // R33: las ratas de fondo, apagadas si así se dejó en Ajustes › Aspecto (se mira ya, para que no asomen).
+ try{if(localStorage.getItem('mr-ratas')==='no')document.documentElement.dataset.mrRatas='no';if(localStorage.getItem('mr-datos')==='si')document.documentElement.dataset.mrDatos='si';}catch(e){/* sin almacén: ratas sí, datos no */}
  const labels=new Map([['New Session','Nueva sesión'],['New session','Nueva sesión'],['Workspaces','Espacios de trabajo'],['Settings','Ajustes'],['Session log','Registro'],['Trajectory','Actividad'],['Collapse sidebar','Recoger barra lateral'],['Expand sidebar','Mostrar barra lateral'],['Search sessions','Buscar sesiones'],['Add workspace','Añadir espacio de trabajo'],['View options','Opciones de vista'],['No sessions yet','Todavía no hay sesiones'],['Choose workspace','Elegir espacio de trabajo']]);
  // La caja del encargo pone su texto desde el diccionario del frontend
  // (`dsh-client-ui-conversation/lib/client.js`, claves `placeholder.default`,
@@ -463,7 +465,7 @@
    brand.append(word);
   }
   const header=document.querySelector('header[class*="_header"]');
-  if(header&&!header.querySelector('.mr-dsh-kicker')){const kicker=document.createElement('div');kicker.className='mr-dsh-kicker';kicker.append(wordmark(),' / TRABAJO BRUTO. CONTROL TOTAL.');header.prepend(kicker)}
+  if(header&&!header.querySelector('.mr-dsh-kicker')){const kicker=document.createElement('div');kicker.className='mr-dsh-kicker';kicker.append(wordmark(),' · Trabajo bruto. Control total.');header.prepend(kicker)}
   // Los rótulos también viven en la portada y en la tarjeta de la caja, no sólo
   // en la columna y la cabecera: «Choose workspace» sale en la portada.
   document.querySelectorAll('[class*="_sidebarCol"] button, header button, [data-phase="hero"] button, [data-phase="hero"] [role="button"], [data-composer-card] button').forEach(root=>{
@@ -535,4 +537,65 @@
  mirarMarcas();
  setInterval(mirarMarcas,2000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)mirarMarcas();});
+ // R33: LOS ICONOS DE LOS PASOS, EN 3D. El icono de cada fila es EL QUESO DE SU
+ // COLOR (el mismo que sueltan las ratas cuando esa fila aparece): una cuña de
+ // alambre (trazos entre puntos x,y,z de -1 a 1, con `y` hacia abajo) que se
+ // mueve sobre su centro, cada tipo a su manera, en un ciclo de 24 fotogramas
+ // pintados UNA vez en una tira; la hoja la corre con `steps(24)`. Lo de lejos
+ // se pinta más apagado: de ahí el relieve. Las filas de contexto llevan bigotes.
+ try{
+  const LIMA='#e4f226',ROSA='#ff268e',AZUL='#26c6cc',NARANJA='#ff9b2e',VIOLETA='#b79cff',N=24,C=40;
+  // Un aro de radio `r` con centro en (x,y,z), tumbado sobre el eje que se diga.
+  const aro=(x,y,z,r,eje)=>Array.from({length:15},(_,i)=>{const a=i/14*Math.PI*2,c=Math.cos(a)*r,s=Math.sin(a)*r;
+   return eje==='y'?[x+c,y,z+s]:eje==='x'?[x,y+c,z+s]:[x+c,y+s,z]});
+  // [color, puntos]; un solo punto = un lunar. `l` son las líneas y `p` los lunares.
+  const queso=(l,p)=>[[l,[[1,-.4,0],[-1,-.4,-.75],[-1,-.4,.75],[1,-.4,0]]],[l,[[1,.4,0],[-1,.4,-.75],[-1,.4,.75],[1,.4,0]]],
+   [l,[[1,-.4,0],[1,.4,0]]],[l,[[-1,-.4,-.75],[-1,.4,-.75]]],[l,[[-1,-.4,.75],[-1,.4,.75]]],
+   [p,aro(-.35,-.4,0,.24,'y')],[p,[[.1,0,.42]]],[p,[[-.5,.05,.6]]],[p,[[.1,0,-.42]]],[p,[[-.5,.05,-.6]]],[p,[[-1,0,0]]]];
+  const bigotes=[[ROSA,aro(0,0,0,.3,'y')],[ROSA,aro(0,0,0,.3,'x')],[ROSA,aro(0,0,0,.3,'z')],
+   ...[-1,1].flatMap(s=>[[LIMA,[[s*.3,0,0],[s,-.4,.45]]],[LIMA,[[s*.3,0,0],[s,0,-.25]]],[LIMA,[[s*.3,0,0],[s,.4,.35]]]])];
+  // Cómo se mueve cada uno a lo largo del ciclo (u va de 0 a 1 y empalma):
+  // [giro sobre el eje vertical, cabeceo hacia quien mira, ladeo].
+  const V=Math.PI*2,S=(u,n=1)=>Math.sin(u*V*n);
+  // nombre: [figura, movimiento]. Los colores son los de `COLOR_QUESO` (ratacode-vida.js).
+  const ICONOS={
+   think:[queso(LIMA,ROSA),u=>[u*V,.45+.25*S(u),0]],                    // pensar: gira entero y cabecea
+   bash:[queso(NARANJA,LIMA),u=>[.9*S(u),.35,0]],                       // terminal: se mece
+   read:[queso(AZUL,ROSA),u=>[.6*S(u),.25+.3*S(u,2),0]],                // leer: mira a los lados y cabecea
+   escribe:[queso(ROSA,LIMA),u=>[u*V,.5,.18*S(u)]],                     // escribir y editar: sacacorchos
+   search:[queso(AZUL,ROSA),u=>[.8*S(u),.3+.35*Math.cos(u*V),.4*S(u)]], // buscar: barre en círculo
+   others:[queso(VIOLETA,LIMA),u=>[u*V,u*V,0]],                         // lo demás: da tumbos
+   bigotes:[bigotes,u=>[.35*S(u,2),.3,.25*S(u,3)]]                      // contexto: tiemblan
+  };
+  for(const[nombre,[trazos,mover]]of Object.entries(ICONOS)){
+   const tira=document.createElement('canvas');tira.width=N*C;tira.height=C;
+   const g=tira.getContext('2d');g.lineCap=g.lineJoin='round';
+   for(let k=0;k<N;k++){
+    const[a,i,l]=mover(k/N),ca=Math.cos(a),sa=Math.sin(a),ci=Math.cos(i),si=Math.sin(i),cl=Math.cos(l),sl=Math.sin(l);
+    // Se ladea, gira sobre el eje vertical, cabecea hacia quien mira y lo de cerca sale más grande.
+    // El tamaño va algo más justo que la celda para que ningún giro se salga de ella.
+    const punto=([x0,y0,z])=>{const x=x0*cl-y0*sl,y=x0*sl+y0*cl,x1=x*ca-z*sa,z1=x*sa+z*ca,y2=y*ci+z1*si,z2=z1*ci-y*si,f=C*.3/(1-z2*.22);return[k*C+C/2+x1*f,C/2+y2*f,z2]};
+    for(const[color,pts]of trazos){
+     const p=pts.map(punto);
+     g.strokeStyle=g.fillStyle=g.shadowColor=color;g.shadowBlur=3;
+     if(p.length===1){g.globalAlpha=.55+.45*Math.min(1,Math.max(0,(p[0][2]+1)/2));g.beginPath();g.arc(p[0][0],p[0][1],2.3,0,Math.PI*2);g.fill();continue;}
+     for(let i=1;i<p.length;i++){
+      const fondo=Math.min(1,Math.max(0,((p[i][2]+p[i-1][2])/2+1)/2));
+      g.globalAlpha=.35+.65*fondo;g.lineWidth=1.8+1.2*fondo;
+      g.beginPath();g.moveTo(p[i-1][0],p[i-1][1]);g.lineTo(p[i][0],p[i][1]);g.stroke();
+     }
+    }
+   }
+   document.documentElement.style.setProperty('--mr-ico-'+nombre,'url('+tira.toDataURL()+')');
+  }
+ }catch(e){/* sin lienzo no hay iconos de la casa: quedan los huecos, no se rompe nada */}
+ // R33: el foco de luz que sigue al ratón dentro de la caja de escribir (la
+ // hoja lo pinta con `--mx`/`--my`).
+ document.addEventListener('pointermove',(e)=>{
+  const c=e.target instanceof Element?e.target.closest('[data-composer-card]'):null;
+  if(!c)return;
+  const r=c.getBoundingClientRect();
+  c.style.setProperty('--mx',(e.clientX-r.left)+'px');
+  c.style.setProperty('--my',(e.clientY-r.top)+'px');
+ },{passive:true});
 })();

@@ -64,22 +64,22 @@ window.__ModuleLoader__.load({
     const CSS = [
       // R23 · Conexiones y Modelos locales: lo mínimo para que se lea claro.
       '.mr-cx{display:flex;flex-direction:column;gap:12px;padding:4px 0 18px;max-width:640px}',
-      '.mr-cx-tarjeta{border:1px solid var(--dsw-alias-border-secondary,#3a3f45);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:9px}',
+      '.mr-cx-tarjeta{border:1px solid var(--dsw-alias-border-secondary,#373248);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:9px}',
       '.mr-cx-cabeza{display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
       '.mr-cx-nombre{font-weight:600;font-size:15px}',
       '.mr-hs-pre{margin:0;padding:10px;border-radius:8px;background:#0e1012;color:#dfe3e6;font-family:ui-monospace,Consolas,monospace;',
       'font-size:12px;line-height:17px;white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto}',
       '.mr-hs-acciones{display:flex;gap:8px;flex-wrap:wrap}',
-      '.mr-hs-accion{cursor:pointer;padding:6px 12px;border-radius:8px;border:1px solid var(--dsw-alias-border-secondary,#3a3f45);',
-      'background:var(--dsw-alias-bg-secondary,#1b1e21);color:inherit;font:inherit;font-size:12px}',
+      '.mr-hs-accion{cursor:pointer;padding:6px 12px;border-radius:8px;border:1px solid var(--dsw-alias-border-secondary,#373248);',
+      'background:var(--dsw-alias-bg-secondary,#18151f);color:inherit;font:inherit;font-size:12px}',
       '.mr-hs-accion:hover{border-color:#e4f226}',
       '.mr-hs-accion[data-copiado="si"]{border-color:#a6e22e;color:#a6e22e}',
       // R23 · Ajustes › Modelos locales
       '.mr-ml{display:flex;flex-direction:column;gap:12px;padding:4px 0 18px;max-width:760px}',
-      '.mr-ml-tarjeta{border:1px solid var(--dsw-alias-border-secondary,#3a3f45);border-radius:10px;padding:12px 13px;display:flex;flex-direction:column;gap:8px}',
+      '.mr-ml-tarjeta{border:1px solid var(--dsw-alias-border-secondary,#373248);border-radius:10px;padding:12px 13px;display:flex;flex-direction:column;gap:8px}',
       '.mr-ml-cabeza{display:flex;align-items:center;gap:10px;flex-wrap:wrap}',
       '.mr-ml-nombre{font-weight:600;font-size:15px}',
-      '.mr-ml-pildora{border:1px solid var(--dsw-alias-border-secondary,#3a3f45);border-radius:999px;padding:1px 9px;font-size:12px}',
+      '.mr-ml-pildora{border:1px solid var(--dsw-alias-border-secondary,#373248);border-radius:999px;padding:1px 9px;font-size:12px}',
       '.mr-ml-encendido{color:#a6e22e;border-color:#a6e22e}',
       '.mr-ml-apagado{color:#ffb4b4;border-color:#ff6b6b}',
       '.mr-ml-sin{color:var(--dsw-alias-text-secondary,#9aa0a6)}',
@@ -88,7 +88,7 @@ window.__ModuleLoader__.load({
       '.mr-ml-pasoTxt{min-width:0}',
       '.mr-ml-modelo{display:flex;align-items:baseline;gap:8px;font-size:13px;cursor:pointer;text-align:left;',
       'background:none;border:0;border-radius:8px;padding:3px 6px;color:inherit;font-family:inherit}',
-      '.mr-ml-modelo:hover{background:var(--dsw-alias-bg-secondary,#1b1e21)}',
+      '.mr-ml-modelo:hover{background:var(--dsw-alias-bg-secondary,#18151f)}',
       '.mr-ml-id{font-family:ui-monospace,Consolas,monospace;font-size:12px}',
       '.mr-ml-clase{border-radius:6px;padding:1px 7px;font-size:11px}',
       '.mr-ml-si{background:rgba(166,226,46,.14);color:#a6e22e}',
@@ -99,7 +99,7 @@ window.__ModuleLoader__.load({
       '.mr-ml-tarjeta-pc{margin:0;font-size:13px;line-height:20px;font-weight:600}',
       '.mr-ml-acciones{display:flex;gap:8px;flex-wrap:wrap;align-items:center}',
       '.mr-ml-boton{display:inline-block;cursor:pointer;text-decoration:none;padding:7px 14px;border-radius:8px;',
-      'border:1px solid var(--dsw-alias-border-secondary,#3a3f45);background:var(--dsw-alias-bg-secondary,#1b1e21);',
+      'border:1px solid var(--dsw-alias-border-secondary,#373248);background:var(--dsw-alias-bg-secondary,#18151f);',
       'color:inherit;font:inherit;font-size:13px}',
       '.mr-ml-boton:hover{border-color:#e4f226}',
       '.mr-ml-pre{margin:0;padding:9px;border-radius:8px;background:#0e1012;color:#dfe3e6;font-family:ui-monospace,Consolas,monospace;',
@@ -115,13 +115,16 @@ window.__ModuleLoader__.load({
       // R27 §4 · Conexiones: el gasto, los ejemplos y la fila de acciones.
       '.mr-cx-gasto{margin:0;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary,#9aa0a6)}',
       // R28 §3b · el interruptor «Abierta a ChatGPT» de la cabecera del chat.
-      '.mr-chatgpt{display:flex;align-items:center;gap:7px;font-size:12px;line-height:17px}',
+      '.mr-chatgpt{display:flex;align-items:center;flex-wrap:wrap;gap:7px;font-size:12px;line-height:17px}',
       '.mr-chatgpt-rotulo{color:var(--dsw-alias-label-tertiary,#9aa0a6);white-space:nowrap}',
       '.mr-chatgpt-boton{cursor:pointer;border-radius:999px;padding:1px 8px;font:inherit;font-size:11px;',
-      'border:1px solid var(--dsw-alias-border-secondary,#3a3f45);background:var(--dsw-alias-bg-secondary,#1b1e21);color:inherit}',
+      'border:1px solid var(--dsw-alias-border-secondary,#373248);background:var(--dsw-alias-bg-secondary,#18151f);color:inherit}',
       '.mr-chatgpt-boton[data-abierta="si"]{border-color:#a6e22e;color:#a6e22e}',
       '.mr-chatgpt-boton:disabled{cursor:not-allowed;opacity:.55}',
-      '.mr-chatgpt-aviso{color:#ffb4b4;font-size:11px}',
+      // R34 · el botón «Autorizar esta carpeta» y su confirmación (Sí / Cancelar).
+      '.mr-chatgpt-aut{display:flex;align-items:center;flex-wrap:wrap;gap:6px}',
+      '.mr-chatgpt-pregunta{color:var(--dsw-alias-text-secondary,#c9ced3);font-size:11px}',
+      '.mr-chatgpt-aviso{color:var(--mr-detalle);font-size:11px;padding:2px 9px;border-radius:999px;cursor:help;border:1px solid color-mix(in srgb,var(--mr-detalle) 40%,transparent)}',
       // R28 §2 · la marca «GPT WEB →» de un mensaje que entró desde un chat web.
       '.mr-gptweb{margin:0 0 3px;font-size:11px;font-weight:600;letter-spacing:.03em;color:#e4f226}',
       '.mr-cx-ejemplo{margin:0;padding:8px 10px;border-radius:8px;background:#0e1012;color:#dfe3e6;',
@@ -133,8 +136,8 @@ window.__ModuleLoader__.load({
       '.mr-ac-intro{margin:0;font-size:13px;line-height:19px;color:var(--dsw-alias-text-secondary,#9aa0a6)}',
       '.mr-ac-tabla{width:100%;border-collapse:collapse;font-size:12px;line-height:17px}',
       '.mr-ac-tabla th{text-align:left;font-weight:600;color:var(--dsw-alias-label-tertiary,#9aa0a6);',
-      'border-bottom:1px solid var(--dsw-alias-border-secondary,#3a3f45);padding:4px 8px 5px 0}',
-      '.mr-ac-tabla td{border-bottom:1px solid var(--dsw-alias-border-secondary,#2a2d31);padding:5px 8px 5px 0;vertical-align:top}',
+      'border-bottom:1px solid var(--dsw-alias-border-secondary,#373248);padding:4px 8px 5px 0}',
+      '.mr-ac-tabla td{border-bottom:1px solid var(--dsw-alias-border-secondary,#262233);padding:5px 8px 5px 0;vertical-align:top}',
       '.mr-ac-hora{white-space:nowrap;font-family:ui-monospace,Consolas,monospace;font-size:11px}',
       '.mr-ac-si{color:#a6e22e}',
       '.mr-ac-no{color:#ffb4b4}',
@@ -968,7 +971,8 @@ window.__ModuleLoader__.load({
     const TEMAS = [
       {
         id: 'ratacode-pink',
-        etiqueta: 'RATACODE PINK',
+        etiqueta: 'MULTICOLOR',
+        nota: 'Aurora, quesos de colores y todo encendido.',
         // rosa principal · detalles en amarillo, negro y gris
         principal: '#ff268e', detalle: '#e4f226', acento: '#e4f226',
         // El rosa manda: el botón principal es rosa con texto negro.
@@ -982,26 +986,30 @@ window.__ModuleLoader__.load({
       },
       {
         id: 'ratacode-yellow',
-        etiqueta: 'RATACODE YELLOW',
-        // amarillo principal · secundarios en rosa, negro y gris
-        principal: '#e4f226', detalle: '#ff268e', acento: '#ff268e',
+        etiqueta: 'GRIS Y AMARILLO',
+        nota: 'Fondo gris y un solo acento: el amarillo.',
+        // R33: gris de verdad (sin el tinte violeta) y el amarillo como único color
+        neutro: true,
+        principal: '#e4f226', detalle: '#e4f226', acento: '#e4f226',
         textoDelBoton: '#141612',
         hover: '#f1ff45',
-        suave: '#3a3320',
-        seleccion: '#382333',
+        suave: '#34361c',
+        seleccion: '#2b2c22',
         filoActivo: '#e4f226',
         brillo: { 200: '#f7ffb0', 300: '#eef86a', 400: '#e4f226', 450: '#e4f226', 500: '#cddb16', 600: '#9aa50f' },
         marca: '#e4f226',
       },
       {
         id: 'minimal',
-        etiqueta: 'MINIMAL',
-        // todo negro y gris: sólo líneas y pequeños detalles (y sin ratitas)
+        etiqueta: 'SOBRIO',
+        nota: 'Todo apagado. La rata, y poco más.',
+        neutro: true,
+        // todo negro y gris: sólo líneas y pequeños detalles
         principal: '#e8e6df', detalle: '#8c9396', acento: '#b8bdbb',
-        textoDelBoton: '#101113',
+        textoDelBoton: '#0c0a12',
         hover: '#f5f4ef',
-        suave: '#26282b',
-        seleccion: '#2a2d31',
+        suave: '#211e2b',
+        seleccion: '#262233',
         filoActivo: '#8c9396',
         brillo: { 200: '#e8e6df', 300: '#b8bdbb', 400: '#9ba3a5', 450: '#8c9396', 500: '#6f7679', 600: '#545a5d' },
         marca: '#e8e6df',
@@ -1012,48 +1020,48 @@ window.__ModuleLoader__.load({
 
     /** Los grises de la casa: los mismos en los tres temas (negro y gris). */
     const GRISES = {
-      '--dsw-alias-bg-base': '#101113',
-      '--dsw-alias-bg-layer-1': '#181a1d',
-      '--dsw-alias-bg-layer-2': '#222529',
-      '--dsw-alias-bg-layer-3': '#2a2d31',
-      '--dsw-alias-bg-overlay': '#26282c',
-      '--dsw-alias-bg-module-platform': '#2a2d31',
-      '--dsw-alias-bg-multi-select': '#212123',
+      '--dsw-alias-bg-base': '#0c0a12',
+      '--dsw-alias-bg-layer-1': '#15121d',
+      '--dsw-alias-bg-layer-2': '#1d1a27',
+      '--dsw-alias-bg-layer-3': '#262233',
+      '--dsw-alias-bg-overlay': '#211e2b',
+      '--dsw-alias-bg-module-platform': '#262233',
+      '--dsw-alias-bg-multi-select': '#1a1724',
       '--dsw-alias-bg-skeleton': '#ffffff14',
-      '--dsw-alias-border-l1': '#282c30',
-      '--dsw-alias-border-l2': '#353a3d',
-      '--dsw-alias-border-l3': '#464d52',
-      '--dsw-alias-border-l4': '#626b70',
+      '--dsw-alias-border-l1': '#221f2d',
+      '--dsw-alias-border-l2': '#322d42',
+      '--dsw-alias-border-l3': '#453f58',
+      '--dsw-alias-border-l4': '#625b78',
       '--dsw-alias-label-primary': '#f0eee6',
       '--dsw-alias-label-secondary': '#b8bdbb',
       '--dsw-alias-label-tertiary': '#9ba3a5',
       '--dsw-alias-label-dimmed': '#818a8e',
-      '--dsw-alias-markdown-code-block': '#15171a',
-      '--dsw-alias-markdown-code-block-banner': '#222529',
-      '--dsw-alias-markdown-inline-code': '#292d31',
-      '--dsw-alias-markdown-placeholder': '#222529',
-      '--dsw-alias-markdown-tag': '#222529',
+      '--dsw-alias-markdown-code-block': '#100e17',
+      '--dsw-alias-markdown-code-block-banner': '#1d1a27',
+      '--dsw-alias-markdown-inline-code': '#24202f',
+      '--dsw-alias-markdown-placeholder': '#1d1a27',
+      '--dsw-alias-markdown-tag': '#1d1a27',
       '--dsw-alias-scrollbar-bg-l1': '#3c3c3d',
       '--dsw-alias-scrollbar-bg-l2': '#545557',
       '--dsw-alias-scrollbar-hover-l1': '#545557',
       '--dsw-alias-scrollbar-hover-l2': '#65676b',
-      '--dsw-specific-bubble': '#222529',
-      '--dsw-specific-bubble-highlight': '#464d52',
-      '--dsw-specific-input-major': '#222529',
-      '--dsw-specific-selector': '#2a2d31',
-      '--dsw-specific-tip': '#2a2d31',
-      '--dsw-specific-menu': '#2a2d31',
-      '--dsw-specific-sidebar-fill': '#16181b',
-      '--dsw-static-neutral-900': '#0f0f0f',
-      '--dsw-static-neutral-850': '#212123',
-      '--dsw-static-neutral-800': '#292929',
-      '--dsw-static-neutral-bluish-950': '#101113',
-      '--dsw-static-neutral-bluish-900': '#181a1d',
-      '--dsw-static-neutral-bluish-875': '#181a1d',
-      '--dsw-static-neutral-bluish-850': '#222529',
-      '--dsw-static-neutral-bluish-800': '#2a2d31',
-      '--dsw-static-neutral-bluish-750': '#3a3d42',
-      '--dsw-static-neutral-bluish-700': '#464d52',
+      '--dsw-specific-bubble': '#1d1a27',
+      '--dsw-specific-bubble-highlight': '#453f58',
+      '--dsw-specific-input-major': '#1d1a27',
+      '--dsw-specific-selector': '#262233',
+      '--dsw-specific-tip': '#262233',
+      '--dsw-specific-menu': '#262233',
+      '--dsw-specific-sidebar-fill': '#110f18',
+      '--dsw-static-neutral-900': '#09080e',
+      '--dsw-static-neutral-850': '#1a1724',
+      '--dsw-static-neutral-800': '#24202f',
+      '--dsw-static-neutral-bluish-950': '#0c0a12',
+      '--dsw-static-neutral-bluish-900': '#15121d',
+      '--dsw-static-neutral-bluish-875': '#15121d',
+      '--dsw-static-neutral-bluish-850': '#1d1a27',
+      '--dsw-static-neutral-bluish-800': '#262233',
+      '--dsw-static-neutral-bluish-750': '#373248',
+      '--dsw-static-neutral-bluish-700': '#453f58',
       '--dsw-static-neutral-bluish-600': '#818a8e',
       '--dsw-static-neutral-bluish-500': '#9ba3a5',
       '--dsw-static-neutral-bluish-400': '#b8bdbb',
@@ -1084,6 +1092,27 @@ window.__ModuleLoader__.load({
      * @returns el mapa `--dsw-*` → valor.
      */
     function tokensDelTema(nivel) {
+      const ficha = fichaDelTema(nivel);
+      return nivel.neutro ? sinTinte(ficha) : ficha;
+    }
+    /**
+     * R33 · Quita el tinte violeta de una ficha: todo color casi gris (poca
+     * diferencia entre sus tres canales) pasa a gris puro de la misma luz. Los
+     * colores de verdad (amarillo, rojo de error) no se tocan.
+     */
+    function sinTinte(ficha) {
+      const salida = {};
+      for (const [k, v] of Object.entries(ficha)) {
+        const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(v);
+        if (m === null) { salida[k] = v; continue; }
+        const [r, g, b] = [m[1], m[2], m[3]].map((x) => parseInt(x, 16));
+        if (Math.max(r, g, b) - Math.min(r, g, b) > 40) { salida[k] = v; continue; }
+        const gris = Math.round(0.299 * r + 0.587 * g + 0.114 * b).toString(16).padStart(2, '0');
+        salida[k] = '#' + gris + gris + gris;
+      }
+      return salida;
+    }
+    function fichaDelTema(nivel) {
       return {
         ...GRISES,
         '--dsw-alias-brand-primary': nivel.principal,
@@ -1096,15 +1125,15 @@ window.__ModuleLoader__.load({
         '--dsw-alias-button-ghost-active-fill': nivel.suave,
         '--dsw-alias-button-ghost-active-border': nivel.principal,
         '--dsw-alias-button-ghost-active-hover': nivel.seleccion,
-        '--dsw-alias-button-elevated-fill': '#222529',
-        '--dsw-alias-button-floating-fill': '#222529',
-        '--dsw-alias-button-floating-hover': '#2a2d31',
+        '--dsw-alias-button-elevated-fill': '#1d1a27',
+        '--dsw-alias-button-floating-fill': '#1d1a27',
+        '--dsw-alias-button-floating-hover': '#262233',
         '--dsw-alias-button-contrast-fill': '#f0eee6',
-        '--dsw-alias-button-tool-bar-fill': '#222529',
-        '--dsw-alias-button-tool-bar-hover': '#30353a',
-        '--dsw-alias-interactive-bg-hover': '#292c30',
+        '--dsw-alias-button-tool-bar-fill': '#1d1a27',
+        '--dsw-alias-button-tool-bar-hover': '#2e2a3c',
+        '--dsw-alias-interactive-bg-hover': '#24202f',
         '--dsw-alias-interactive-bg-active': nivel.seleccion,
-        '--dsw-alias-interactive-bg-hover-solid': '#2a2d31',
+        '--dsw-alias-interactive-bg-hover-solid': '#262233',
         '--dsw-alias-interactive-bg-hover-accent': nivel.suave,
         '--dsw-alias-state-success-primary': nivel.detalle,
         '--dsw-alias-state-success-secondary': nivel.detalle,
@@ -1120,12 +1149,12 @@ window.__ModuleLoader__.load({
         '--dsw-alias-state-business-primary': nivel.detalle,
         '--dsw-alias-state-business-tertiary': nivel.suave,
         '--dsw-alias-link': nivel.acento,
-        '--dsw-alias-toast-bg': '#2a2d31',
-        '--dsw-alias-tooltip-bg': '#2a2d31',
+        '--dsw-alias-toast-bg': '#262233',
+        '--dsw-alias-tooltip-bg': '#262233',
         '--dsw-specific-sidebar-nav-item-active': nivel.suave,
         '--dsw-specific-sidebar-nav-item-active-accent': nivel.filoActivo,
-        '--dsw-specific-sidebar-nav-item-hover': '#202225',
-        '--dsw-specific-login-input': '#181a1d',
+        '--dsw-specific-sidebar-nav-item-hover': '#1a1724',
+        '--dsw-specific-login-input': '#15121d',
         // El brillo de «trabajando» del motor es azul DeepSeek puro
         // (`--dsw-static-deepseek-*`): aquí pasa a ser el color de la casa.
         '--dsw-static-deepseek-200': nivel.brillo[200],
@@ -1162,7 +1191,18 @@ window.__ModuleLoader__.load({
         estado.activo = bueno;
         try { ctx.theme.setTheme(bueno); } catch { /* tema no registrado: se queda el que haya */ }
         marcarEnElDocumento(bueno);
-        pintarFilaDeTemas(ctx, estado);
+        for (const avisar of temaVivo.oyentes) avisar(bueno);
+      };
+      // Lo que usa la pestaña Aspecto: cuál está puesto y cómo se elige otro
+      // (se pone, y la casa lo apunta en `tema.txt`).
+      temaVivo.estado = estado;
+      temaVivo.elegir = (id) => {
+        pon(id);
+        fetch('/ratacode/tema', {
+          method: 'POST', credentials: 'same-origin', cache: 'no-store',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ tema: id }),
+        }).catch(() => { /* sin casa que apunte: el tema sigue puesto en esta ventana */ });
       };
       pon(TEMA_POR_DEFECTO);
       pedir('/ratacode/tema', 'GET').then((r) => {
@@ -1181,11 +1221,7 @@ window.__ModuleLoader__.load({
         if (suyo === 'light' || suyo === 'dark' || suyo === 'system') { pon(estado.activo); return; }
         if (esTemaNuestro(suyo)) estado.activo = suyo;
         marcarEnElDocumento(estado.activo);
-        pintarFilaDeTemas(ctx, estado);
       });
-      // La fila del aspecto la repinta el motor al re-renderizar: se vuelve a
-      // poner sin prisa, y sólo si de verdad falta.
-      setInterval(() => pintarFilaDeTemas(ctx, estado), 900);
       return estado.activo;
     }
 
@@ -1200,57 +1236,57 @@ window.__ModuleLoader__.load({
       if (document.documentElement.dataset.ratacodeTema !== id) document.documentElement.dataset.ratacodeTema = id;
     }
 
+    /** El tema, compartido entre quien lo pone (`paqueteDeTemas`) y la pestaña Aspecto. */
+    const temaVivo = { estado: { activo: TEMA_POR_DEFECTO }, elegir: () => {}, oyentes: new Set() };
+
     /**
-     * La fila «Aspecto» de RATACODE, en su sitio: la nativa (Claro · Oscuro ·
-     * Sistema) la esconde el CSS (`.mr-temas` la sustituye) y aquí se monta la
-     * nuestra, con los tres temas EN SU ORDEN y su color a la vista. Se vuelve a
-     * montar si el motor repinta la sección.
-     * @param ctx - contexto del plugin (para el servicio de temas).
-     * @param estado - `{activo}`: el tema que está puesto (se actualiza aquí al pulsar).
+     * R33 · AJUSTES › ASPECTO. Una pestaña de la casa con lo visual: los tres
+     * ESTILOS (cada uno con su muestra en miniatura) y el interruptor de las
+     * ratas de fondo. El estilo se guarda en la casa, como siempre; lo de las
+     * ratas, en este navegador (`localStorage`), que es una comodidad de quien
+     * mira y no un ajuste de la casa. La fila nativa Claro/Oscuro/Sistema de
+     * General sigue escondida por la hoja.
      */
-    function pintarFilaDeTemas(ctx, estado) {
-      if (typeof document === 'undefined') return;
-      const cuboNativo = document.querySelector('[class*="_themeCube"]');
-      if (cuboNativo === null) return; // Ajustes no está abierto
-      const grupo = cuboNativo.closest('[class*="_group"]');
-      if (grupo === null) return;
-      let fila = grupo.parentElement?.querySelector(':scope > .mr-temas');
-      if (!fila) {
-        fila = document.createElement('div');
-        fila.className = 'mr-temas';
-        const titulo = document.createElement('div');
-        titulo.className = 'mr-temas-titulo';
-        titulo.textContent = 'Aspecto';
-        const filaCubos = document.createElement('div');
-        filaCubos.className = 'mr-temas-fila';
-        for (const nivel of TEMAS) {
-          const boton = document.createElement('button');
-          boton.type = 'button';
-          boton.className = 'mr-tema';
-          boton.dataset.tema = nivel.id;
-          const punto = document.createElement('span');
-          punto.className = 'mr-tema-punto';
-          punto.style.background = nivel.principal;
-          boton.append(punto, document.createTextNode(nivel.etiqueta));
-          boton.addEventListener('click', () => {
-            estado.activo = nivel.id;
-            try { ctx.theme.setTheme(nivel.id); } catch { /* sin servicio: se apunta igual */ }
-            marcarEnElDocumento(nivel.id);
-            pintarFilaDeTemas(ctx, estado);
-            fetch('/ratacode/tema', {
-              method: 'POST', credentials: 'same-origin', cache: 'no-store',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ tema: nivel.id }),
-            }).catch(() => { /* sin casa que apunte: el tema sigue puesto en esta ventana */ });
-          });
-          filaCubos.append(boton);
-        }
-        fila.append(titulo, filaCubos);
-        grupo.after(fila);
-      }
-      for (const boton of fila.querySelectorAll('.mr-tema')) {
-        boton.setAttribute('aria-pressed', boton.dataset.tema === estado.activo ? 'true' : 'false');
-      }
+    function SeccionAspecto() {
+      const [activo, setActivo] = React.useState(temaVivo.estado.activo);
+      const [ratas, setRatas] = React.useState(document.documentElement.dataset.mrRatas !== 'no');
+      React.useEffect(() => {
+        temaVivo.oyentes.add(setActivo);
+        return () => { temaVivo.oyentes.delete(setActivo); };
+      }, []);
+      const [datos, setDatos] = React.useState(document.documentElement.dataset.mrDatos === 'si');
+      const cambiarDatos = () => {
+        const salen = !datos;
+        setDatos(salen);
+        if (salen) document.documentElement.dataset.mrDatos = 'si'; else delete document.documentElement.dataset.mrDatos;
+        try { if (salen) localStorage.setItem('mr-datos', 'si'); else localStorage.removeItem('mr-datos'); } catch { /* sin almacén: vale para esta ventana */ }
+      };
+      const cambiarRatas = () => {
+        const siguen = !ratas;
+        setRatas(siguen);
+        if (siguen) delete document.documentElement.dataset.mrRatas; else document.documentElement.dataset.mrRatas = 'no';
+        try { if (siguen) localStorage.removeItem('mr-ratas'); else localStorage.setItem('mr-ratas', 'no'); } catch { /* sin almacén: vale para esta ventana */ }
+      };
+      return e('div', { className: 'mr-as' },
+        e('h3', { className: 'mr-as-titulo' }, 'Estilo'),
+        e('div', { className: 'mr-as-estilos' }, TEMAS.map((nivel) => e('button', {
+          key: nivel.id, type: 'button', className: 'mr-estilo', 'data-tema': nivel.id,
+          'aria-pressed': nivel.id === activo ? 'true' : 'false',
+          onClick: () => { temaVivo.elegir(nivel.id); },
+        },
+        e('span', { className: 'mr-estilo-muestra', 'aria-hidden': 'true' }, e('i'), e('i'), e('i')),
+        e('b', null, nivel.etiqueta),
+        e('span', { className: 'mr-estilo-nota' }, nivel.nota)))),
+        e('h3', { className: 'mr-as-titulo' }, 'Ratas en pantalla'),
+        e('div', { className: 'mr-as-fila' },
+          e('p', null, 'Las ratas de fondo: el logo, los quesos y lo que hacen mientras la IA trabaja.'),
+          e('button', { type: 'button', className: 'mr-interruptor', role: 'switch', 'aria-checked': ratas ? 'true' : 'false', onClick: cambiarRatas },
+            e('span', null, ratas ? 'Sí' : 'No'))),
+        e('h3', { className: 'mr-as-titulo' }, 'Datos técnicos'),
+        e('div', { className: 'mr-as-fila' },
+          e('p', null, 'Tokens gastados, velocidad y caché: la línea de debajo de la caja de escribir y el uso de cada respuesta.'),
+          e('button', { type: 'button', className: 'mr-interruptor', role: 'switch', 'aria-checked': datos ? 'true' : 'false', onClick: cambiarDatos },
+            e('span', null, datos ? 'Sí' : 'No'))));
     }
 
     /**
@@ -1369,17 +1405,73 @@ window.__ModuleLoader__.load({
      * Y deja el id de la sesión a la vista en `<html data-ratacode-sesion>`:
      * de ahí tira el guion de la piel para pintar «GPT WEB →» en la fila que
      * toca (por TURNO, nunca por el texto del mensaje).
+     *
+     * R34 · y, cuando la carpeta de la sesión no está autorizada, aquí mismo
+     * sale «Autorizar esta carpeta»: la mete en `mcp.workspaces` de la casa sin
+     * abrir el fichero a mano, en dos pasos y con confirmación (Sí / Cancelar).
      */
+    function ConfirmacionAutorizar(props) {
+      const dialogo = React.useRef(null);
+      const preguntaId = 'mr-autorizar-pregunta-' + encodeURIComponent(props.sessionId);
+      React.useEffect(() => {
+        const nodo = dialogo.current;
+        if (nodo === null || typeof document === 'undefined') return;
+        const focoAnterior = document.activeElement;
+        if (typeof nodo.showModal === 'function' && !nodo.open) nodo.showModal();
+        nodo.querySelector('[data-autorizar-cancelar]')?.focus();
+        return () => {
+          if (nodo.open && typeof nodo.close === 'function') nodo.close();
+          if (props.volverAlBoton() !== true && focoAnterior?.isConnected === true) focoAnterior.focus?.();
+        };
+      }, []);
+      return e('dialog', {
+        ref: dialogo,
+        className: 'mr-chatgpt-dialogo',
+        'aria-label': 'Autorizar esta carpeta',
+        'aria-describedby': preguntaId,
+        onCancel: (evento) => { evento.preventDefault(); props.onCancelar(); },
+      }, [
+        e('h2', { className: 'mr-chatgpt-dialogo-titulo', key: 'titulo' }, 'Autorizar esta carpeta'),
+        e('p', { className: 'mr-chatgpt-pregunta', id: preguntaId, key: 'pregunta' }, props.pregunta),
+        e('div', { className: 'mr-chatgpt-dialogo-acciones', key: 'acciones' }, [
+          e('button', {
+            type: 'button', className: 'mr-chatgpt-boton', key: 'cancelar',
+            'data-autorizar-cancelar': '', onClick: props.onCancelar,
+          }, 'Cancelar'),
+          e('button', {
+            type: 'button', className: 'mr-chatgpt-boton mr-chatgpt-dialogo-confirmar', key: 'confirmar',
+            onClick: props.onConfirmar,
+          }, 'Sí'),
+        ]),
+      ]);
+    }
+
     function InterruptorSesion(props) {
       const sessionId = typeof props.sessionId === 'string' ? props.sessionId : '';
       const [estado, setEstado] = React.useState({ fase: 'cargando' });
       const [enCurso, setEnCurso] = React.useState(false);
+      // R34 · el botón «Autorizar esta carpeta»: `null` mientras no se toca, y
+      // luego la fase del dos pasos (mirar → confirmar → escribir).
+      const [aut, setAut] = React.useState(null);
+      const botonAutorizar = React.useRef(null);
+      const vigente = React.useRef({ sessionId, montado: true, autorizando: false });
+      if (vigente.current.sessionId !== sessionId) {
+        vigente.current = { sessionId, montado: true, autorizando: false };
+      }
+      const actual = vigente.current;
+      const deEstaSesion = () => vigente.current === actual && actual.montado;
       React.useEffect(() => {
+        actual.montado = true;
+        setEstado({ fase: 'cargando' });
+        setEnCurso(false);
+        setAut(null);
         if (sessionId !== '') document.documentElement.dataset.ratacodeSesion = sessionId;
+        return () => { actual.montado = false; };
       }, [sessionId]);
       const mirar = React.useCallback(() => {
         if (sessionId === '') return;
         pedir('/ratacode/sesiones', 'GET').then((r) => {
+          if (!deEstaSesion()) return;
           if (r.ok !== true) { setEstado({ fase: 'error', error: r.error ?? 'error' }); return; }
           const suya = (Array.isArray(r.sesiones) ? r.sesiones : []).find((s) => s.session_id === sessionId);
           setEstado(suya === undefined ? { fase: 'sin-sesion' } : { fase: 'listo', sesion: suya });
@@ -1391,13 +1483,14 @@ window.__ModuleLoader__.load({
         return () => clearInterval(reloj);
       }, [mirar]);
       if (sessionId === '') return null;
-      const sesion = estado.fase === 'listo' ? estado.sesion : null;
+      const sesion = estado.fase === 'listo' && estado.sesion?.session_id === sessionId ? estado.sesion : null;
       const abierta = sesion?.abierta_a_chatgpt === true;
       const puede = sesion !== null && sesion.en_espacio_autorizado === true;
       const cambiar = () => {
         if (enCurso || sesion === null) return;
         setEnCurso(true);
         pedir('/ratacode/sesiones/abierta', 'POST', { session_id: sessionId, abierta: !abierta }).then((r) => {
+          if (!deEstaSesion()) return;
           setEnCurso(false);
           if (r.ok !== true) {
             setEstado({ fase: 'listo', sesion: { ...sesion, aviso: r.motivo ?? r.error ?? 'no se pudo cambiar' } });
@@ -1406,24 +1499,247 @@ window.__ModuleLoader__.load({
           mirar();
         });
       };
+      // R34 · EL BOTÓN «Autorizar esta carpeta». Dos pasos, y el primero NO
+      // escribe nada: `POST /ratacode/sesiones/autorizar` sin `confirmar`
+      // devuelve la ruta canónica y un nonce de un solo uso (2 minutos); con
+      // `confirmar:true` y ese nonce, la piel escribe la carpeta en el
+      // `settings.yaml` de la casa (con copia `.bak` y releyendo el YAML).
+      // Si la carpeta ya estaba autorizada, la ruta lo dice y no se añade nada.
+      const pedirAutorizar = () => {
+        const carpeta = sesion?.carpeta;
+        if (enCurso || actual.autorizando || typeof carpeta !== 'string' || carpeta === ''
+          || (aut !== null && aut.fase !== 'error' && aut.fase !== 'ya')) return;
+        actual.autorizando = true;
+        setAut({ fase: 'mirando' });
+        pedir('/ratacode/sesiones/autorizar', 'POST', { ruta: carpeta }).then((r) => {
+          if (!deEstaSesion()) return;
+          actual.autorizando = false;
+          if (r.ok !== true) { setAut({ fase: 'error', motivo: r.motivo ?? r.error ?? 'no se pudo mirar la carpeta' }); return; }
+          if (r.ya_autorizada === true) { setAut({ fase: 'ya', motivo: r.motivo }); mirar(); return; }
+          setAut({ fase: 'confirmar', sessionId, nonce: r.nonce, ruta: r.ruta ?? carpeta, pregunta: r.pregunta });
+        });
+      };
+      const confirmarAutorizar = () => {
+        if (actual.autorizando || aut?.fase !== 'confirmar' || aut.sessionId !== sessionId || typeof aut.nonce !== 'string') return;
+        actual.autorizando = true;
+        const nonce = aut.nonce;
+        setAut({ ...aut, fase: 'escribiendo' });
+        pedir('/ratacode/sesiones/autorizar', 'POST', { confirmar: true, nonce }).then((r) => {
+          if (!deEstaSesion()) return;
+          actual.autorizando = false;
+          if (r.ok !== true) { setAut({ fase: 'error', motivo: r.motivo ?? r.error ?? 'no se pudo escribir' }); return; }
+          setAut({ fase: 'hecho', ruta: r.ruta ?? aut.ruta });
+          // Y se abre el chat a ChatGPT: era para lo que se pidió autorizar.
+          pedir('/ratacode/sesiones/abierta', 'POST', { session_id: sessionId, abierta: true }).then((r2) => {
+            if (!deEstaSesion()) return;
+            if (r2.ok !== true) setAut({ fase: 'error', motivo: 'Carpeta autorizada, pero no se pudo abrir el chat: ' + (r2.motivo ?? r2.error ?? 'error') });
+            mirar();
+          });
+        });
+      };
+      // UN SOLO CONTROL: el interruptor «Abierta a ChatGPT» (Sí / No, se apaga igual
+      // que se enciende). Si la carpeta aún no está autorizada, encenderlo abre la
+      // confirmación («Autorizar esta carpeta») y, al decir Sí, autoriza Y abre. El
+      // paso 1 sólo MIRA la carpeta (y devuelve el nonce); no se escribe nada
+      // hasta que el usuario confirma en el paso 2.
+      const hayCarpeta = typeof sesion?.carpeta === 'string' && sesion.carpeta !== '';
+      const faseAut = aut === null || (aut.sessionId !== undefined && aut.sessionId !== sessionId) ? 'quieto' : aut.fase;
+      const autorizando = faseAut === 'mirando' || faseAut === 'confirmar' || faseAut === 'escribiendo';
       const hijos = [
         e('span', { className: 'mr-chatgpt-rotulo', key: 'r' }, 'Abierta a ChatGPT'),
         e('button', {
           key: 'b',
           type: 'button',
           className: 'mr-chatgpt-boton',
+          ref: botonAutorizar,
           'data-abierta': abierta ? 'si' : 'no',
           'aria-pressed': abierta ? 'true' : 'false',
-          disabled: enCurso || (sesion !== null && !abierta && !puede),
+          disabled: enCurso || autorizando || (sesion !== null && !abierta && !puede && !hayCarpeta),
           title: puede || abierta
             ? 'Con esto encendido, ChatGPT puede escribir en ESTA sesión por el MCP (sus mensajes salen marcados «GPT WEB →»). No le quita nada a la sesión: conserva su permiso y todas sus herramientas.'
-            : (sesion?.motivo ?? 'esta sesión todavía no se puede abrir'),
-          onClick: cambiar,
+            : (hayCarpeta
+              ? 'Para abrir este chat a ChatGPT hay que autorizar antes su carpeta. Te pido confirmación antes de escribir nada.'
+              : (sesion?.motivo ?? 'esta sesión todavía no se puede abrir')),
+          onClick: abierta || puede ? cambiar : pedirAutorizar,
         }, abierta ? 'Sí' : 'No'),
       ];
       if (sesion?.aviso !== undefined) hijos.push(e('span', { className: 'mr-chatgpt-aviso', key: 'a' }, sesion.aviso));
-      else if (sesion !== null && sesion.en_espacio_autorizado !== true) hijos.push(e('span', { className: 'mr-chatgpt-aviso', key: 'a' }, 'Su carpeta no está en `mcp.workspaces`.'));
+      if (faseAut === 'confirmar') {
+        hijos.push(e(ConfirmacionAutorizar, {
+          key: 'aut-2', sessionId,
+          pregunta: aut.pregunta ?? ('¿Autorizar ' + (aut.ruta ?? '') + '? ChatGPT podrá leer y escribir en ella'),
+          onConfirmar: confirmarAutorizar,
+          onCancelar: () => { if (deEstaSesion()) setAut(null); },
+          volverAlBoton: () => {
+            if (!deEstaSesion()) return true;
+            const boton = botonAutorizar.current;
+            if (boton === null || boton.isConnected !== true || boton.disabled) return false;
+            boton.focus();
+            return true;
+          },
+        }));
+      } else if (faseAut === 'mirando' || faseAut === 'escribiendo') {
+        hijos.push(e('span', { className: 'mr-chatgpt-aviso', key: 'aut-3' },
+          faseAut === 'mirando' ? 'mirando la carpeta…' : 'autorizando…'));
+      } else if (faseAut === 'hecho') {
+        hijos.push(e('span', { className: 'mr-chatgpt-aviso', key: 'aut-4' }, 'Carpeta autorizada y chat abierto a ChatGPT: ' + (aut.ruta ?? '')));
+      } else if (faseAut === 'ya' || faseAut === 'error') {
+        hijos.push(e('span', { className: 'mr-chatgpt-aviso', key: 'aut-5' }, aut.motivo ?? 'no se pudo autorizar'));
+      }
       return e('div', { className: 'mr-chatgpt' }, hijos);
+    }
+
+    /** Partición estable: confirmar una clave nunca cambia modelos ni selección. */
+    function conClavesPrimero(entradas, tieneClave) {
+      const ordenadas = entradas.filter(tieneClave).concat(entradas.filter((entrada) => !tieneClave(entrada)));
+      return ordenadas.every((entrada, indice) => entrada === entradas[indice]) ? entradas : ordenadas;
+    }
+
+    /** Ordena el snapshot público, conservando el orden que publicó su dueño. */
+    function vigilarOrdenConClaves(store, campo, tieneClave) {
+      let original = store.getSnapshot()[campo];
+      let publicado = original;
+      let cerrado = false;
+      const aplicar = () => {
+        if (cerrado) return;
+        const estado = store.getSnapshot();
+        const entradas = estado[campo];
+        if (!Array.isArray(entradas)) return;
+        if (entradas !== publicado) original = entradas;
+        const ordenadas = conClavesPrimero(original, tieneClave);
+        if (ordenadas.length === entradas.length && ordenadas.every((entrada, indice) => entrada === entradas[indice])) {
+          publicado = entradas;
+          return;
+        }
+        publicado = ordenadas;
+        store.set({ ...estado, [campo]: ordenadas });
+      };
+      const soltar = store.subscribe(aplicar);
+      aplicar();
+      return {
+        aplicar,
+        cerrar: () => {
+          if (cerrado) return;
+          cerrado = true;
+          soltar();
+          const estado = store.getSnapshot();
+          if (estado[campo] === publicado && publicado !== original) store.set({ ...estado, [campo]: original });
+        },
+      };
+    }
+
+    /**
+     * R35 · claves confirmadas primero, sobre los DOS stores del motor.
+     * Selector: directorio público por sesión. Ajustes: ModelsSectionInjected
+     * (exportado por ui-settings-models/client), desde la inyección pública de
+     * su asiento; controller.store es SnapshotStore, no un campo privado.
+     * No se toca el DOM: ratón, teclado y /model ven el mismo orden.
+     */
+    function ordenarModelosConClave(ctx) {
+      let cerrado = false;
+      let generacion = 0;
+      let conClave = new Set();
+      const observados = new Map();
+      const disposers = [];
+      const aplicar = () => { for (const observador of observados.values()) observador.vigilante.aplicar(); };
+      const observar = (store, campo, tieneClave) => {
+        if (cerrado || typeof store?.getSnapshot !== 'function' || typeof store?.subscribe !== 'function'
+          || typeof store?.set !== 'function') return () => {};
+        let observador = observados.get(store);
+        if (observador === undefined) {
+          observador = { usos: 0, vigilante: vigilarOrdenConClaves(store, campo, tieneClave) };
+          observados.set(store, observador);
+        }
+        observador.usos += 1;
+        let suelto = false;
+        return () => {
+          if (suelto) return;
+          suelto = true;
+          observador.usos -= 1;
+          if (observador.usos === 0) {
+            observador.vigilante.cerrar();
+            observados.delete(store);
+          }
+        };
+      };
+      // La página de Ajustes ya une filas con credentials.describe: reutilizar
+      // ESA confirmación. configured del perfil y derivedCredential no son ella.
+      let entradaModels = null;
+      let soltarModels = () => {};
+      const mirarModels = () => {
+        if (cerrado) return;
+        const entrada = ctx.slots.entriesOfSlot('settings.section').find((item) => item.options.id === 'models') ?? null;
+        if (entrada === entradaModels) return;
+        soltarModels();
+        soltarModels = () => {};
+        entradaModels = entrada;
+        // StoredEntry separa la función inject de options (como runInject del
+        // renderer). Su resultado es la interfaz pública ModelsSectionInjected.
+        if (typeof entrada?.inject !== 'function') return;
+        const controller = entrada.inject().controller;
+        soltarModels = observar(controller?.store, 'rows', (row) =>
+          typeof row.apiKeyEnv === 'string' && row.apiKeyEnv !== '' && row.credential?.configured === true);
+      };
+      disposers.push(ctx.slots.subscribe('settings.section', mirarModels));
+      mirarModels();
+      // La consulta oficial de ajustes viene redactada; describe devuelve solo
+      // presencia/origen/escritura. Ni resolve(), ni archivos, ni sondeos de API.
+      const actualizar = async () => {
+        const turno = ++generacion;
+        conClave = new Set();
+        aplicar();
+        try {
+          const [directorio, ajustes] = await Promise.all([
+            ctx.remote.llm.listConfigurableProviders(), ctx.remote.settings.describe(),
+          ]);
+          if (!directorio.ok || !ajustes.ok) throw new Error('metadatos no disponibles');
+          const namespaces = new Map(ajustes.value.namespaces.map((vista) => [vista.ns, vista.value]));
+          const referencias = new Map();
+          for (const entrada of directorio.value) {
+            const perfil = entrada.settingsPath.reduce((valor, tramo) => valor?.[tramo], namespaces.get(entrada.settingsNs));
+            const ref = perfil?.apiKeyEnv;
+            if (typeof ref === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(ref)) referencias.set(entrada.provider, ref);
+          }
+          const refs = [...new Set(referencias.values())];
+          const respuestas = await Promise.all(Array.from({ length: Math.ceil(refs.length / 64) }, (_v, i) =>
+            ctx.remote.credentials.describe(refs.slice(i * 64, (i + 1) * 64))));
+          if (respuestas.some((respuesta) => !respuesta.ok)) throw new Error('confirmación no disponible');
+          const confirmadas = new Set(respuestas.flatMap((respuesta) => Object.entries(respuesta.value)
+            .filter(([_ref, info]) => info.configured === true).map(([ref]) => ref)));
+          if (cerrado || turno !== generacion) return;
+          conClave = new Set([...referencias].filter(([_proveedor, ref]) => confirmadas.has(ref)).map(([proveedor]) => proveedor));
+          aplicar();
+        } catch {
+          // Sin confirmación, el selector conserva el orden original del motor.
+          // Una respuesta antigua no puede retirar las claves de una más nueva.
+          if (!cerrado && turno === generacion) { conClave = new Set(); aplicar(); }
+        }
+      };
+      function OrdenDelSelector(props) {
+        React.useEffect(() => {
+          if (cerrado || typeof props.sessionId !== 'string' || props.sessionId === '') return;
+          const directorio = ctx.modelDirectories.directoryFor(props.sessionId);
+          return observar(directorio.store, 'groups', (grupo) => conClave.has(grupo.id));
+        }, [props.sessionId]);
+        return null;
+      }
+      disposers.push(ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({
+        name: 'conversation.session.header.utilities', id: 'ratacode-orden-modelos', order: 31,
+      }, OrdenDelSelector)));
+      for (const evento of ['settings/document-updated', 'credentials/reference-updated', 'llm/adapters-updated']) {
+        disposers.push(ctx.remote.$on(evento, actualizar));
+      }
+      disposers.push(ctx.on('connection/reset', actualizar));
+      actualizar();
+      return () => {
+        if (cerrado) return;
+        cerrado = true;
+        generacion += 1;
+        for (const dispose of disposers) dispose();
+        soltarModels();
+        for (const observador of observados.values()) observador.vigilante.cerrar();
+        observados.clear();
+      };
     }
 
     /** Servicios que necesita el plugin de cliente. */
@@ -1451,6 +1767,10 @@ window.__ModuleLoader__.load({
       // en la casa, la sesión sale sin recargar (por la vía oficial del motor,
       // `ctx.get('sessions').refresh()`).
       vigilarElMcp(ctx);
+      // R35 · el orden es una presentación del catálogo, nunca otro catálogo.
+      ctx.inject(['remote', 'remote.llm', 'remote.settings', 'remote.credentials', 'modelDirectories'], (c) => {
+        c.effect(() => ordenarModelosConClave(c), 'ratacode-piel.orden-modelos');
+      });
       // R28 §3b · el interruptor «Abierta a ChatGPT», en la cabecera del chat,
       // por la vía oficial de asientos del motor.
       ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({
@@ -1458,6 +1778,13 @@ window.__ModuleLoader__.load({
         id: 'ratacode-chatgpt',
         order: 30,
       }, InterruptorSesion));
+      // R33 · Ajustes › Aspecto, justo detrás de General (que es el 0).
+      ctx.slots.inject('settings.section', () => ctx.slots.register({
+        name: 'settings.section',
+        id: 'aspecto',
+        order: 5,
+        label: () => 'Aspecto',
+      }, SeccionAspecto));
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
         id: 'modelos-locales',
@@ -1485,6 +1812,7 @@ window.__ModuleLoader__.load({
     }
 
     exports.apply = apply;
+    exports.ordenarModelosConClave = ordenarModelosConClave;
     exports.inject = inject;
     return module.exports;
   },

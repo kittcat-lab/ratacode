@@ -35,6 +35,21 @@
  *       que van sin apiKeyEnv y desde R18 viven en Ajustes › Modelos locales)
  *       con su baseURL y su apiKeyEnv oficiales, y NO
  *       declara «deepseek» (lo sirve el adaptador nativo: 8 en Ajustes › Models).
+ *   E · R34 · EL BOTÓN «AUTORIZAR ESTA CARPETA» (el puente con GPT):
+ *       E1 · la función PURA `ponerWorkspaceEnTexto` —con `mcp:` y
+ *            `workspaces:`, con `mcp:` sin `workspaces:` y sin `mcp:`— y que
+ *            nada del fichero se pierde (comentarios, claves, CRLF).
+ *       E2 · la ruta `POST /ratacode/sesiones/autorizar`: SIN la cabecera
+ *            `Sec-Fetch-Site: same-origin` contesta 403: cerco de Fetch Metadata
+ *            frente a peticiones de otra web, no identidad humana (Node puede
+ *            enviar esa cabecera); sin cookie, 401; y NO se autorizan ni la
+ *            carpeta de usuario, ni su padre, ni la
+ *            raíz del disco, ni lo que no existe o no es carpeta; y la que ya
+ *            está dentro de una autorizada se dice, no se añade.
+ *       E3 · el dos pasos entero: el paso 1 da el nonce y NO escribe, el paso 2
+ *            escribe (con copia `.bak`, releyendo el YAML y sin perder ni una
+ *            línea), el nonce se gasta al usarlo y la piel ve la carpeta nueva
+ *            sin reiniciar nada. Todo sobre la casa TEMPORAL de esta prueba.
  *
  * ── QUÉ ES «EL CSS DEL FRONTEND DE DSH INSTALADO» (medido, 24-sep-2026) ─────
  * No es sólo `@deepseek-ai/dsh-web-frontend/dist/assets/*.css`. Los nombres de
@@ -49,32 +64,56 @@
  *
  * Uso:
  *   node pruebas/piel.test.mjs             (o: npm test)
- *   node pruebas/piel.test.mjs --puerto 3101 --casa <ruta> --taller <ruta>
+ *   node pruebas/piel.test.mjs --puerto 3101 --casa <ruta> --taller <ruta> --temp <ruta>
+ *
+ * De fábrica, la casa y el taller de prueba viven en
+ * `..\trabajo\puente-temp` (fuera del producto), y el proceso hijo arranca con
+ * TEMP y TMP apuntando ahí.
  */
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 import yaml from 'js-yaml';
+import { ponerWorkspaceEnTexto } from '../piel/lib/index.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const PRODUCTO = resolve(AQUI, '..');
 const RATACODE = join(PRODUCTO, 'bin', 'ratacode.js');
 const PIEL_CSS = join(PRODUCTO, 'piel', 'activos', 'ratacode-piel.css');
 
+/**
+ * Los temporales de ESTA prueba: SIEMPRE aquí dentro (ni la carpeta temporal del
+ * sistema ni el árbol del producto). La casa y el taller de prueba se crean
+ * dentro, y el proceso hijo de RATACODE arranca con TEMP y TMP apuntando aquí —
+ * sólo el hijo: el entorno de este proceso no se toca.
+ */
+const TEMP_POR_DEFECTO = resolve(PRODUCTO, '..', 'trabajo', 'puente-temp');
+
 // ── la línea de órdenes ─────────────────────────────────────────────────────
 function leerArgumentos(argv) {
-  const args = {
-    puerto: 3140,
-    casa: join(PRODUCTO, '_pruebaR3-piel'),
-    taller: join(PRODUCTO, '_pruebaR3-piel-taller'),
-  };
+  const args = { puerto: 3140, temp: TEMP_POR_DEFECTO, casa: null, taller: null };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--puerto') args.puerto = Number(argv[++i]);
+    else if (argv[i] === '--temp') args.temp = resolve(argv[++i]);
     else if (argv[i] === '--casa') args.casa = resolve(argv[++i]);
     else if (argv[i] === '--taller') args.taller = resolve(argv[++i]);
     else throw new Error('no entiendo «' + argv[i] + '»');
+  }
+  if (args.casa === null) args.casa = join(args.temp, 'casa');
+  if (args.taller === null) args.taller = join(args.temp, 'taller');
+  // Estos árboles se borran al arrancar: solo bancos bajo trabajo, sin solaparse.
+  const dentro = (padre, ruta) => {
+    const tramo = relative(padre, resolve(ruta));
+    return tramo !== '' && tramo !== '..' && !tramo.startsWith('..' + sep) && !isAbsolute(tramo);
+  };
+  const trabajo = resolve(PRODUCTO, '..', 'trabajo');
+  if (!dentro(trabajo, args.temp) || !dentro(args.temp, args.casa) || !dentro(args.temp, args.taller)
+    || args.casa === args.taller || dentro(args.casa, args.taller) || dentro(args.taller, args.casa)) {
+    throw new Error('el banco debe usar --temp bajo ratacode\\trabajo y casa/taller distintos dentro de ese temporal');
   }
   return args;
 }
@@ -94,15 +133,161 @@ function comprobar(condicion, queja) {
   return false;
 }
 
+/** R35 · el plugin real con stores/RPC simulados: ninguna casa ni proveedor. */
+async function probarOrdenModelos() {
+  let plugin;
+  let selector;
+  const desmontajes = [];
+  const react = {
+    createElement: () => null,
+    useEffect: (montar) => { const soltar = montar(); if (typeof soltar === 'function') desmontajes.push(soltar); },
+  };
+  runInNewContext(readFileSync(join(PRODUCTO, 'piel', 'lib', 'cliente.js'), 'utf8'), {
+    window: { __ModuleLoader__: { load: ({ factory }) => { plugin = factory((nombre) => {
+      if (nombre !== 'react') throw new Error('módulo inesperado en el banco: ' + nombre);
+      return react;
+    }); } } },
+  });
+  const crearStore = (valor) => {
+    const oyentes = new Set();
+    let cambios = 0;
+    return {
+      getSnapshot: () => valor,
+      subscribe: (fn) => { oyentes.add(fn); return () => oyentes.delete(fn); },
+      set: (nuevo) => { valor = nuevo; cambios += 1; for (const fn of [...oyentes]) fn(); },
+      oyentes, cambios: () => cambios,
+    };
+  };
+  const grupos = ['deepseek', 'b-ai', 'alias', 'ollama'].map((id) => ({ id, models: [{ id: id + '-modelo' }] }));
+  const seleccion = { provider: 'deepseek', model: 'deepseek-modelo' };
+  const catalogo = crearStore({ groups: grupos, current: seleccion, failures: [], status: 'ready' });
+  const filas = [
+    { entry: { provider: 'deepseek' }, configured: true, apiKeyEnv: 'DEEPSEEK_API_KEY', credential: { configured: false } },
+    { entry: { provider: 'b-ai' }, configured: true, apiKeyEnv: 'B_AI_API_KEY', credential: { configured: true } },
+    { entry: { provider: 'ollama' }, configured: true, derivedCredential: { configured: true } },
+  ];
+  const modelos = crearStore({ rows: filas, status: 'ready', error: null, credentialError: null });
+  const eventos = new Map();
+  const slotsOyentes = new Set();
+  const refsPedidas = [];
+  const pendientes = [];
+  const escuchar = (nombre, fn) => {
+    const lista = eventos.get(nombre) ?? new Set();
+    eventos.set(nombre, lista); lista.add(fn);
+    return () => lista.delete(fn);
+  };
+  const entrada = { options: { id: 'models' }, inject: () => ({ controller: { store: modelos } }) };
+  const ctx = {
+    slots: {
+      entriesOfSlot: () => [entrada],
+      subscribe: (_nombre, fn) => { slotsOyentes.add(fn); return () => slotsOyentes.delete(fn); },
+      inject: (_nombre, montar) => montar(),
+      register: (_opciones, componente) => { selector = componente; return () => {}; },
+    },
+    modelDirectories: { directoryFor: () => ({ store: catalogo }) },
+    on: escuchar,
+    remote: {
+      $on: escuchar,
+      llm: { listConfigurableProviders: async () => ({ ok: true, value: [
+        { provider: 'deepseek', settingsNs: 'nativo', settingsPath: [] },
+        { provider: 'b-ai', settingsNs: 'api', settingsPath: ['providers', 'b-ai'] },
+        { provider: 'alias', settingsNs: 'api', settingsPath: ['providers', 'alias'] },
+        { provider: 'ollama', settingsNs: 'api', settingsPath: ['providers', 'ollama'] },
+      ] }) },
+      settings: { describe: async () => ({ ok: true, value: { namespaces: [
+        { ns: 'nativo', value: { apiKeyEnv: 'DEEPSEEK_API_KEY' } },
+        { ns: 'api', value: { providers: {
+          'b-ai': { apiKeyEnv: 'B_AI_API_KEY' }, alias: { apiKeyEnv: 'B_AI_API_KEY' }, ollama: {},
+        } } },
+      ] } }) },
+      credentials: { describe: (refs) => {
+        refsPedidas.push([...refs]);
+        return new Promise((resolver) => pendientes.push(resolver));
+      } },
+    },
+  };
+  const asentar = async () => { for (let i = 0; i < 24; i += 1) await Promise.resolve(); };
+  const responder = (resolver, nativa, bai) => resolver({ ok: true, value: {
+    DEEPSEEK_API_KEY: { configured: nativa }, B_AI_API_KEY: { configured: bai },
+  } });
+  const emitir = (nombre) => { for (const fn of eventos.get(nombre) ?? []) fn(); };
+  const ids = () => catalogo.getSnapshot().groups.map((grupo) => grupo.id).join(',');
+  const cerrar = plugin.ordenarModelosConClave(ctx);
+  try {
+    selector({ sessionId: 'sesion' });
+    selector({ sessionId: 'sesion' });
+    await asentar();
+    comprobar(catalogo.oyentes.size === 1, 'R35: dos montajes de la misma sesión comparten una sola suscripción');
+    comprobar(refsPedidas[0]?.length === 2 && refsPedidas[0].includes('B_AI_API_KEY'),
+      'R35: describe consulta referencias reales únicas, incluido el alias, sin tratar el local como clave');
+    responder(pendientes.shift(), false, true);
+    await asentar();
+    comprobar(ids() === 'b-ai,alias,deepseek,ollama', 'R35: claves confirmadas primero, orden estable entre iguales');
+    comprobar(catalogo.getSnapshot().current === seleccion
+      && catalogo.getSnapshot().groups.find((grupo) => grupo.id === 'b-ai').models === grupos[1].models,
+      'R35: ordenar no cambia selección, identidades ni orden interno de modelos');
+    comprobar(modelos.getSnapshot().rows.map((row) => row.entry.provider).join(',') === 'b-ai,deepseek,ollama',
+      'R35: Ajustes ordena por credential.configured, nunca por perfil ni derivedCredential');
+    for (const fn of slotsOyentes) fn();
+    comprobar(modelos.oyentes.size === 1, 'R35: repintar Ajustes no duplica su suscripción');
+    emitir('credentials/reference-updated');
+    await asentar();
+    const antigua = pendientes.shift();
+    emitir('connection/reset');
+    await asentar();
+    const nueva = pendientes.shift();
+    responder(nueva, true, false);
+    await asentar();
+    responder(antigua, false, true);
+    await asentar();
+    comprobar(ids() === 'deepseek,b-ai,alias,ollama', 'R35: la respuesta previa a reconectar no sobrescribe la confirmación nueva');
+    const nuevosGrupos = [grupos[3], grupos[0], grupos[1], grupos[2]];
+    catalogo.set({ ...catalogo.getSnapshot(), groups: nuevosGrupos });
+    comprobar(ids() === 'deepseek,ollama,b-ai,alias', 'R35: un catálogo renovado mantiene su orden entre proveedores sin clave');
+    emitir('settings/document-updated');
+    await asentar();
+    responder(pendientes.shift(), false, false);
+    await asentar();
+    comprobar(ids() === 'ollama,deepseek,b-ai,alias', 'R35: al retirar las claves se recupera el orden nuevo del motor');
+    desmontajes.shift()();
+    comprobar(catalogo.oyentes.size === 1, 'R35: desmontar una cabecera conserva la otra');
+    emitir('credentials/reference-updated');
+    await asentar();
+    const tardia = pendientes.shift();
+    cerrar();
+    const cambios = catalogo.cambios();
+    responder(tardia, false, true);
+    await asentar();
+    comprobar(catalogo.cambios() === cambios && catalogo.oyentes.size === 0 && modelos.oyentes.size === 0
+      && slotsOyentes.size === 0 && [...eventos.values()].every((lista) => lista.size === 0),
+      'R35: al descargar el plugin no quedan oyentes ni escrituras de respuestas tardías');
+    comprobar(modelos.getSnapshot().rows === filas, 'R35: descargar restaura el orden del dueño de Ajustes');
+    di('  R35 · orden por claves confirmadas, alias, reconexión y desmontaje (datos simulados).');
+  } finally {
+    cerrar();
+    for (const soltar of desmontajes) soltar();
+  }
+}
+
 // ── A · arrancar RATACODE de verdad ─────────────────────────────────────────
 function arrancar(args) {
   rmSync(args.casa, { recursive: true, force: true });
   rmSync(args.taller, { recursive: true, force: true });
+  mkdirSync(args.temp, { recursive: true });
   mkdirSync(args.taller, { recursive: true });
   // SIN CLAVES a propósito, en el entorno de ESTE proceso (R17): así la casa se
   // estrena con el modelo de fábrica (B.AI) y la prueba del aviso «falta la
   // clave» es la misma en cualquier PC, tenga o no credenciales de verdad.
-  const entorno = { ...process.env, B_AI_API_KEY: '', OPENROUTER_API_KEY: '', DEEPSEEK_API_KEY: '' };
+  // Y con TEMP/TMP dentro de `trabajo\puente-temp`: los temporales del hijo se
+  // quedan donde se pueden mirar (y borrar), ni en %TEMP% ni en el producto.
+  const entorno = {
+    ...process.env,
+    TEMP: args.temp,
+    TMP: args.temp,
+    B_AI_API_KEY: '',
+    OPENROUTER_API_KEY: '',
+    DEEPSEEK_API_KEY: '',
+  };
   const hijo = spawn(process.execPath, [
     RATACODE, '--port', String(args.puerto), '--home', args.casa, '--carpeta', args.taller,
   ], { cwd: PRODUCTO, env: entorno, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
@@ -127,14 +312,31 @@ function arrancar(args) {
   return { hijo, espera };
 }
 
-function matar(hijo) {
-  if (hijo === null || hijo.killed || hijo.pid === undefined) return;
+async function matar(hijo) {
+  if (hijo === null || hijo.pid === undefined || hijo.exitCode !== null || hijo.signalCode !== null) return;
+  // Esperar el cierre de nuestras tuberías, no solo haber solicitado terminar.
+  let reloj;
+  const cerrado = new Promise((seguir, rechazar) => {
+    hijo.once('close', seguir);
+    reloj = setTimeout(() => rechazar(new Error('el proceso de esta prueba no se cerró en 15 segundos')), 15000);
+  });
+  // El rechazo puede llegar mientras taskkill termina: se recoge al esperar abajo.
+  cerrado.catch(() => {});
   try {
     if (process.platform === 'win32') {
-      spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'taskkill /pid ' + hijo.pid + '/T /F'],
-        { windowsHide: true, stdio: 'ignore' });
+      const comando = new Promise((seguir, rechazar) => {
+        const cierre = spawn('taskkill', ['/PID', String(hijo.pid), '/T', '/F'],
+          { windowsHide: true, stdio: 'ignore' });
+        cierre.once('error', rechazar);
+        cierre.once('close', (codigo) => {
+          if (codigo === 0 || hijo.exitCode !== null || hijo.signalCode !== null) seguir();
+          else rechazar(new Error('taskkill no cerró el proceso de la prueba (código ' + codigo + ')'));
+        });
+      });
+      await Promise.all([comando, cerrado]);
     } else hijo.kill('SIGTERM');
-  } catch { /* ya se fue */ }
+    await cerrado;
+  } finally { clearTimeout(reloj); }
 }
 
 // ── B · el index servido ────────────────────────────────────────────────────
@@ -260,6 +462,91 @@ async function main() {
     di('RATACODE · prueba de la piel');
     di('  puerto ' + args.puerto + ' · casa ' + args.casa);
     di('  taller ' + args.taller);
+
+    // ── E1 · R34 · LA FUNCIÓN PURA DEL BOTÓN «AUTORIZAR ESTA CARPETA» ──────
+    // `ponerWorkspaceEnTexto(texto, ruta)` es la que mete la carpeta en el TEXTO
+    // del `settings.yaml` de la casa. Se prueba aquí, sin servidor de por medio:
+    // los tres casos del fichero (con `mcp:` y `workspaces:`, con `mcp:` sin
+    // `workspaces:`, y sin `mcp:`), que NADA se pierde, y lo que NO se escribe.
+    const CARPETA_1 = join(args.temp, 'carpeta-uno');
+    const CARPETA_2 = join(args.temp, 'carpeta-dos');
+    const leerYaml = (texto, quien) => {
+      try { return yaml.load(texto); }
+      catch (e) { comprobar(false, 'el texto que sale del botón no se puede releer como YAML (' + quien + '): ' + e.message); return null; }
+    };
+    di('  E1 · R34 · la función pura que mete la carpeta en el TEXTO del settings.yaml');
+
+    // E1a · hay `mcp:` con `workspaces:` → la carpeta va al final de SU lista.
+    const textoA = [
+      '# la casa de Patxi: estos comentarios NO se pierden',
+      'agent-default-model:',
+      '  provider: b-ai',
+      'mcp:',
+      '  puerto: 3778',
+      '  workspaces:',
+      "    - '" + CARPETA_1 + "'",
+      '  permitir_peligroso: false',
+      '',
+      'locale:',
+      '  preference: es',
+      '',
+    ].join('\n');
+    const nuevoA = ponerWorkspaceEnTexto(textoA, CARPETA_2);
+    const leidoA = leerYaml(nuevoA, 'mcp con workspaces');
+    const wsA = Array.isArray(leidoA?.mcp?.workspaces) ? leidoA.mcp.workspaces : [];
+    comprobar(nuevoA !== textoA, 'con `mcp.workspaces` puesto, el botón tiene que cambiar el texto');
+    comprobar(wsA.length === 2 && wsA[0] === CARPETA_1 && wsA[1] === CARPETA_2,
+      'con `mcp.workspaces` puesto, la carpeta tiene que quedar AL FINAL de la lista: ' + JSON.stringify(wsA));
+    comprobar(nuevoA.includes('# la casa de Patxi') && leidoA?.mcp?.puerto === 3778
+      && leidoA?.mcp?.permitir_peligroso === false && leidoA?.['agent-default-model']?.provider === 'b-ai'
+      && leidoA?.locale?.preference === 'es',
+      'el botón no puede llevarse por delante comentarios ni las demás claves del fichero');
+    di('      ' + (wsA.length === 2 ? 'OK   ' : 'MAL  ') + '  mcp con workspaces → ' + wsA.length + ' carpetas, sin perder nada');
+
+    // E1b · hay `mcp:` SIN `workspaces:` → el bloque se añade dentro del `mcp:`.
+    const textoB = ['# casa', 'mcp:', '  puerto: 3778', '', 'locale:', '  preference: es', ''].join('\n');
+    const nuevoB = ponerWorkspaceEnTexto(textoB, CARPETA_2);
+    const leidoB = leerYaml(nuevoB, 'mcp sin workspaces');
+    const wsB = Array.isArray(leidoB?.mcp?.workspaces) ? leidoB.mcp.workspaces : [];
+    comprobar(wsB.length === 1 && wsB[0] === CARPETA_2, 'con `mcp:` sin `workspaces:`, la carpeta tiene que entrar dentro: ' + JSON.stringify(wsB));
+    comprobar(leidoB?.mcp?.puerto === 3778 && leidoB?.locale?.preference === 'es' && nuevoB.includes('# casa'),
+      'al añadir `workspaces` dentro del `mcp:` no se puede perder lo que ya había');
+    di('      ' + (wsB.length === 1 ? 'OK   ' : 'MAL  ') + '  mcp sin workspaces → lo añade dentro');
+
+    // E1c · NO hay `mcp:` → se añade el bloque entero al final.
+    const textoC = ['# sin mcp', 'agent-default-model:', '  provider: b-ai', ''].join('\n');
+    const nuevoC = ponerWorkspaceEnTexto(textoC, CARPETA_2);
+    const leidoC = leerYaml(nuevoC, 'sin mcp');
+    const wsC = Array.isArray(leidoC?.mcp?.workspaces) ? leidoC.mcp.workspaces : [];
+    comprobar(wsC.length === 1 && wsC[0] === CARPETA_2 && leidoC?.['agent-default-model']?.provider === 'b-ai',
+      'sin `mcp:`, el botón tiene que añadir el bloque al final y no tocar lo de arriba: ' + JSON.stringify(wsC));
+    di('      ' + (wsC.length === 1 ? 'OK   ' : 'MAL  ') + '  sin mcp → bloque nuevo al final');
+
+    // E1d · y lo que NO se toca: un `mcp:` en una línea no se escribe a ciegas.
+    let lanzoD = false;
+    try { ponerWorkspaceEnTexto('mcp: {puerto: 3778}\n', CARPETA_2); } catch { lanzoD = true; }
+    comprobar(lanzoD, 'un `mcp:` escrito en una línea tiene que hacer que el botón se niegue, no adivinar');
+    // E1e · los finales de línea del fichero se respetan (CRLF se queda CRLF).
+    const nuevoE = ponerWorkspaceEnTexto('mcp:\r\n  puerto: 3778\r\n', CARPETA_2);
+    comprobar(nuevoE.includes('\r\n') && !/[^\r]\n/.test(nuevoE),
+      'el botón tiene que respetar los finales de línea del fichero (CRLF)');
+
+    // Comentarios de cualquier sangría no cortan ni anidan el bloque.
+    const textoComentarios = "mcp:\n    # nota con otra sangría\n  puerto: 3778\n# carpetas\n  workspaces:\n    - '" + CARPETA_1 + "'\n# sigue mcp\n  permitir_peligroso: false\nlocale:\n  preference: es\n";
+    const conComentarios = leerYaml(ponerWorkspaceEnTexto(textoComentarios, CARPETA_2), 'comentarios dentro de mcp');
+    comprobar(conComentarios?.mcp?.workspaces?.length === 2 && conComentarios?.mcp?.permitir_peligroso === false
+      && conComentarios?.locale?.preference === 'es', 'los comentarios sin sangría no pueden cortar mcp ni duplicar workspaces');
+    const textoAnidado = "mcp:\n  precios:\n    workspaces:\n      - 'dato-anidado'\n  workspaces:\n    - '" + CARPETA_1 + "'\n";
+    const conAnidado = leerYaml(ponerWorkspaceEnTexto(textoAnidado, CARPETA_2), 'workspaces anidado');
+    comprobar(conAnidado?.mcp?.workspaces?.length === 2 && conAnidado?.mcp?.precios?.workspaces?.[0] === 'dato-anidado',
+      'solo se amplía el workspaces directo de mcp, sin tocar el anidado');
+    const sinDirecto = leerYaml(ponerWorkspaceEnTexto("mcp:\n  precios:\n    workspaces:\n      - 'dato-anidado'\n", CARPETA_2), 'solo workspaces anidado');
+    comprobar(sinDirecto?.mcp?.workspaces?.[0] === CARPETA_2 && sinDirecto?.mcp?.precios?.workspaces?.[0] === 'dato-anidado',
+      'si solo hay workspaces anidado, se crea el directo al nivel correcto');
+    const conComillas = leerYaml(ponerWorkspaceEnTexto('mcp:\n  puerto: 3778\n', CARPETA_2 + " # O'Brien"), 'ruta con comillas y numeral');
+    comprobar(conComillas?.mcp?.workspaces?.[0] === CARPETA_2 + " # O'Brien", 'se conservan comillas y # dentro de una ruta YAML');
+
+    await probarOrdenModelos();
 
     // A · arrancar
     const arranque = arrancar(args);
@@ -429,6 +716,12 @@ async function main() {
         'el bundle no deja el botón «Copiar comando» cuando no puede encender el runtime');
       comprobar(textoBundle.includes('A mano'),
         'el bundle no trae el comando plegado («A mano») de la tarjeta de Conexiones');
+      // R34 · el botón «Autorizar esta carpeta» de la cabecera del chat, con su
+      // confirmación en español: el bundle es lo que recibe el navegador.
+      comprobar(textoBundle.includes('Autorizar esta carpeta') && textoBundle.includes('ChatGPT podrá leer y escribir en ella'),
+        'el bundle de cliente no trae el botón «Autorizar esta carpeta» ni su confirmación');
+      comprobar(textoBundle.includes('/ratacode/sesiones/autorizar'),
+        'el bundle de cliente no llama a la ruta de autorizar la carpeta');
       // R21 · el idioma español y los tres temas, por las vías OFICIALES.
       comprobar(textoBundle.includes('addLanguage'), 'el bundle no declara el idioma por la vía oficial (ctx.locale.addLanguage)');
       comprobar(textoBundle.includes("ctx.locale.register(ns, IDIOMA, dict)"),
@@ -440,8 +733,8 @@ async function main() {
         'el bundle no pide los servicios locale/theme además de slots');
       comprobar(textoBundle.includes("'/ratacode/tema'"),
         'el bundle no pregunta a la casa por el aspecto recordado (/ratacode/tema)');
-      comprobar(textoBundle.includes("id: 'ratacode-pink'") && textoBundle.includes('RATACODE PINK'),
-        'el bundle no trae el tema RATACODE PINK (el primero de la lista)');
+      comprobar(textoBundle.includes("id: 'ratacode-pink'") && textoBundle.includes('MULTICOLOR'),
+        'el bundle no trae el estilo MULTICOLOR (el primero de la lista)');
       // R24 · los TRES avisos de una línea, en los tres idiomas, por la vía oficial.
       comprobar(textoBundle.includes("const AVISOS_NS = 'ratacode-avisos'"),
         'el bundle no declara el espacio de nombres de los avisos (ratacode-avisos)');
@@ -569,6 +862,197 @@ async function main() {
       di('      ' + (sinGalleta.status === 401 ? 'OK   ' : 'MAL  ') + '  ' + ruta + ' sin cookie contesta 401');
     }
 
+    // ── E2/E3 · R34 · EL BOTÓN «AUTORIZAR ESTA CARPETA», POR HTTP ──────────
+    // Se prueba contra la casa de ESTA prueba (que es temporal, en
+    // `trabajo\puente-temp`): ningún `settings.yaml` de verdad se toca.
+    const cabeceraNavegador = { cookie: cabeceraGalleta, 'content-type': 'application/json', 'sec-fetch-site': 'same-origin' };
+    const pedirAutorizar = (cuerpo, cabeceras) => fetch(new URL('/ratacode/sesiones/autorizar', destino), {
+      redirect: 'manual', method: 'POST', headers: cabeceras, body: JSON.stringify(cuerpo),
+    });
+    const rutaAjustesCasa = join(args.casa, 'settings.yaml');
+    const antesDeAutorizar = readFileSync(rutaAjustesCasa, 'utf8');
+    const sinSaltos = (t) => t.split(/\r?\n/).join('\n').trim();
+
+    // E2a · cerco CSRF: ausencia y origen ajeno se rechazan. Esta cabecera no
+    // identifica a un humano: este propio banco Node puede enviarla.
+    const sinNavegador = await pedirAutorizar({ ruta: args.taller }, { cookie: cabeceraGalleta, 'content-type': 'application/json' });
+    const cuerpoSinNavegador = await sinNavegador.json().catch(() => ({}));
+    comprobar(sinNavegador.status === 403 && cuerpoSinNavegador.error === 'NO_ES_EL_NAVEGADOR',
+      'sin `Sec-Fetch-Site: same-origin` el botón tiene que contestar 403 NO_ES_EL_NAVEGADOR (contestó '
+      + sinNavegador.status + ' ' + JSON.stringify(cuerpoSinNavegador.error) + ')');
+    di('  E2 · R34 · POST /ratacode/sesiones/autorizar → ' + sinNavegador.status
+      + ' sin la cabecera del navegador (' + (cuerpoSinNavegador.error ?? '-') + ')');
+    for (const sitio of ['cross-site', 'same-site']) {
+      const ajena = await pedirAutorizar({ ruta: args.taller }, { ...cabeceraNavegador, 'sec-fetch-site': sitio });
+      comprobar(ajena.status === 403, 'Sec-Fetch-Site ' + sitio + ' debe rechazarse');
+    }
+
+    // E2b · sin cookie manda el cerco de siempre (401), antes que nada.
+    const sinCookieAutorizar = await pedirAutorizar({ ruta: args.taller }, { 'content-type': 'application/json', 'sec-fetch-site': 'same-origin' });
+    comprobar(sinCookieAutorizar.status === 401,
+      '/ratacode/sesiones/autorizar sin cookie tiene que contestar 401 (contestó ' + sinCookieAutorizar.status + ')');
+
+    // E2c · las rutas que NO se pueden autorizar, y una que ya lo está.
+    const casosQueSeNiegan = [
+      [homedir(), 'DEMASIADO_ANCHO', 'la carpeta de usuario'],
+      [resolve(homedir(), '..'), 'DEMASIADO_ANCHO', 'el padre de la carpeta de usuario'],
+      [process.platform === 'win32' ? 'C:\\' : '/', 'DEMASIADO_ANCHO', 'la raíz del disco'],
+      [join(args.temp, 'no-existe-' + process.pid), 'ESA_CARPETA_NO_EXISTE', 'una carpeta que no existe'],
+      [join(PRODUCTO, 'package.json'), 'NO_ES_UNA_CARPETA', 'un fichero'],
+    ];
+    for (const [ruta, esperado, quien] of casosQueSeNiegan) {
+      const respuesta = await pedirAutorizar({ ruta }, cabeceraNavegador);
+      const cuerpo = await respuesta.json().catch(() => ({}));
+      const bien = respuesta.status === 400 && cuerpo.error === esperado;
+      comprobar(bien, 'autorizar ' + quien + ' tiene que negarse con 400 ' + esperado
+        + ' (contestó ' + respuesta.status + ' ' + JSON.stringify(cuerpo.error ?? cuerpo.motivo) + ')');
+      di('      ' + (bien ? 'OK   ' : 'MAL  ') + '  se niega con ' + quien + ' → ' + respuesta.status + ' ' + (cuerpo.error ?? '-'));
+    }
+    // Ya autorizada: lo DICE y no añade nada (el taller lo dejó autorizado B3).
+    const yaAutorizada = await pedirAutorizar({ ruta: args.taller }, cabeceraNavegador);
+    const cuerpoYa = await yaAutorizada.json().catch(() => ({}));
+    comprobar(yaAutorizada.status === 200 && cuerpoYa.ya_autorizada === true
+      && String(cuerpoYa.motivo ?? '').includes('ya está autorizada'),
+      'una carpeta ya autorizada tiene que decirse, no añadirse otra vez: '
+      + yaAutorizada.status + ' ' + JSON.stringify(cuerpoYa.motivo ?? cuerpoYa.error));
+    di('      ' + (cuerpoYa.ya_autorizada === true ? 'OK   ' : 'MAL  ') + '  la que ya está autorizada se dice, no se añade');
+    comprobar(readFileSync(rutaAjustesCasa, 'utf8') === antesDeAutorizar,
+      'ninguno de los casos que se niegan (ni la ya autorizada) puede escribir el settings.yaml');
+
+    // E3 · el dos pasos entero, con escritura de verdad: paso 1 mira (y NO
+    // escribe), paso 2 escribe con el nonce, y el nonce se gasta al usarlo.
+    const carpetaNueva = join(args.temp, 'para-autorizar');
+    rmSync(carpetaNueva, { recursive: true, force: true });
+    mkdirSync(carpetaNueva, { recursive: true });
+    const paso1 = await pedirAutorizar({ ruta: carpetaNueva }, cabeceraNavegador);
+    const cuerpo1 = await paso1.json().catch(() => ({}));
+    comprobar(paso1.status === 200 && cuerpo1.ok === true && cuerpo1.ya_autorizada === false
+      && typeof cuerpo1.nonce === 'string' && cuerpo1.nonce.length >= 16,
+      'el paso 1 tiene que contestar la ruta y el nonce, sin escribir: ' + paso1.status + ' ' + JSON.stringify(cuerpo1));
+    comprobar(resolve(String(cuerpo1.ruta ?? '')) === resolve(carpetaNueva),
+      'el paso 1 tiene que devolver la ruta CANÓNICA: «' + cuerpo1.ruta + '» (esperaba ' + carpetaNueva + ')');
+    comprobar(String(cuerpo1.pregunta ?? '') === '¿Autorizar ' + carpetaNueva + '? ChatGPT podrá leer y escribir en ella',
+      'la pregunta del paso 1 no es la de la casa: «' + cuerpo1.pregunta + '»');
+    comprobar(readFileSync(rutaAjustesCasa, 'utf8') === antesDeAutorizar, 'el paso 1 NO puede escribir el settings.yaml');
+    di('  E3 · R34 · paso 1 → ' + paso1.status + ' · nonce de ' + String(cuerpo1.nonce ?? '').length
+      + ' caracteres · sin escribir');
+
+    const paso2 = await pedirAutorizar({ confirmar: true, nonce: cuerpo1.nonce }, cabeceraNavegador);
+    const cuerpo2 = await paso2.json().catch(() => ({}));
+    comprobar(paso2.status === 200 && cuerpo2.ok === true && cuerpo2.autorizada === true,
+      'el paso 2 con el nonce tiene que escribir: ' + paso2.status + ' ' + JSON.stringify(cuerpo2));
+    const despuesDeAutorizar = readFileSync(rutaAjustesCasa, 'utf8');
+    const leidoCasa = yaml.load(despuesDeAutorizar) ?? {};
+    const carpetasCasa = Array.isArray(leidoCasa?.mcp?.workspaces) ? leidoCasa.mcp.workspaces.map((r) => String(r)) : [];
+    comprobar(carpetasCasa.length === 2 && carpetasCasa.some((r) => resolve(r) === resolve(carpetaNueva)),
+      'la carpeta nueva tiene que quedar en `mcp.workspaces`: ' + JSON.stringify(carpetasCasa));
+    comprobar(sinSaltos(despuesDeAutorizar.split(/\r?\n/).filter((l) => !l.includes(carpetaNueva)).join('\n')) === sinSaltos(antesDeAutorizar),
+      'lo ÚNICO que cambia en el fichero es la línea de la carpeta nueva: ni un comentario ni una clave se pierde');
+    const rutaBak = rutaAjustesCasa + '.bak';
+    comprobar(existsSync(rutaBak) && sinSaltos(readFileSync(rutaBak, 'utf8')) === sinSaltos(antesDeAutorizar),
+      'el botón tiene que dejar la copia previa `settings.yaml.bak` con el fichero de antes');
+    di('  E3 · R34 · paso 2 → ' + paso2.status + ' · carpetas en la casa: ' + carpetasCasa.length
+      + ' · copia .bak: ' + existsSync(rutaBak));
+
+    // El nonce es de UN SOLO USO: con el mismo, otra vez, no se escribe nada.
+    const otraVez = await pedirAutorizar({ confirmar: true, nonce: cuerpo1.nonce }, cabeceraNavegador);
+    const cuerpoOtraVez = await otraVez.json().catch(() => ({}));
+    comprobar(otraVez.status === 409 && cuerpoOtraVez.error === 'NONCE_CADUCADO',
+      'un nonce ya usado tiene que contestar 409 NONCE_CADUCADO (contestó ' + otraVez.status + ')');
+    comprobar(readFileSync(rutaAjustesCasa, 'utf8') === despuesDeAutorizar, 'el nonce gastado no puede volver a escribir');
+    di('      ' + (otraVez.status === 409 ? 'OK   ' : 'MAL  ') + '  el nonce se gasta al usarlo → ' + otraVez.status);
+
+    // Y la piel lo VE sin reiniciar nada: `/ratacode/mcp` lee el texto en cada
+    // petición, así que la carpeta nueva sale ya en la tarjeta de Conexiones.
+    const mcpTrasAutorizar = await (await fetch(new URL('/ratacode/mcp', destino), conGalleta)).json().catch(() => ({}));
+    const carpetasVistas = Array.isArray(mcpTrasAutorizar.carpetas) ? mcpTrasAutorizar.carpetas.map((r) => String(r)) : [];
+    comprobar(carpetasVistas.some((r) => resolve(r) === resolve(carpetaNueva)),
+      'la piel tiene que ver la carpeta nueva sin reiniciar: ' + JSON.stringify(carpetasVistas));
+    di('      ' + (carpetasVistas.length === 2 ? 'OK   ' : 'MAL  ') + '  la piel ya ve las ' + carpetasVistas.length + ' carpetas autorizadas');
+    rmSync(carpetaNueva, { recursive: true, force: true });
+
+    // E4 · dos confirmaciones simultáneas conservan las dos altas y una .bak reciente.
+    const carpetaA = join(args.temp, 'concurrente-a'), carpetaB = join(args.temp, 'concurrente-b');
+    mkdirSync(carpetaA, { recursive: true }); mkdirSync(carpetaB, { recursive: true });
+    const preparar = async (ruta) => (await pedirAutorizar({ ruta }, cabeceraNavegador)).json();
+    const [preA, preB] = await Promise.all([preparar(carpetaA), preparar(carpetaB)]);
+    const confirmaciones = await Promise.all([
+      pedirAutorizar({ confirmar: true, nonce: preA.nonce, ruta: carpetaB }, cabeceraNavegador),
+      pedirAutorizar({ confirmar: true, nonce: preB.nonce }, cabeceraNavegador),
+    ]);
+    comprobar(confirmaciones.every((r) => r.status === 200), 'dos nonces distintos se pueden confirmar a la vez');
+    const simultaneas = yaml.load(readFileSync(rutaAjustesCasa, 'utf8'))?.mcp?.workspaces ?? [];
+    comprobar(simultaneas.includes(carpetaA) && simultaneas.includes(carpetaB), 'las dos altas concurrentes se conservan, sin sustituir la ruta ligada al nonce');
+    const copiaSimultanea = yaml.load(readFileSync(rutaBak, 'utf8'))?.mcp?.workspaces ?? [];
+    comprobar(copiaSimultanea.includes(carpetaA) !== copiaSimultanea.includes(carpetaB), 'la .bak es la versión inmediatamente anterior a la última alta');
+    const intactoConcurrente = readFileSync(rutaAjustesCasa, 'utf8');
+    const desconocido = await pedirAutorizar({ confirmar: true, nonce: 'no-existe' }, cabeceraNavegador);
+    comprobar(desconocido.status === 409 && readFileSync(rutaAjustesCasa, 'utf8') === intactoConcurrente, 'nonce desconocido no escribe nada');
+    const repetida = await preparar(carpetaA);
+    comprobar(repetida.ya_autorizada === true && readFileSync(rutaAjustesCasa, 'utf8') === intactoConcurrente, 'la carpeta recién autorizada no se duplica');
+    di('  E4 · simultáneas conservadas y nonce ligado a su ruta');
+
+    // E5 · volver a validar: desaparición, sustitución por fichero y junction cambiada.
+    const mutable = join(args.temp, 'ruta-mutable');
+    rmSync(mutable, { recursive: true, force: true }); mkdirSync(mutable);
+    const borrada = await preparar(mutable);
+    rmSync(mutable, { recursive: true });
+    const confirmaBorrada = await pedirAutorizar({ confirmar: true, nonce: borrada.nonce }, cabeceraNavegador);
+    comprobar(confirmaBorrada.status === 400 && (await confirmaBorrada.json()).error === 'ESA_CARPETA_NO_EXISTE', 'una carpeta borrada entre pasos no se autoriza');
+    mkdirSync(mutable);
+    const fichero = await preparar(mutable);
+    rmSync(mutable, { recursive: true }); writeFileSync(mutable, 'ahora soy un fichero');
+    const confirmaFichero = await pedirAutorizar({ confirmar: true, nonce: fichero.nonce }, cabeceraNavegador);
+    comprobar(confirmaFichero.status === 400 && (await confirmaFichero.json()).error === 'NO_ES_UNA_CARPETA', 'una carpeta reemplazada por fichero no se autoriza');
+    rmSync(mutable); mkdirSync(mutable);
+    const cambiada = await preparar(mutable);
+    rmSync(mutable, { recursive: true });
+    symlinkSync(carpetaA, mutable, process.platform === 'win32' ? 'junction' : 'dir');
+    const confirmaCambiada = await pedirAutorizar({ confirmar: true, nonce: cambiada.nonce }, cabeceraNavegador);
+    comprobar(confirmaCambiada.status === 409 && (await confirmaCambiada.json()).error === 'RUTA_CAMBIADA', 'un nuevo destino de junction exige otra confirmación');
+    // Quitar únicamente el enlace: nunca borrar recursivamente su destino.
+    unlinkSync(mutable);
+    comprobar(readFileSync(rutaAjustesCasa, 'utf8') === intactoConcurrente, 'ningún cambio de ruta puede alterar settings.yaml');
+    di('  E5 · rutas revalidadas al confirmar');
+
+    // E6 · error de copia: original entero y temporal retirado.
+    const paraFallo = join(args.temp, 'fallo-de-copia'); mkdirSync(paraFallo, { recursive: true });
+    const falloCopia = await preparar(paraFallo);
+    const copiaGuardada = rutaBak + '.guardada';
+    renameSync(rutaBak, copiaGuardada); mkdirSync(rutaBak);
+    try {
+      const fallaEscritura = await pedirAutorizar({ confirmar: true, nonce: falloCopia.nonce }, cabeceraNavegador);
+      comprobar(fallaEscritura.status === 500 && (await fallaEscritura.json()).error === 'NO_SE_PUDO_ESCRIBIR', 'el error de copia se devuelve sin anunciar autorización');
+      comprobar(readFileSync(rutaAjustesCasa, 'utf8') === intactoConcurrente, 'si falla la copia, el fichero original queda entero');
+      comprobar(!readdirSync(args.casa).some((n) => /^settings\.yaml\.autorizar-.*\.tmp$/.test(n)), 'el temporal se retira tras el fallo');
+    } finally {
+      rmSync(rutaBak, { recursive: true }); renameSync(copiaGuardada, rutaBak);
+    }
+    const reintenta = await preparar(paraFallo);
+    const despuesDelFallo = await pedirAutorizar({ confirmar: true, nonce: reintenta.nonce }, cabeceraNavegador);
+    comprobar(despuesDelFallo.status === 200, 'tras fallar la copia se puede preparar y confirmar de nuevo');
+    di('  E6 · fallo de copia conserva original y permite reintento');
+
+    // E7 · un YAML inválido se conserva exactamente, y la lectura de rutas
+    // entrecomilladas coincide con la configuración escrita por el botón.
+    const especial = join(args.temp, "O'Brien # carpeta"); mkdirSync(especial, { recursive: true });
+    const antesDelYamlRoto = readFileSync(rutaAjustesCasa, 'utf8');
+    const paraYaml = await preparar(especial);
+    const roto = antesDelYamlRoto + '\nmcp:\n  puerto: 3778\n';
+    writeFileSync(rutaAjustesCasa, roto);
+    try {
+      const rechazaYaml = await pedirAutorizar({ confirmar: true, nonce: paraYaml.nonce }, cabeceraNavegador);
+      comprobar(rechazaYaml.status === 500 && (await rechazaYaml.json()).error === 'YAML_ROTO', 'una clave mcp duplicada se rechaza antes de escribir');
+      comprobar(readFileSync(rutaAjustesCasa, 'utf8') === roto, 'el YAML inválido no se modifica ni se intenta reparar');
+    } finally { writeFileSync(rutaAjustesCasa, antesDelYamlRoto); }
+    const preparaEspecial = await preparar(especial);
+    const confirmaEspecial = await pedirAutorizar({ confirmar: true, nonce: preparaEspecial.nonce }, cabeceraNavegador);
+    comprobar(confirmaEspecial.status === 200, 'una carpeta con comilla y # se autoriza con YAML válido');
+    const vistaEspecial = await (await fetch(new URL('/ratacode/mcp', destino), conGalleta)).json();
+    comprobar(vistaEspecial.carpetas?.includes(especial), 'la piel relee la ruta exacta, sin duplicar comillas ni quitar el #');
+    di('  E7 · YAML inválido intacto y ruta con comilla/# leída correctamente');
+
+
     // C · la piel contra el frontend instalado
     const ficheros = ficherosDelFrontend();
     if (!comprobar(ficheros.length > 0, 'no encontré el frontend de DSH instalado (¿npm install hecho?)')) {
@@ -648,11 +1132,11 @@ async function main() {
     di('ROJO · ' + (e && e.message ? e.message : String(e)));
     codigo = 1;
   } finally {
-    matar(hijo);
+    try { await matar(hijo); }
+    catch (e) { di('ROJO · cierre de la prueba: ' + e.message); codigo = 1; }
   }
   // Salida explícita: el hijo y su tubería pueden dejar el bucle de eventos
   // vivo un rato de más, y una prueba que no termina no es una prueba.
-  await new Promise((seguir) => setTimeout(seguir, 750));
   process.exit(codigo);
 }
 

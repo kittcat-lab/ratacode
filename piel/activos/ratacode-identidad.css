@@ -15,10 +15,10 @@
  * documento una sola vez, antes de que el tema esté puesto).
  */
 :root, html[data-ratacode-piel] {
- --mr-black:#101113; --mr-panel:#181a1d; --mr-raised:#222529; --mr-line:#353a3d;
+ --mr-black:#0c0a12; --mr-panel:#15121d; --mr-raised:#1d1a27; --mr-line:#322d42;
  --mr-white:#f0eee6; --mr-muted:#a8adae; --mr-pink:#ff268e; --mr-yellow:#e4f226; --mr-cyan:#26c6cc;
- --bg-0:var(--mr-black); --bg-1:var(--mr-panel); --bg-2:#202326; --bg-3:#2a2d31;
- --border:var(--mr-line); --border-soft:#282c30; --text-1:var(--mr-white); --text-2:var(--mr-muted); --text-3:#8c9396;
+ --bg-0:var(--mr-black); --bg-1:var(--mr-panel); --bg-2:#1a1724; --bg-3:#262233;
+ --border:var(--mr-line); --border-soft:#221f2d; --text-1:var(--mr-white); --text-2:var(--mr-muted); --text-3:#8c9396;
  --rat-yellow:var(--mr-yellow); --rat-pink:var(--mr-pink); --info:var(--mr-cyan);
  /* El tema de por defecto es RATACODE PINK (el primero de la lista). */
  --mr-principal:#ff268e; --mr-detalle:#e4f226; --mr-acento:#e4f226;
@@ -27,24 +27,41 @@
 }
 /* b) RATACODE YELLOW — amarillo principal, secundarios en rosa, negro y gris. */
 html[data-ratacode-tema='ratacode-yellow'] {
- --mr-principal:#e4f226; --mr-detalle:#ff268e; --mr-acento:#ff268e;
- --mr-principal-suave:#3a3320; --mr-sombra:#ff268e; --mr-filo:#ff268e;
+ --mr-principal:#e4f226; --mr-detalle:#e4f226; --mr-acento:#e4f226;
+ --mr-principal-suave:#34361c; --mr-sombra:#e4f226; --mr-filo:#e4f226;
 }
+/* R33 · GRIS Y AMARILLO y SOBRIO van sobre gris de verdad, sin el tinte violeta. */
+html:is([data-ratacode-tema='ratacode-yellow'],[data-ratacode-tema='minimal']){--mr-black:#0d0d0e;--mr-panel:#151516;--mr-raised:#1d1d1f;--mr-line:#323234}
 /* c) MINIMAL — todo negro y gris, sólo líneas y pequeños detalles (y sin ratitas). */
 html[data-ratacode-tema='minimal'] {
  --mr-principal:#e8e6df; --mr-detalle:#8c9396; --mr-acento:#b8bdbb;
- --mr-principal-suave:#26282b; --mr-sombra:#3c3c3d; --mr-filo:#464d52;
+ --mr-principal-suave:#211e2b; --mr-sombra:#3c3c3d; --mr-filo:#453f58;
 }
 html[data-ratacode-piel] body{background-color:var(--mr-black);color:var(--mr-white)}
 ::selection{background:var(--mr-principal-suave);color:#fffaf1}
 .mr-emblema{display:inline-block;flex:none;width:32px;height:32px;background:var(--mr-emblema) center/contain no-repeat}
-.mr-wordmark{font:900 italic 19px/1 'Segoe UI',sans-serif;letter-spacing:-.7px;white-space:nowrap}
-html[data-ratacode-piel] :is(button,input,textarea,select,[role='button']):focus-visible{outline:2px solid var(--mr-acento);outline-offset:2px}
+.mr-wordmark{font:800 19px/1 var(--mr-letra);letter-spacing:-.7px;white-space:nowrap}
+/* R33 · CRISTAL NOCTURNO: la letra de la casa y la aurora. La aurora es una capa
+   por ENCIMA del panel (mezcla «screen», no captura clics): así se ve sin depender
+   de qué caja del motor pinta el fondo. MINIMAL no la lleva. */
+:root{--mr-aurora:#8b5cff;--mr-sobre:#fff;--mr-degradado:linear-gradient(120deg,var(--mr-principal),var(--mr-aurora));--mr-letra:'Segoe UI Variable Display','Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;--mr-mono:'Cascadia Code','Cascadia Mono',Consolas,monospace}
+html body{font-family:var(--mr-letra)!important}
+html body :is(code,pre,kbd,samp){font-family:var(--mr-mono)!important}
+@keyframes mr-aurora{0%,100%{transform:translate(-5%,-4%) rotate(0deg)}50%{transform:translate(5%,4%) rotate(18deg)}}
+html[data-ratacode-piel] body::after{content:'';position:fixed;inset:-25%;z-index:2147483000;pointer-events:none;mix-blend-mode:screen;opacity:.55;
+ background:radial-gradient(34% 30% at 74% 24%,color-mix(in srgb,var(--mr-principal) 42%,transparent),transparent 70%),
+  radial-gradient(32% 34% at 22% 78%,color-mix(in srgb,var(--mr-aurora) 40%,transparent),transparent 70%),
+  radial-gradient(20% 20% at 56% 66%,color-mix(in srgb,var(--mr-detalle) 12%,transparent),transparent 70%);
+ animation:mr-aurora 22s ease-in-out infinite;will-change:transform}
+html[data-ratacode-tema='ratacode-yellow']{--mr-aurora:#a8b31a;--mr-sobre:#141612}
+html[data-ratacode-tema='ratacode-yellow'] body::after{display:none}
+html[data-ratacode-tema='minimal']{--mr-aurora:#8c9396;--mr-sobre:#101113}
+html[data-ratacode-tema='minimal'] body::after{display:none}
+@media(prefers-reduced-motion:reduce){html[data-ratacode-piel] body::after{animation:none}}
+html[data-ratacode-piel] :is(button,input,textarea,select,[role='button']):focus-visible{outline:1.5px solid color-mix(in srgb,var(--mr-principal) 70%,transparent);outline-offset:2px}
 html[data-ratacode-piel] :is(input[type='checkbox'],input[type='radio'],input[type='range']){accent-color:var(--mr-principal)}
-html[data-ratacode-piel] ::-webkit-scrollbar-thumb{background:#444b4e;border-radius:5px}
-/* MINIMAL no lleva ratitas de fondo: ni se pintan ni gastan reloj. El lienzo
-   (`.mr-vida`) se esconde aquí, y `ratacode-vida.js` para su fotograma en cuanto
-   ve el tema en el documento. */
-html[data-ratacode-tema='minimal'] .mr-vida,
-html[data-ratacode-tema='minimal'] .mr-vida-salida>.mr-vida{display:none!important}
+html[data-ratacode-piel] ::-webkit-scrollbar-thumb{background:#453f58;border-radius:5px}
+/* Las ratas de fondo se apagan en Ajustes › Aspecto (`<html data-mr-ratas="no">`), con
+   cualquier estilo: el lienzo se esconde aquí y `ratacode-vida.js` para su fotograma. */
+html[data-mr-ratas='no'] .mr-vida{display:none!important}
 @media(prefers-reduced-motion:reduce){html[data-ratacode-piel] *,html[data-ratacode-piel] *::before{scroll-behavior:auto!important;animation:none!important;transition:none!important}}

@@ -65,11 +65,12 @@
  */
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  dentroDeAlguna,
   devolverPermiso,
   enviarMensaje,
   leerAbiertas,
@@ -135,6 +136,15 @@ export function vestir(html) {
     + '<script>' + dentroDeScript(leer('ratacode-vida.js')) + '</script>';
   let salida = html;
   if (TITULO_AJENO.test(salida)) salida = salida.replace(TITULO_AJENO, '<title>RATACODE</title>');
+  // R33 · Ni rastro del motor en la cabecera: el icono de la pestaña era la
+  // ballena de DeepSeek (`./favicon.svg`) y pasa a ser el emblema de la casa; el
+  // manifest decía «DeepSeek Harness» / «DSH» y se quita (sin él no hay nombre
+  // ajeno al instalar la página como app; si un día se quiere instalable, se
+  // sirve uno propio); y el documento nace en español, no en inglés.
+  salida = salida.replace(/<link rel="icon"[^>]*>/i,
+    '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,' + encodeURIComponent(leer('ratacode-emblema.svg')) + '">');
+  salida = salida.replace(/\s*<link rel="manifest"[^>]*>/i, '');
+  salida = salida.replace(/<html lang="en">/i, '<html lang="es">');
   const cabeza = /<head(?:\s[^>]*)?>/i.exec(salida);
   salida = cabeza === null ? estilo + salida : salida.slice(0, cabeza.index + cabeza[0].length) + estilo + salida.slice(cabeza.index + cabeza[0].length);
   const cuerpo = /<\/body>/i.exec(salida);
@@ -334,17 +344,22 @@ function ajustesDeLaCasa() {
   const salida = { puerto: PUERTO_MCP_POR_DEFECTO, tunelNombre: null, tunelHost: null, workspaces: [] };
   let enMcp = false;
   let enLista = false;
+  let sangriaMcp = null;
   for (const linea of texto.split(/\r?\n/)) {
+    if (/^[ \t]*(#.*)?$/.test(linea)) continue;
     if (/^\S/.test(linea)) { // una clave de primer nivel: empieza (o acaba) `mcp:`
       enMcp = /^mcp:/.test(linea);
       enLista = false;
+      sangriaMcp = null;
       continue;
     }
     if (!enMcp) continue;
-    const clave = /^\s+([A-Za-z_][\w-]*):\s*(.*)$/.exec(linea);
+    const clave = /^([ \t]+)([A-Za-z_][\w-]*):[ \t]*(.*)$/.exec(linea);
     if (clave !== null) {
-      const nombre = clave[1];
-      const valor = clave[2].replace(/\s+#.*$/, '').trim().replace(/^['"]|['"]$/g, '');
+      if (sangriaMcp === null) sangriaMcp = clave[1].length;
+      if (clave[1].length !== sangriaMcp) continue;
+      const nombre = clave[2];
+      const valor = clave[3].replace(/\s+#.*$/, '').trim().replace(/^['"]|['"]$/g, '');
       enLista = nombre === 'workspaces';
       if (nombre === 'puerto') {
         const n = Number(valor);
@@ -356,7 +371,16 @@ function ajustesDeLaCasa() {
     }
     if (!enLista) continue;
     const punto = /^\s*-\s+(.+?)\s*$/.exec(linea);
-    if (punto !== null) salida.workspaces.push(punto[1].replace(/^['"]|['"]$/g, ''));
+    if (punto !== null) {
+      const valor = punto[1];
+      const simple = /^'((?:[^']|'')*)'[ \t]*(?:#.*)?$/.exec(valor);
+      if (simple !== null) salida.workspaces.push(simple[1].replace(/''/g, "'"));
+      else if (valor.startsWith('"')) {
+        // El doble entrecomillado usado por la casa de prueba es JSON/YAML válido.
+        const doble = /^("(?:[^"\\]|\\.)*")[ \t]*(?:#.*)?$/.exec(valor);
+        try { if (doble !== null) salida.workspaces.push(JSON.parse(doble[1])); } catch { /* valor ambiguo: no autorizar */ }
+      } else salida.workspaces.push(valor.replace(/\s+#.*$/, '').trim());
+    }
   }
   return salida;
 }
@@ -1695,9 +1719,9 @@ async function planDelTunelNombrado(req) {
  * esquema de ajustes (`light`/`dark`/`system`).
  */
 const TEMAS_DE_LA_CASA = [
-  { id: 'ratacode-pink', nombre: 'RATACODE PINK', principal: '#ff268e', detalle: '#e4f226' },
-  { id: 'ratacode-yellow', nombre: 'RATACODE YELLOW', principal: '#e4f226', detalle: '#ff268e' },
-  { id: 'minimal', nombre: 'MINIMAL', principal: '#e8e6df', detalle: '#8c9396' },
+  { id: 'ratacode-pink', nombre: 'MULTICOLOR', principal: '#ff268e', detalle: '#e4f226' },
+  { id: 'ratacode-yellow', nombre: 'GRIS Y AMARILLO', principal: '#e4f226', detalle: '#e4f226' },
+  { id: 'minimal', nombre: 'SOBRIO', principal: '#e8e6df', detalle: '#8c9396' },
 ];
 /** El tema de fábrica: el primero de la lista. */
 const TEMA_POR_DEFECTO = TEMAS_DE_LA_CASA[0].id;
@@ -1720,6 +1744,215 @@ function leerTema() {
     if (TEMAS_DE_LA_CASA.some((t) => t.id === leido)) return leido;
   } catch { /* sin fichero: el de fábrica */ }
   return TEMA_POR_DEFECTO;
+}
+
+// ── R34 · AUTORIZAR UNA CARPETA DESDE EL PANEL ─────────────────────────────
+//
+// El botón «Autorizar esta carpeta» de la cabecera del chat: mete la carpeta de
+// esa sesión en `mcp.workspaces` de la casa sin que Patxi abra el `settings.yaml`
+// a mano (que era la única vía hasta ahora).
+//
+// Va en DOS PASOS con un nonce de un solo uso que vive 2 minutos EN MEMORIA:
+//   1) sin `confirmar`: se MIRA la ruta y se contesta la ruta canónica + el
+//      nonce. No se escribe NADA.
+//   2) con `confirmar: true` y ese nonce: se escribe (con copia previa `.bak`).
+//      El nonce se gasta al usarlo.
+// El dos pasos es contra el clic a lo tonto, NO contra quien tiene la cookie del
+// panel: no es una medida de seguridad fuerte, y no se vende como tal.
+
+/** Lo que dura un nonce de autorización: 2 minutos. */
+const NONCE_MS = 120_000;
+
+/** Los nonces vivos: `nonce -> {ruta, expira}`. En memoria y de un solo uso. */
+const NONCES_DE_AUTORIZAR = new Map();
+
+/** Un valor YAML entre comillas simples (seguro con barras de Windows y con `:`). */
+function yamlEntreComillas(valor) {
+  return "'" + String(valor).replace(/'/g, "''") + "'";
+}
+
+/**
+ * Mete `ruta` en `mcp.workspaces` de un `settings.yaml`, escribiendo SÓLO sobre
+ * el TEXTO (como `ponerModeloEnTexto`, `bin\ratacode.js:459`): ni los
+ * comentarios ni el orden del documento se pierden. Tres casos:
+ *   · hay `mcp:` con `workspaces:` → la carpeta se añade al final de SU lista;
+ *   · hay `mcp:` sin `workspaces:`  → el bloque se añade dentro del `mcp:`;
+ *   · no hay `mcp:`                 → se añade un bloque `mcp:` al final.
+ * Función PURA (no toca el disco): la prueban `pruebas\piel.test.mjs`.
+ * @param {string} texto - el settings.yaml entero, tal cual está en el disco.
+ * @param {string} ruta - la carpeta que se autoriza (ya canónica).
+ * @returns {string} el texto nuevo.
+ * @throws {Error} si el `mcp:` (o su `workspaces:`) está escrito en una línea
+ *   (`mcp: {…}`, `workspaces: [a, b]`): ahí no se escribe a ciegas.
+ */
+export function ponerWorkspaceEnTexto(texto, ruta) {
+  const salto = String(texto).includes('\r\n') ? '\r\n' : '\n';
+  const lineas = String(texto).split(/\r?\n/);
+  const esComentarioOBlanco = (linea) => /^[ \t]*(#.*)?$/.test(linea);
+  const esDePrimerNivel = (linea) => !esComentarioOBlanco(linea) && /^\S/.test(linea);
+  const elementoDeLista = /^([ \t]*)-[ \t]+\S/;
+
+  // 1 · ¿dónde está `mcp:`?
+  let iMcp = -1;
+  for (let i = 0; i < lineas.length; i += 1) {
+    if (/^mcp:[ \t]*(#.*)?$/.test(lineas[i])) { iMcp = i; break; }
+    if (/^mcp:[ \t]*\S/.test(lineas[i])) {
+      throw new Error('el `mcp:` de este settings.yaml está escrito en una línea y no sé añadir la carpeta sin romperlo');
+    }
+  }
+  if (iMcp === -1) {
+    // No hay `mcp:`: el bloque entero se añade al final del documento.
+    while (lineas.length > 0 && lineas[lineas.length - 1].trim() === '') lineas.pop();
+    return [...lineas, '', 'mcp:', '  workspaces:', '    - ' + yamlEntreComillas(ruta), ''].join(salto);
+  }
+
+  // 2 · dónde ACABA el bloque `mcp:` (la siguiente clave de primer nivel).
+  let fin = lineas.length;
+  for (let i = iMcp + 1; i < lineas.length; i += 1) {
+    if (esDePrimerNivel(lineas[i])) { fin = i; break; }
+  }
+  // Solo claves directas: un comentario o un mapa anidado no decide la sangría.
+  let sangriaClave = '  ';
+  let profundidad = Infinity;
+  for (let i = iMcp + 1; i < fin; i += 1) {
+    if (esComentarioOBlanco(lineas[i])) continue;
+    const m = /^([ \t]+)[^\s#-][^:]*:/.exec(lineas[i]);
+    if (m !== null && m[1].length < profundidad) {
+      sangriaClave = m[1]; profundidad = m[1].length;
+    }
+  }
+
+  // 3 · ¿hay `workspaces:` dentro del `mcp:`?
+  let iWs = -1;
+  for (let i = iMcp + 1; i < fin; i += 1) {
+    if ((/^[ \t]*/.exec(lineas[i])?.[0].length ?? 0) !== sangriaClave.length) continue;
+    if (/^[ \t]+workspaces:[ \t]*(#.*)?$/.test(lineas[i])) { iWs = i; break; }
+    if (/^[ \t]+workspaces:[ \t]*\S/.test(lineas[i])) {
+      throw new Error('el `mcp.workspaces` de este settings.yaml está escrito en una línea y no sé añadir la carpeta sin romperlo');
+    }
+  }
+
+  if (iWs === -1) {
+    // `mcp:` sin `workspaces:`: el bloque va al final del `mcp:`, antes de las
+    // líneas en blanco que lo separan de la clave siguiente.
+    let corte = fin;
+    while (corte > iMcp + 1 && lineas[corte - 1].trim() === '') corte -= 1;
+    const bloque = [sangriaClave + 'workspaces:', sangriaClave + '  - ' + yamlEntreComillas(ruta)];
+    return [...lineas.slice(0, corte), ...bloque, ...lineas.slice(corte)].join(salto);
+  }
+
+  // `workspaces:` ya está: la carpeta va al final de SU lista (después del
+  // último elemento, con la sangría de los que ya hay).
+  let i = iWs + 1;
+  let ultimo = -1;
+  let sangriaElemento = null;
+  while (i < fin) {
+    const elemento = elementoDeLista.exec(lineas[i]);
+    if (elemento !== null) {
+      if (sangriaElemento === null) sangriaElemento = elemento[1];
+      ultimo = i;
+      i += 1;
+      continue;
+    }
+    if (/^[ \t]*(#.*)?$/.test(lineas[i])) { i += 1; continue; } // comentario o blanco: la lista sigue
+    break;
+  }
+  const sangria = sangriaElemento ?? (sangriaClave + '  ');
+  const salida = [...lineas];
+  salida.splice((ultimo === -1 ? iWs : ultimo) + 1, 0, sangria + '- ' + yamlEntreComillas(ruta));
+  return salida.join(salto);
+}
+
+/** La forma canónica de una carpeta: `..` resuelto y enlaces seguidos (o null). */
+function canonicaDeCarpeta(ruta) {
+  if (typeof ruta !== 'string' || ruta.trim() === '') return null;
+  try {
+    const normalizarPrefijo = (valor) => /^\\\\\?\\UNC\\/i.test(valor) ? '\\\\' + valor.slice(8)
+      : /^\\\\\?\\/.test(valor) ? valor.slice(4) : valor;
+    const resuelta = resolve(normalizarPrefijo(ruta.trim()));
+    // Esta operación solo autoriza carpetas existentes: sin realpath, se niega.
+    return normalizarPrefijo(realpathSync.native(resuelta));
+  } catch { return null; }
+}
+
+/** La forma comparable de una ruta (en Windows, sin distinguir mayúsculas). */
+function comparable(ruta) {
+  const limpia = /[\\/]$/.test(ruta) && ruta.length > 1 ? ruta.slice(0, -1) : ruta;
+  return process.platform === 'win32' ? limpia.toLowerCase() : limpia;
+}
+
+/**
+ * ¿Es la raíz de un disco (`C:\`, `/`)? La MISMA regla que el cerco del MCP
+ * (`mcp\lib\seguridad.js:87-90`): un espacio así es el disco entero.
+ */
+function esRaizDeDisco(ruta) {
+  const limpia = /[\\/]$/.test(ruta) && ruta.length > 1 ? ruta.slice(0, -1) : ruta;
+  return /^[a-z]:$/i.test(limpia) || limpia === '' || limpia === '/';
+}
+
+/**
+ * ¿Es la carpeta del usuario, o la que las contiene a todas (`C:\Users`)? La
+ * MISMA regla que el cerco del MCP (`mcp\lib\seguridad.js:99-102`): con eso
+ * autorizado, el PC entero queda a un `working_directory` de distancia.
+ */
+function esCarpetaDeUsuario(ruta) {
+  const suya = comparable(ruta);
+  const suyos = [homedir(), dirname(homedir())]
+    .map((c) => comparable(canonicaDeCarpeta(c) ?? c));
+  return suyos.includes(suya);
+}
+
+/** Valida tanto al preparar como inmediatamente antes de escribir. */
+function revisarCarpetaParaAutorizar(ruta) {
+  if (typeof ruta !== 'string' || ruta.trim() === '') {
+    return { error: 'SIN_RUTA', motivo: 'hace falta `ruta`' };
+  }
+  let resuelta;
+  try { resuelta = resolve(ruta.trim()); }
+  catch { return { error: 'SIN_RUTA', motivo: 'la ruta no se puede resolver' }; }
+  if (!existsSync(resuelta)) {
+    return { error: 'ESA_CARPETA_NO_EXISTE', ruta: resuelta, motivo: 'esa carpeta no existe: ' + resuelta };
+  }
+  const canonica = canonicaDeCarpeta(resuelta);
+  if (canonica === null) {
+    return { error: 'NO_SE_PUDO_RESOLVER', ruta: resuelta, motivo: 'no puedo resolver el destino real de esa carpeta: no la autorizo' };
+  }
+  let esCarpeta = false;
+  try { esCarpeta = statSync(canonica).isDirectory(); } catch { /* se niega */ }
+  if (!esCarpeta) {
+    return { error: 'NO_ES_UNA_CARPETA', ruta: canonica, motivo: 'eso no es una carpeta: ' + canonica };
+  }
+  if (esRaizDeDisco(canonica) || esCarpetaDeUsuario(canonica)) {
+    return { error: 'DEMASIADO_ANCHO', ruta: canonica, motivo: 'ni la raíz de un disco, ni tu carpeta de usuario, ni su padre se autorizan. Elige la carpeta del proyecto.' };
+  }
+  return { ruta: canonica };
+}
+
+/** Cuál de las carpetas autorizadas ya cubre a ésta (para poder decirlo). */
+function raizQueCubre(carpeta, raices) {
+  const suya = comparable(carpeta);
+  for (const raiz of raices ?? []) {
+    const canon = canonicaDeCarpeta(raiz);
+    if (canon === null) continue;
+    const cubre = comparable(canon);
+    if (suya === cubre) return canon;
+    if (suya.startsWith(/[\\/]$/.test(cubre) ? cubre : cubre + (process.platform === 'win32' ? '\\' : '/'))) return canon;
+  }
+  return null;
+}
+
+/**
+ * El cargador de YAML, si lo hay. La piel NO lleva dependencias a propósito, así
+ * que `js-yaml` se pide prestado al árbol donde vive el plugin (la casa lo tiene:
+ * es el que usa el MCP). Si no está, el botón NO escribe: antes no escribir que
+ * escribir a ciegas sobre el fichero que arranca la casa entera.
+ */
+async function cargadorDeYaml() {
+  try {
+    const modulo = await import('js-yaml');
+    const carga = typeof modulo?.load === 'function' ? modulo.load : modulo?.default?.load;
+    return typeof carga === 'function' ? { load: carga } : null;
+  } catch { return null; }
 }
 
 // ── las rutas del servidor de la piel ──────────────────────────────────────
@@ -2163,6 +2396,167 @@ function montarRutas(c) {
   };
   c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/sesiones/abierta', handler: abierta }), 'ratacode-piel.sesiones-abierta');
 
+  // POST /ratacode/sesiones/autorizar → (R34) EL BOTÓN «Autorizar esta carpeta»
+  // de la cabecera del chat: la carpeta de esa sesión entra en `mcp.workspaces`
+  // de la casa, que es lo que decide si los chats web pueden entrar en ella.
+  //
+  // Va con el cerco de las demás (`autorizada`) Y ADEMÁS exige que la petición
+  // lleve `Sec-Fetch-Site: same-origin`: rechaza peticiones normales desde otra
+  // web. Es protección CSRF; un cliente HTTP con cookie puede falsificar esta
+  // cabecera. No demuestra identidad humana ni aísla al proceso local del MCP.
+  //
+  // Y en DOS PASOS (mirar / escribir), con un nonce de un solo uso de 2 minutos
+  // en memoria: el paso 1 no escribe nada. Ver arriba, en `ponerWorkspaceEnTexto`.
+  const autorizar = (req, res) => {
+    if (!autorizada(req, res)) return;
+    if (req.method !== 'POST') { json(res, 405, { ok: false, error: 'Usa POST.' }); return; }
+    if (req.headers['sec-fetch-site'] !== 'same-origin') {
+      json(res, 403, {
+        ok: false,
+        error: 'NO_ES_EL_NAVEGADOR',
+        motivo: 'esta acción requiere una petición del mismo origen que el panel (falta `Sec-Fetch-Site: same-origin`)',
+      });
+      return;
+    }
+    leerPedido(req, 8192).then(async (pedido) => {
+      const casa = casaDeEstaCasa();
+      const raices = ajustesDeLaCasa().workspaces;
+
+      // ── PASO 2 · ESCRIBIR (confirmado, con el nonce que dio el paso 1) ────
+      if (pedido.confirmar === true) {
+        const nonce = typeof pedido.nonce === 'string' ? pedido.nonce : '';
+        const dicho = NONCES_DE_AUTORIZAR.get(nonce);
+        NONCES_DE_AUTORIZAR.delete(nonce); // de un solo uso: se mire como se mire
+        if (dicho === undefined || dicho.expira < Date.now()) {
+          json(res, 409, {
+            ok: false,
+            error: 'NONCE_CADUCADO',
+            motivo: 'esa confirmación ya no vale (dura 2 minutos y se gasta al usarla): vuelve a pulsar «Autorizar esta carpeta»',
+          });
+          return;
+        }
+        // Antes de leer: tras este await no se cede el turno hasta guardar.
+        // Dos confirmaciones distintas deben partir de la versión más reciente.
+        const yaml = await cargadorDeYaml();
+        if (yaml === null) {
+          json(res, 500, {
+            ok: false,
+            error: 'SIN_VALIDADOR',
+            motivo: 'no puedo comprobar el YAML desde aquí (no encuentro js-yaml): no escribo nada en el fichero de la casa',
+          });
+          return;
+        }
+        const revisada = revisarCarpetaParaAutorizar(dicho.ruta);
+        if (revisada.error) { json(res, 400, { ok: false, ...revisada }); return; }
+        if (comparable(revisada.ruta) !== comparable(dicho.ruta)) {
+          json(res, 409, { ok: false, error: 'RUTA_CAMBIADA', motivo: 'el destino de esa carpeta ha cambiado: vuelve a pedir autorización' });
+          return;
+        }
+        const rutaAjustes = join(casa, 'settings.yaml');
+        let texto;
+        try { texto = readFileSync(rutaAjustes, 'utf8'); }
+        catch {
+          json(res, 500, { ok: false, error: 'SIN_SETTINGS', motivo: 'esta casa no tiene `' + rutaAjustes + '`: no sé dónde apuntar la carpeta' });
+          return;
+        }
+        let anterior;
+        try { anterior = yaml.load(texto); }
+        catch (e) { json(res, 500, { ok: false, error: 'YAML_ROTO', motivo: 'el YAML actual no es válido: no escribo nada. ' + String(e?.message ?? e) }); return; }
+        const actuales = Array.isArray(anterior?.mcp?.workspaces) ? anterior.mcp.workspaces.map(String) : [];
+        if (dentroDeAlguna(dicho.ruta, actuales)) {
+          json(res, 200, { ok: true, autorizada: true, ya_autorizada: true, ruta: dicho.ruta, carpetas: actuales, motivo: 'ya está autorizada: no hay que añadir nada' });
+          return;
+        }
+        let nuevo;
+        try { nuevo = ponerWorkspaceEnTexto(texto, dicho.ruta); }
+        catch (e) { json(res, 500, { ok: false, error: 'NO_SE_ESCRIBE', motivo: String(e?.message ?? e) }); return; }
+        let leido;
+        try { leido = yaml.load(nuevo); }
+        catch (e) {
+          json(res, 500, {
+            ok: false,
+            error: 'YAML_ROTO',
+            motivo: 'el resultado no se puede releer como YAML, así que no he escrito NADA: ' + String(e?.message ?? e),
+          });
+          return;
+        }
+        const lista = Array.isArray(leido?.mcp?.workspaces) ? leido.mcp.workspaces.map((r) => String(r)) : [];
+        const esta = lista.some((r) => comparable(canonicaDeCarpeta(r) ?? r) === comparable(dicho.ruta));
+        if (!esta) {
+          json(res, 500, {
+            ok: false,
+            error: 'NO_QUEDO_ESCRITO',
+            motivo: 'he releído el resultado y la carpeta no sale en `mcp.workspaces`: no escribo nada',
+          });
+          return;
+        }
+        const temporal = rutaAjustes + '.autorizar-' + randomBytes(8).toString('hex') + '.tmp';
+        try {
+          // Si preparar el nuevo fichero o su copia falla, el original sigue entero.
+          writeFileSync(temporal, nuevo, { mode: 0o600, flag: 'wx' });
+          writeFileSync(rutaAjustes + '.bak', texto, { mode: 0o600 }); // copia previa
+          renameSync(temporal, rutaAjustes);
+        } catch (e) {
+          json(res, 500, { ok: false, error: 'NO_SE_PUDO_ESCRIBIR', motivo: 'no pude escribir `' + rutaAjustes + '`: ' + String(e?.message ?? e) });
+          return;
+        } finally {
+          try { rmSync(temporal, { force: true }); } catch { /* no ocultar el error original */ }
+        }
+        c.logger?.info?.('ratacode-piel: carpeta autorizada en ' + rutaAjustes + ' → ' + dicho.ruta);
+        json(res, 200, {
+          ok: true,
+          ruta: dicho.ruta,
+          autorizada: true,
+          fichero: rutaAjustes,
+          copia: rutaAjustes + '.bak',
+          carpetas: lista,
+          motivo: 'hecho: ' + dicho.ruta + ' está en `mcp.workspaces`. No hace falta reiniciar nada.',
+        });
+        return;
+      }
+
+      // ── PASO 1 · MIRAR (no se escribe NADA) ──────────────────────────────
+      const revisada = revisarCarpetaParaAutorizar(pedido.ruta);
+      if (revisada.error) { json(res, 400, { ok: false, ...revisada }); return; }
+      const canonica = revisada.ruta;
+      if (dentroDeAlguna(canonica, raices)) {
+        const cubre = raizQueCubre(canonica, raices);
+        json(res, 200, {
+          ok: true,
+          ya_autorizada: true,
+          ruta: canonica,
+          dentro_de: cubre,
+          carpetas: raices,
+          motivo: 'ya está autorizada' + (cubre === null ? '' : ' (dentro de ' + cubre + ')') + ': no hay que añadir nada',
+        });
+        return;
+      }
+      // La ruta pasa el examen: se le da un nonce y NO se escribe nada todavía.
+      const ahora = Date.now();
+      for (const [clave, valor] of NONCES_DE_AUTORIZAR) {
+        if (valor.expira < ahora) NONCES_DE_AUTORIZAR.delete(clave); // los caducados, fuera
+      }
+      while (NONCES_DE_AUTORIZAR.size >= 32) {
+        NONCES_DE_AUTORIZAR.delete(NONCES_DE_AUTORIZAR.keys().next().value); // tope: los más viejos
+      }
+      const nonce = randomBytes(16).toString('hex');
+      NONCES_DE_AUTORIZAR.set(nonce, { ruta: canonica, expira: ahora + NONCE_MS });
+      json(res, 200, {
+        ok: true,
+        ya_autorizada: false,
+        ruta: canonica,
+        nonce,
+        espera_ms: NONCE_MS,
+        fichero: join(casa, 'settings.yaml'),
+        pregunta: '¿Autorizar ' + canonica + '? ChatGPT podrá leer y escribir en ella',
+        si: 'Sí',
+        no: 'Cancelar',
+        motivo: 'todavía no he escrito nada: confirma para autorizarla',
+      });
+    }, () => json(res, 400, { ok: false, error: 'cuerpo JSON inválido' }));
+  };
+  c.effect(() => servidor.register({ kind: 'exact', path: '/ratacode/sesiones/autorizar', handler: autorizar }), 'ratacode-piel.sesiones-autorizar');
+
   // POST /ratacode/sesiones/enviar → el mensaje de ChatGPT, a ESA sesión.
   const enviar = (req, res) => {
     if (!autorizada(req, res)) return;
@@ -2224,7 +2618,7 @@ function montarRutas(c) {
   // (`enviarMensaje` es quien lo comprueba). El gancho de rutas sigue donde
   // nació, en las tareas del MCP (`mcp/lib/lectura.js`), que no se tocan.
 
-  c.logger?.info?.('ratacode-piel: el texto de la conexión se sirve en /ratacode/handshake, el MCP en /ratacode/mcp, la conexión con botón en /ratacode/conexion, la clave que falta en /ratacode/clave, los runtimes locales en /ratacode/runtimes y el aspecto en /ratacode/tema');}
+  c.logger?.info?.('ratacode-piel: el texto de la conexión se sirve en /ratacode/handshake, el MCP en /ratacode/mcp, la conexión con botón en /ratacode/conexion, la clave que falta en /ratacode/clave, los runtimes locales en /ratacode/runtimes, el aspecto en /ratacode/tema y la carpeta que se autoriza en /ratacode/sesiones/autorizar');}
 
 /**
  * Monta la piel sobre el servidor web del motor.

@@ -458,7 +458,8 @@ function primerModeloDeclarado(ajustes, proveedor) {
  */
 function ponerModeloEnTexto(texto, proveedor, modelo) {
   const bloque = 'agent-default-model:\n  provider: ' + proveedor + '\n  model: ' + JSON.stringify(modelo) + '\n';
-  const bloqueActual = /^agent-default-model:[ \t]*\n(?:[ \t]+[^\n]*\n)*/m;
+  // `\r?`: la fábrica puede venir en CRLF (así la deja git en Windows).
+  const bloqueActual = /^agent-default-model:[ \t]*\r?\n(?:[ \t]+[^\n]*\n)*/m;
   if (bloqueActual.test(texto)) return texto.replace(bloqueActual, bloque);
   return (texto.trim() === '' ? '' : texto.replace(/\s*$/, '\n')) + '\n' + bloque;
 }
@@ -514,7 +515,7 @@ function ponerPresetPorDefecto(casa, preset = PRESET_POR_DEFECTO) {
     return { cambiado: false, motivo: 'la casa tiene «' + actual + '» puesto a mano: se respeta' };
   }
   const bloque = 'agent-presets:\n  default: ' + preset + '\n';
-  const bloqueActual = /^agent-presets:[ \t]*\n(?:[ \t]+[^\n]*\n)*/m;
+  const bloqueActual = /^agent-presets:[ \t]*\r?\n(?:[ \t]+[^\n]*\n)*/m;
   let nuevo;
   if (bloqueActual.test(texto)) nuevo = texto.replace(bloqueActual, bloque);
   else if (/^agent-presets:[ \t]*\S.*$/m.test(texto)) nuevo = texto.replace(/^agent-presets:[ \t]*\S.*$/m, bloque.trimEnd());
@@ -550,7 +551,7 @@ function ponerIdiomaPorDefecto(casa, idioma = IDIOMA_POR_DEFECTO) {
     return { cambiado: false, motivo: 'la casa tiene «' + actual + '» puesto a mano: se respeta' };
   }
   const bloque = 'locale:\n  preference: ' + idioma + '\n';
-  const bloqueActual = /^locale:[ \t]*\n(?:[ \t]+[^\n]*\n)*/m;
+  const bloqueActual = /^locale:[ \t]*\r?\n(?:[ \t]+[^\n]*\n)*/m;
   let nuevo;
   if (bloqueActual.test(texto)) nuevo = texto.replace(bloqueActual, bloque);
   else nuevo = (texto.trim() === '' ? '' : texto.replace(/\s*$/, '\n')) + '\n' + bloque;
@@ -1049,9 +1050,9 @@ function correrPanel({ motor, casa, carpeta, ordenes }) {
     cuandoEscuche(m[1]);
   };
   hijo.stdout.setEncoding('utf8');
-  hijo.stdout.on('data', (t) => { process.stdout.write(t); cazar(t); });
+  hijo.stdout.on('data', (t) => { process.stdout.write(t.replace(/dsh web:/g, 'RATACODE · panel:')); cazar(t); });
   hijo.stderr.setEncoding('utf8');
-  hijo.stderr.on('data', (t) => { process.stderr.write(t); cazar(t); });
+  hijo.stderr.on('data', (t) => { process.stderr.write(t.replace(/dsh web:/g, 'RATACODE · panel:')); cazar(t); });
   hijo.on('error', (e) => {
     process.stderr.write('RATACODE · el motor no arrancó: ' + e.message + '\n');
     anotar(casa, 'el motor no arrancó · ' + e.message);
@@ -1201,9 +1202,9 @@ async function main() {
     : 'el que ya tuviera la casa (' + idioma.motivo + ')')
     + ' · inglés y chino siguen en Ajustes › General › Language\n');
   process.stdout.write('RATACODE · aspecto: ' + (aspecto.cambiado
-    ? 'RATACODE PINK puesto por defecto (' + aspecto.motivo + ')'
+    ? 'MULTICOLOR puesto por defecto (' + aspecto.motivo + ')'
     : 'el que ya tuviera la casa (' + aspecto.motivo + ')')
-    + ' · los tres (PINK, YELLOW, MINIMAL) en Ajustes › General › Aspecto\n');
+    + ' · los tres (MULTICOLOR, GRIS Y AMARILLO, SOBRIO) en Ajustes › Aspecto\n');
 
   if (ordenes.modo === 'headless') {
     // Antes de arrancar el motor, mira si hay con qué: si el modelo por defecto

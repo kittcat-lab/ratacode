@@ -10,49 +10,50 @@
  * entero —fondos, textos, botones y su reacción, bordes e iconos— cambia con él.
  */
 html body, html body[data-ds-dark-theme] {
- --dsw-alias-bg-base:#101113; --dsw-alias-bg-layer-1:#181a1d;
- --dsw-alias-bg-layer-2:#222529; --dsw-specific-menu:#222529;
+ --dsw-alias-bg-base:#0c0a12; --dsw-alias-bg-layer-1:#15121d;
+ --dsw-alias-bg-layer-2:#1d1a27; --dsw-specific-menu:#1d1a27;
  --dsw-alias-label-primary:#f0eee6; --dsw-alias-label-secondary:#b8bdbb;
  --dsw-alias-label-tertiary:#9ba3a5; --dsw-alias-label-dimmed:#818a8e;
  --dsw-alias-brand-primary:var(--mr-principal);
  --dsw-alias-button-primary-fill:var(--mr-principal);
  --dsw-alias-label-primary-foreground:#121411;
- --dsw-alias-interactive-bg-hover:#292c30; --dsw-alias-interactive-bg-active:var(--mr-principal-suave);
- --dsw-alias-button-tool-bar-fill:#222529; --dsw-alias-button-tool-bar-hover:#30353a;
+ --dsw-alias-interactive-bg-hover:#24202f; --dsw-alias-interactive-bg-active:var(--mr-principal-suave);
+ --dsw-alias-button-tool-bar-fill:#1d1a27; --dsw-alias-button-tool-bar-hover:#2e2a3c;
  --dsw-alias-button-ghost-active-fill:var(--mr-principal-suave);
  --dsw-alias-button-ghost-active-border:var(--mr-principal);
- --dsw-alias-border-l1:#282c30; --dsw-alias-border-l2:#353a3d;
- --dsw-alias-border-l3:#464d52; --dsw-alias-border-l4:#626b70;
+ --dsw-alias-border-l1:#221f2d; --dsw-alias-border-l2:#322d42;
+ --dsw-alias-border-l3:#453f58; --dsw-alias-border-l4:#625b78;
  --dsw-alias-state-success-primary:var(--mr-detalle); --dsw-alias-state-warn-primary:var(--mr-detalle);
- --dsw-alias-markdown-code-block:#15171a; --dsw-alias-markdown-code-block-banner:#222529;
- --dsw-alias-markdown-inline-code:#292d31; --dsh-state-ongoing:var(--mr-detalle);
+ --dsw-alias-markdown-code-block:#100e17; --dsw-alias-markdown-code-block-banner:#1d1a27;
+ --dsw-alias-markdown-inline-code:#24202f; --dsh-state-ongoing:var(--mr-detalle);
  background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);color-scheme:dark;
 }
-[class*='_sidebarCol']{background:#16181b!important;border-right:1px solid var(--dsw-alias-border-l2)}
-[class*='_logoRow']{position:relative;min-height:94px!important;border-bottom:1px solid #3a393a;margin-bottom:12px;background:linear-gradient(125deg,color-mix(in srgb,var(--mr-detalle) 8%,transparent),transparent 48%,color-mix(in srgb,var(--mr-principal) 8%,transparent)),repeating-linear-gradient(115deg,transparent 0 17px,#ffffff02 17px 18px)}
-[class*='_logoRow']::after{content:'';position:absolute;bottom:0;left:16px;width:58px;height:3px;background:repeating-linear-gradient(125deg,var(--mr-filo) 0 5px,transparent 5px 9px);pointer-events:none}
+[class*='_sidebarCol']{background:#110f18!important;border-right:1px solid #ffffff14}
+[class*='_logoRow']{position:relative;min-height:94px!important;border-bottom:1px solid #ffffff12;margin-bottom:12px}
 button[class*='_brand']{height:72px!important;overflow:visible!important;max-width:none!important}
 [class*='_brandIdentity']{gap:10px!important;height:auto!important;overflow:visible!important;align-items:center!important}
 [class*='_brandMark']{display:block!important;width:48px!important;height:54px!important;flex:0 0 48px;background:var(--mr-emblema) center/contain no-repeat!important;overflow:visible!important}
 [data-slot='sidebar.brand.mark'],[data-slot='sidebar.brand.name']{display:none!important}
 [class*='_brandName']{display:flex!important;flex-direction:column!important;height:auto!important;overflow:visible!important;gap:5px}
 [class*='_brandName']::before,[class*='_brandName']::after{content:none!important}
-.mr-dsh-word{font:900 italic 25px/1 'Segoe UI',sans-serif;letter-spacing:-1.4px;white-space:nowrap;color:var(--mr-principal)}
+.mr-dsh-word{font:800 24px/1 var(--mr-letra);letter-spacing:-1.2px;white-space:nowrap;color:var(--mr-principal)}
 .mr-dsh-word b{color:var(--mr-detalle);font-weight:900}
 
 
 [class*='_brand'] [class*='badge'],[class*='_brand'] [class*='Badge']{display:none!important}
-button[class*='_newSession']{position:relative;background:var(--mr-principal)!important;color:#141612!important;border:1px solid color-mix(in srgb,var(--mr-principal) 70%,#fff)!important;border-radius:4px!important;font-weight:750!important;box-shadow:3px 3px 0 var(--mr-sombra)!important;min-height:38px;letter-spacing:.025em}
-[class*='_newSessionLabel']{background:transparent!important;box-shadow:none!important;border:0!important;color:#141612!important;height:auto!important}
-button[class*='_newSession']:hover{background:color-mix(in srgb,var(--mr-principal) 84%,#fff)!important;box-shadow:3px 3px 0 var(--mr-sombra)!important}
+button[class*='_newSession']{position:relative;overflow:hidden;background:var(--mr-degradado)!important;color:var(--mr-sobre)!important;border:0!important;border-radius:999px!important;font-weight:700!important;box-shadow:0 8px 24px -10px var(--mr-principal),inset 0 1px 0 #ffffff40!important;min-height:38px}
+button[class*='_newSession'] *{color:var(--mr-sobre)!important}
+[class*='_newSessionLabel']{background:transparent!important;box-shadow:none!important;border:0!important;height:auto!important}
+button[class*='_newSession']:hover{transform:translateY(-1px);box-shadow:0 14px 32px -10px var(--mr-principal),0 0 0 4px color-mix(in srgb,var(--mr-principal) 14%,transparent),inset 0 1px 0 #ffffff40!important}
 /* La carpeta de cada espacio de trabajo. Antes apuntaba a `_folderIcon`, que
    YA NO EXISTE en DSH 0.1.5-rc.3 (medido: 0 apariciones en todo el árbol
    instalado). La clase de hoy es `_folder` / `_folderActive`, en
    `dsh-client-ui-workspace/lib/client.js`. */
 [class*='_sidebarCol'] [class*='_folder']{color:var(--mr-acento)!important}
-[class*='_sidebarCol'] [class*='_row']:hover{background:#ffffff06}
-[class*='_sidebarCol'] [class*='_selected'],[class*='_sidebarCol'] [aria-current='page']{background:linear-gradient(90deg,color-mix(in srgb,var(--mr-detalle) 12%,transparent),#28262a)!important;box-shadow:inset 3px 0 var(--mr-detalle);border-radius:3px!important;color:#f0eee6!important}
-[class*='_sidebarCol'] [class*='_sectionTitle']{color:#a8adae;font:10px Consolas,monospace;letter-spacing:1.2px;text-transform:uppercase}
+[class*='_sidebarCol'] [class*='_row']{border-radius:10px!important;transition:background .15s ease}
+[class*='_sidebarCol'] [class*='_row']:hover{background:#ffffff0a}
+[class*='_sidebarCol'] [class*='_selected'],[class*='_sidebarCol'] [aria-current='page']{background:linear-gradient(90deg,color-mix(in srgb,var(--mr-principal) 16%,transparent),#ffffff0a)!important;box-shadow:inset 0 0 0 1px #ffffff12;border-radius:10px!important;color:#f0eee6!important}
+[class*='_sidebarCol'] [class*='_sectionTitle']{color:#a8adae;font:10px var(--mr-mono);letter-spacing:1.2px;text-transform:uppercase}
 
 /* R12: aquí vivían «Copiar apretón» y «Claves», al pie de la barra lateral. Ya
    no: el texto de la conexión vive en Ajustes › Conexiones (con sus dos
@@ -61,38 +62,43 @@ button[class*='_newSession']:hover{background:color-mix(in srgb,var(--mr-princip
 /* La nota que la piel mete en la ventana nativa de DSH «Add an API key to get
    started» (sólo pide DeepSeek): una línea en español y un botón que lleva a
    Ajustes › Models, donde están los 8 proveedores de RATACODE. */
-.mr-guia{margin:14px 0 0;padding:10px 12px;border:1px solid #3a4046;border-left:3px solid var(--mr-principal);border-radius:6px;
- background:#ffffff05;color:#c9cfd1;font:12px/1.5 system-ui,Segoe UI,sans-serif}
+.mr-guia{margin:14px 0 0;padding:10px 12px;border:1px solid #ffffff1a;border-radius:14px;
+ background:#ffffff08;color:#c9cfd1;font:12px/1.5 var(--mr-letra)}
 .mr-guia b{color:var(--mr-principal)}
 .mr-guia-boton{margin-top:8px;display:block;width:100%;padding:8px 10px;cursor:pointer;
- background:var(--mr-principal);color:#16181b;border:0;border-radius:5px;font:600 12px/1 system-ui,Segoe UI,sans-serif}
-.mr-guia-boton:hover{background:color-mix(in srgb,var(--mr-principal) 84%,#fff)}
-header[class*='_header']{background:linear-gradient(110deg,#202124,#17191c 60%)!important;border-top:2px solid var(--mr-principal);border-bottom:1px solid var(--dsw-alias-border-l2)!important}
+ background:var(--mr-degradado);color:var(--mr-sobre);border:0;border-radius:999px;font:600 12px/1 var(--mr-letra)}
+.mr-guia-boton:hover{filter:brightness(1.12)}
+header[class*='_header']{background:#0c0a12b3!important;border-bottom:1px solid #ffffff12!important}
 header[class*='_header']::before{content:none!important}
-.mr-dsh-kicker{display:flex;align-items:center;gap:10px;margin-bottom:10px;color:#9ba3a5;font:9px/1.3 Consolas,monospace;letter-spacing:1.8px}
+/* R33: el lema, en la letra de la casa y sin gritar (antes iba en mayúsculas
+   espaciadas y con unas rayas de obra a la derecha, del estilo anterior). */
+.mr-dsh-kicker{display:flex;align-items:center;gap:8px;margin-bottom:10px;color:#9ba3a5;font:11px/1.3 var(--mr-letra);letter-spacing:.2px}
 .mr-dsh-kicker .mr-wordmark{font-size:12px;letter-spacing:.2px}
-.mr-dsh-kicker::after{content:'';margin-left:auto;display:block;width:48px;height:5px;background:repeating-linear-gradient(125deg,color-mix(in srgb,var(--mr-detalle) 44%,transparent) 0 4px,transparent 4px 8px)}
 [class*='_crumbCurrent']{color:#f0eee6!important;font-weight:750!important}
 [class*='_tabActive']{color:var(--mr-detalle)!important;border-color:var(--mr-detalle)!important}
 [class*='_tabActive']::after{background:var(--mr-detalle)!important}
-[data-composer-card]{position:relative;background:#222529!important;border:1px solid #51564a!important;border-top:2px solid var(--mr-principal)!important;border-radius:8px!important;box-shadow:0 10px 32px #0005!important}
-[data-composer-card]::before{content:'';position:absolute;top:-2px;left:18px;width:54px;height:2px;background:var(--mr-detalle);pointer-events:none}
-[data-composer-card]:focus-within{border-color:var(--mr-acento)!important;border-top-color:var(--mr-principal)!important;box-shadow:0 0 0 2px color-mix(in srgb,var(--mr-acento) 12%,transparent),0 10px 32px #0005!important}
+[data-composer-card]{position:relative;background:#1a1724!important;border:1px solid #ffffff22!important;border-radius:22px!important;box-shadow:0 30px 80px -30px #000,inset 0 1px 0 #ffffff1c!important;transition:border-color .2s ease,box-shadow .25s ease}
+/* El foco de luz que sigue al ratón (`--mx`/`--my` los pone `ratacode-piel.js`). */
+[data-composer-card]::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .25s ease;
+ background:radial-gradient(260px circle at var(--mx,50%) var(--my,50%),color-mix(in srgb,var(--mr-principal) 16%,transparent),transparent 70%)}
+[data-composer-card]:hover::before{opacity:1}
+[data-composer-card]:focus-within{border-color:color-mix(in srgb,var(--mr-principal) 55%,transparent)!important;box-shadow:0 30px 80px -30px color-mix(in srgb,var(--mr-principal) 55%,#000),0 0 0 4px color-mix(in srgb,var(--mr-principal) 11%,transparent),inset 0 1px 0 #ffffff1c!important}
 [data-composer-input]{color:#f0eee6!important;caret-color:var(--mr-principal)}
 /* El elemento SÍ existe: medido el 21-sep-2026 en la superficie (1 en el DOM).
    El encargo decía que no, y por eso se quitó; se ha devuelto al comprobarlo. */
 [data-composer-placeholder]{color:#a6adae!important;font-size:13px!important}
-[data-composer-card] button[aria-label*='Send'],[data-composer-card] button[aria-label*='Enviar']{background:var(--mr-principal)!important;color:#141612!important;border-radius:6px!important}
+[data-composer-card] button[aria-label*='Send'],[data-composer-card] button[aria-label*='Enviar']{background:var(--mr-degradado)!important;color:var(--mr-sobre)!important;border-radius:50%!important;box-shadow:0 6px 18px -8px var(--mr-principal)}
+[data-composer-card] button[aria-label*='Send']:not(:disabled):hover,[data-composer-card] button[aria-label*='Enviar']:not(:disabled):hover{transform:translateY(-1px) scale(1.06);filter:brightness(1.12)}
 [data-composer-card] button:disabled{opacity:.45}
 /* El botón de acciones de la cabecera de sesión (ahí vive ahora el registro).
    Antes apuntaba a `_sessionLogButton`, que YA NO EXISTE en DSH 0.1.5-rc.3
    (medido: 0 apariciones). Hoy es `_moreButton`, en
    `dsh-session-log-export/lib/client.js`. */
-[class*='_moreButton']{font-size:11px!important;letter-spacing:.03em;color:#b1b8b8!important;border-color:#454b50!important;border-radius:4px!important}
-button:focus-visible,input:focus-visible,[role='button']:focus-visible{outline:2px solid var(--mr-acento)!important;outline-offset:3px}
-pre{border:1px solid #353b3e!important;border-radius:6px!important}
+[class*='_moreButton']{font-size:11px!important;letter-spacing:.03em;color:#b1b8b8!important;border-color:#453f58!important;border-radius:4px!important}
+/* R33: el foco del teclado, un halo suave del color principal en vez del recuadro amarillo duro. */
+button:focus-visible,input:focus-visible,[role='button']:focus-visible{outline:1.5px solid color-mix(in srgb,var(--mr-principal) 70%,transparent)!important;outline-offset:2px;box-shadow:0 0 0 4px color-mix(in srgb,var(--mr-principal) 14%,transparent)}
+pre{border:1px solid #322d42!important;border-radius:6px!important}
 a{color:var(--mr-acento)}
-@media(max-width:900px){.mr-dsh-kicker{letter-spacing:.8px}.mr-dsh-kicker::after{display:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important}}
 
 /* Lo que SÍ se usa y NO se toca: `.mr-vida*` (la ratita), `.mr-welcome*`,
@@ -107,15 +113,13 @@ a{color:var(--mr-acento)}
  mask-image:linear-gradient(180deg,transparent,#000 12%,#000 88%,transparent)}
 .mr-vida-salida>[class*='_scrollBody']{position:relative;z-index:1}
 @media(prefers-reduced-motion:reduce){.mr-vida{display:none!important}}
-/* MINIMAL: sin ratitas de fondo (el lienzo se esconde y el fotograma se para). */
-html[data-ratacode-tema='minimal'] .mr-vida{display:none!important}
 
 /* RATACODE welcome: replace the upstream mascot, without touching history. */
 .mr-welcome{gap:20px!important;padding:24px 16px!important}.mr-welcome-mark{width:78px!important;height:88px;background:var(--mr-emblema) center/contain no-repeat!important}
 .mr-welcome-mark>*{display:none!important}
 .mr-welcome [class*='_titleGroup']{display:flex!important;flex-direction:column;align-items:flex-start!important;gap:10px!important}
-.mr-welcome-title{font:900 italic clamp(28px,3.4vw,48px)/1 'Segoe UI',sans-serif;letter-spacing:-1.8px;background:linear-gradient(90deg,var(--mr-principal) 0 48%,var(--mr-detalle) 48%);background-clip:text;-webkit-text-fill-color:transparent}
-.mr-welcome [class*='_previewBadge']{font:10px/1.5 Consolas,monospace!important;letter-spacing:2px;border:0!important;border-radius:0!important;background:none!important;color:#b4b9b6!important;padding:0!important}
+.mr-welcome-title{font:800 clamp(30px,3.6vw,52px)/1 var(--mr-letra);letter-spacing:-2px;background:linear-gradient(100deg,#fff,color-mix(in srgb,var(--mr-principal) 55%,#fff) 45%,var(--mr-detalle));background-clip:text;-webkit-text-fill-color:transparent}
+.mr-welcome [class*='_previewBadge']{font:10px/1.5 var(--mr-mono)!important;letter-spacing:2px;border:0!important;border-radius:0!important;background:none!important;color:#b4b9b6!important;padding:0!important}
 @media(max-width:800px){.mr-welcome{gap:12px!important}.mr-welcome-mark{width:52px;height:62px}.mr-welcome [class*='_previewBadge']{letter-spacing:.5px}}
 
 /* R17 · EL AVISO DE LA CLAVE QUE FALTA, encima de la caja de escribir. Mismo
@@ -124,29 +128,29 @@ html[data-ratacode-tema='minimal'] .mr-vida{display:none!important}
    banda con el filo de la casa, sin gritar. */
 .mr-clave{box-sizing:border-box;display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;
  max-width:var(--dsh-composer-card-max-width,780px);margin:0 0 6px;padding:7px 12px;border-radius:10px;
- border:1px solid #3a3f45;border-left:3px solid var(--mr-principal);background:#181a1d;color:#f0eee6;
+ border:1px solid #373248;border-left:3px solid var(--mr-principal);background:#15121d;color:#f0eee6;
  font-size:13px;line-height:19px}
 .mr-clave-texto{flex:1 1 260px;min-width:0}
-.mr-clave-boton{cursor:pointer;white-space:nowrap;padding:4px 11px;border-radius:8px;border:1px solid #464d52;
- background:#222529;color:inherit;font:inherit;font-size:12px}
+.mr-clave-boton{cursor:pointer;white-space:nowrap;padding:4px 11px;border-radius:8px;border:1px solid #453f58;
+ background:#1d1a27;color:inherit;font:inherit;font-size:12px}
 .mr-clave-boton:hover{border-color:var(--mr-principal)}
 
 /* R22 §4 · EL AVISO DE MIGRACIÓN DE CLAVES: también encima de la caja, en UNA
    línea, con su botón de cerrar. Filo del detalle (es un «haz esto», no un fallo). */
 .mr-migracion{box-sizing:border-box;display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;
  max-width:var(--dsh-composer-card-max-width,780px);margin:0 0 6px;padding:7px 12px;border-radius:10px;
- border:1px solid #3a3f45;border-left:3px solid var(--mr-detalle);background:#181a1d;color:#f0eee6;
+ border:1px solid #373248;border-left:3px solid var(--mr-detalle);background:#15121d;color:#f0eee6;
  font-size:13px;line-height:19px}
 .mr-migracion-texto{flex:1 1 260px;min-width:0}
-.mr-migracion-cerrar{cursor:pointer;white-space:nowrap;padding:4px 11px;border-radius:8px;border:1px solid #464d52;
- background:#222529;color:inherit;font:inherit;font-size:12px}
+.mr-migracion-cerrar{cursor:pointer;white-space:nowrap;padding:4px 11px;border-radius:8px;border:1px solid #453f58;
+ background:#1d1a27;color:inherit;font:inherit;font-size:12px}
 .mr-migracion-cerrar:hover{border-color:var(--mr-detalle)}
 
 /* R18 · LA NOTA DE AJUSTES › MODELS. Ahí ya sólo quedan las APIs con clave: los
    dos locales se esconden de esa lista (el frontend no tiene gancho para
    filtrarla) y esta nota lleva a su pestaña. Discreta, con el filo de la casa. */
 .mr-locales-nota{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 0;padding:8px 12px;
- border-radius:10px;border:1px solid #3a3f45;border-left:3px solid var(--mr-principal);background:#181a1d;
+ border-radius:10px;border:1px solid #373248;border-left:3px solid var(--mr-principal);background:#15121d;
  color:#f0eee6;font-size:13px;line-height:19px}
 
 /* R23 · LOS MODOS, EN 3×3. La pestaña la pinta el plugin de presets del motor;
@@ -172,7 +176,7 @@ html[data-ratacode-tema='minimal'] .mr-vida{display:none!important}
 .mr-modos li[data-abierto='si'] [class*='_cardFoot']{display:flex!important}
 .mr-modos .mr-modos-puntos{cursor:pointer;align-self:flex-end;background:none;border:0;color:#8c9396;
  font:inherit;font-size:15px;line-height:1;padding:0 6px 4px;border-radius:6px}
-.mr-modos .mr-modos-puntos:hover{color:#f0eee6;background:#222529}
+.mr-modos .mr-modos-puntos:hover{color:#f0eee6;background:#1d1a27}
 @media(max-width:1100px){.mr-modos [class*='_cards']{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 
 /* ── R21 · EL MENÚ DE AJUSTES, CON EL COLOR DE LA MARCA ─────────────────────
@@ -205,16 +209,13 @@ html[data-ratacode-tema='minimal'] .mr-vida{display:none!important}
 .mr-temas-titulo{font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary,#f0eee6)}
 .mr-temas-fila{display:flex;gap:8px;flex-wrap:wrap}
 .mr-tema{display:flex;align-items:center;gap:7px;cursor:pointer;padding:7px 13px;border-radius:9px;
- border:1px solid var(--dsw-alias-border-l2,#353a3d);background:transparent;
+ border:1px solid var(--dsw-alias-border-l2,#322d42);background:transparent;
  color:var(--dsw-alias-label-secondary,#b8bdbb);font:inherit;font-size:12px;line-height:1}
 .mr-tema:hover{border-color:var(--mr-principal);color:var(--dsw-alias-label-primary,#f0eee6)}
 .mr-tema[aria-pressed='true']{border-color:var(--mr-principal);color:#fff;
  background:color-mix(in srgb,var(--mr-principal) 14%,transparent)}
 .mr-tema-punto{width:13px;height:13px;border-radius:50%;flex:none;border:1px solid #ffffff26;
  box-shadow:inset -4px -4px 0 0 var(--punto-detalle)}
-.mr-tema[data-tema='ratacode-pink']{--punto-detalle:#e4f226}
-.mr-tema[data-tema='ratacode-yellow']{--punto-detalle:#ff268e}
-.mr-tema[data-tema='minimal']{--punto-detalle:#3c3c3d}
 
 /* R28 §2 · «GPT WEB →»: el rótulo del mensaje que entró desde un chat web.
    Medido en pantalla (captura R28-C): sale a la IZQUIERDA de la burbuja, en
@@ -223,3 +224,300 @@ html[data-ratacode-tema='minimal'] .mr-vida{display:none!important}
    (`dsh-client-ui-chat/lib/client.js:1603-1622`) no lo movió: se deja como se ve,
    que se lee de un vistazo. */
 .mr-gptweb{margin:0 0 3px;font-size:11px;font-weight:600;letter-spacing:.03em;color:#e4f226}
+
+/* ── R33 · CRISTAL NOCTURNO ──────────────────────────────────────────────────
+   Vidrio, curvas y movimiento sobre lo que ya había. Tres partes: menús y
+   botones, conversación y animaciones. Todo cuelga de las palabras del tema
+   (`--mr-principal`, `--mr-aurora`, `--mr-degradado`, `--mr-sobre`). */
+@property --mr-giro{syntax:'<angle>';inherits:false;initial-value:0deg}
+@keyframes mr-girar{to{--mr-giro:360deg}}
+@keyframes mr-entrar{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes mr-aparecer{from{opacity:0}to{opacity:1}}
+@keyframes mr-barrido{from{transform:translateX(-120%) skewX(-20deg)}to{transform:translateX(320%) skewX(-20deg)}}
+
+/* 1 · MENÚS Y BOTONES */
+button,[role='button'],[role='menuitem'],[role='option']{transition:transform .12s ease,background-color .15s ease,border-color .15s ease,box-shadow .2s ease,filter .15s ease}
+button:not(:disabled):active{transform:scale(.96)}
+/* El brillo que barre los botones de acción al pasar por encima. */
+button[class*='_newSession']::after,.mr-guia-boton::after{content:'';position:absolute;top:0;bottom:0;left:0;width:36%;pointer-events:none;opacity:0;
+ background:linear-gradient(90deg,transparent,#ffffff59,transparent)}
+button[class*='_newSession']:hover::after,.mr-guia-boton:hover::after{opacity:1;animation:mr-barrido .75s ease-out}
+.mr-guia-boton{position:relative;overflow:hidden}
+/* Los avisos de encima de la caja y las notas de Ajustes: tarjetas de vidrio. */
+.mr-clave,.mr-migracion,.mr-locales-nota{border-radius:16px;border:1px solid #ffffff1a;background:#ffffff0a;padding:8px 8px 8px 14px}
+.mr-clave::before,.mr-migracion::before,.mr-locales-nota::before{content:'';flex:none;width:7px;height:7px;border-radius:50%;background:var(--mr-principal);box-shadow:0 0 10px var(--mr-principal)}
+.mr-migracion::before{background:var(--mr-detalle);box-shadow:0 0 10px var(--mr-detalle)}
+.mr-clave-boton,.mr-migracion-cerrar{border-radius:999px;border:1px solid #ffffff24;background:#ffffff12;padding:6px 13px}
+.mr-clave-boton:hover,.mr-migracion-cerrar:hover{background:#ffffff1f;border-color:#ffffff40}
+/* Ventanas (Ajustes) y menús desplegables. */
+[role='dialog']{background:#15121df2!important;border:1px solid #ffffff1f!important;box-shadow:0 50px 120px -30px #000,0 0 90px -40px var(--mr-principal),inset 0 1px 0 #ffffff1c!important}
+[class*='_mask']{background:#06050bb3!important;backdrop-filter:blur(10px) saturate(1.2)}
+[role='menu'],[role='listbox']{background:#1d1a27f2!important;border:1px solid #ffffff1f!important;border-radius:16px!important;backdrop-filter:blur(24px) saturate(1.4);box-shadow:0 24px 60px -18px #000,inset 0 1px 0 #ffffff1a!important}
+[role='menuitem'],[role='option']{border-radius:10px!important}
+[role='menuitem']:hover,[role='option']:hover{background:color-mix(in srgb,var(--mr-principal) 14%,transparent)!important}
+[class*='_selector'],[class*='_stepper']{background:#ffffff0f!important;border:1px solid #ffffff1a!important}
+[class*='_selector']:hover{background:#ffffff1a!important;border-color:color-mix(in srgb,var(--mr-principal) 50%,transparent)!important}
+[class*='_navList'] button{border-radius:12px!important}
+.mr-tema{border-radius:999px}
+
+/* 2 · CONVERSACIÓN */
+[class*='_bubble']{background:linear-gradient(135deg,color-mix(in srgb,var(--mr-principal) 22%,#1d1a27),color-mix(in srgb,var(--mr-aurora) 18%,#1d1a27))!important;border:1px solid #ffffff1c;border-radius:20px 20px 6px 20px!important;box-shadow:0 12px 30px -18px var(--mr-principal)}
+pre{border:1px solid #ffffff17!important;border-radius:14px!important;box-shadow:0 18px 40px -28px #000}
+[data-code-block-banner]{background:#ffffff0a!important;border-bottom:1px solid #ffffff12}
+[data-chat-flow-kind='tool-call']{border-radius:10px;transition:background .15s ease}
+[data-chat-flow-kind='tool-call']:hover{background:#ffffff08}
+[data-chat-flow-kind='turn-error']{border-radius:14px;padding:8px 12px;background:#ff5c7a12;box-shadow:inset 0 0 0 1px #ff5c7a33}
+.mr-gptweb{display:inline-block;padding:2px 9px;border-radius:999px;background:#e4f22618;border:1px solid #e4f22640}
+
+/* 3 · ANIMACIONES */
+[role='dialog']{animation:mr-entrar .26s cubic-bezier(.2,.9,.3,1.15) both}
+[class*='_mask']{animation:mr-aparecer .2s ease both}
+[role='menu'],[role='listbox']{animation:mr-entrar .16s cubic-bezier(.2,.9,.3,1.2) both}
+.mr-welcome{animation:mr-entrar .5s cubic-bezier(.2,.9,.3,1.1) both}
+.mr-clave,.mr-migracion{animation:mr-entrar .35s .08s cubic-bezier(.2,.9,.3,1.1) both}
+[data-chat-flow-kind='user'],[data-chat-flow-kind='turn-error']{animation:mr-aparecer .3s ease both}
+/* QUÉ HACE LA IA. El estado lo apunta `ratacode-vida.js` en `<html data-mr-estado>`
+   (pensando = hay botón de parar; hablando = hay `data-streaming`). Lo cuentan
+   las ratas de fondo —remolino al pensar, emblema al hablar—, que se encienden,
+   y el borde de la caja de escribir, que gira. */
+html:is([data-mr-estado='pensando'],[data-mr-estado='hablando']) [data-composer-card]{border-color:transparent!important;animation:mr-girar 2.4s linear infinite;
+ background:linear-gradient(#1a1724,#1a1724) padding-box,conic-gradient(from var(--mr-giro),var(--mr-principal),var(--mr-aurora),var(--mr-detalle),var(--mr-principal)) border-box!important}
+.mr-vida-salida>.mr-vida{transition:opacity .6s ease}
+/* «Buscando queso…»: el rótulo de mientras piensa, en el amarillo de la casa.
+   El motor lo pinta con un degradado recortado al texto (un brillo que lo
+   recorre): se le cambia sólo la imagen, para conservar el recorte y el barrido. */
+[class*='_turnStatus']:not([class*='_turnStatusClock']){background-image:linear-gradient(90deg,var(--mr-yellow) 0%,var(--mr-yellow) 40%,#fff 50%,var(--mr-yellow) 60%,var(--mr-yellow) 100%)!important}
+html:is([data-mr-estado='pensando'],[data-mr-estado='hablando'],[data-mr-estado='espera'],[data-mr-queso]) .mr-vida-salida>.mr-vida{opacity:.85}
+@media(prefers-reduced-motion:reduce){[data-composer-card]{animation:none!important}}
+
+/* ── R33 · LOS ICONOS DE LOS PASOS, EN RATUNO Y EN 3D ────────────────────────
+   Cada fila de la conversación lleva su icono. El motor lo pinta con un
+   `<svg>`; aquí se le esconde el dibujo y se le pone de fondo el de la casa:
+   EL QUESO DE SU COLOR en alambre 3D (el mismo que sueltan las ratas). La
+   figura la modela y la gira `ratacode-piel.js`, que deja por cada icono una
+   TIRA de 24 fotogramas (una vuelta entera) en `--mr-ico-<nombre>`; la hoja
+   sólo corre la tira (`steps(24)`), así que da igual cuántas filas haya.
+   La fila dice qué es (`data-variant` en las herramientas,
+   `data-chat-flow-kind` en las de contexto). El `_chevron` no se toca.
+   Cada figura tiene su movimiento (girar, mecerse, olfatear…), siempre sobre
+   su centro. Se mueven despacio siempre y deprisa mientras la herramienta corre
+   (`data-state='running'`). Y la palabra de cada fila, del color de su queso
+   (`COLOR_QUESO`, en `ratacode-vida.js`): pensar amarillo, escribir rosa, leer
+   y buscar azul, terminal naranja, lo demás violeta. */
+@keyframes mr-icono{from{background-position-x:0}to{background-position-x:-480px}}
+:is([data-variant='think'],[data-variant='bash'],[data-variant='read'],[data-variant='write'],[data-variant='edit'],[data-variant='search'],[data-variant='others'],[data-chat-flow-kind='context'],[data-chat-flow-kind='system-prompt']) [data-disclosure-row] svg:not([class*='_chevron']){width:20px!important;height:20px!important;margin:-3px;background-size:480px 20px;background-repeat:no-repeat;background-position:-60px 0;animation:mr-icono 4s steps(24) infinite}
+:is([data-variant='think'],[data-variant='bash'],[data-variant='read'],[data-variant='write'],[data-variant='edit'],[data-variant='search'],[data-variant='others'],[data-chat-flow-kind='context'],[data-chat-flow-kind='system-prompt']) [data-disclosure-row] svg:not([class*='_chevron'])>*{display:none}
+[data-variant='think'] [data-disclosure-row] svg:not([class*='_chevron']){background-image:var(--mr-ico-think);animation-duration:4.0s}
+[data-variant='think'] [data-disclosure-row] [class*='_title']{color:var(--mr-yellow)!important;font-weight:600}
+[data-variant='bash'] [data-disclosure-row] svg:not([class*='_chevron']){background-image:var(--mr-ico-bash);animation-duration:4.6s}
+[data-variant='bash'] [data-disclosure-row] [class*='_title']{color:#ff9b2e!important;font-weight:600}
+[data-variant='read'] [data-disclosure-row] svg:not([class*='_chevron']){background-image:var(--mr-ico-read);animation-duration:5.2s}
+[data-variant='read'] [data-disclosure-row] [class*='_title']{color:var(--mr-cyan)!important;font-weight:600}
+[data-variant='write'] [data-disclosure-row] svg:not([class*='_chevron']){background-image:var(--mr-ico-escribe);animation-duration:4.3s}
+[data-variant='write'] [data-disclosure-row] [class*='_title']{color:var(--mr-pink)!important;font-weight:600}
+[data-variant='edit'] [data-disclosure-row] svg:not([class*='_chevron']){background-image:var(--mr-ico-escribe);animation-duration:4.3s}
+[data-variant='edit'] [data-disclosure-row] [class*='_title']{color:var(--mr-pink)!important;font-weight:600}
+[data-variant='search'] [data-disclosure-row] svg:not([class*='_chevron']){background-image:var(--mr-ico-search);animation-duration:4.9s}
+[data-variant='search'] [data-disclosure-row] [class*='_title']{color:var(--mr-cyan)!important;font-weight:600}
+[data-variant='others'] [data-disclosure-row] svg:not([class*='_chevron']){background-image:var(--mr-ico-others);animation-duration:5.5s}
+[data-variant='others'] [data-disclosure-row] [class*='_title']{color:#b79cff!important;font-weight:600}
+[data-chat-flow-kind='context'] [data-disclosure-row] svg:not([class*='_chevron']){background-image:var(--mr-ico-bigotes);animation-duration:6.0s}
+[data-chat-flow-kind='system-prompt'] [data-disclosure-row] svg:not([class*='_chevron']){background-image:var(--mr-ico-bigotes);animation-duration:6.0s}
+[data-state='running'] [data-disclosure-row] svg:not([class*='_chevron']){animation-duration:1.1s}
+html[data-ratacode-tema='minimal'] [data-disclosure-row] svg:not([class*='_chevron']){filter:saturate(0)}
+@media(prefers-reduced-motion:reduce){:is([data-variant='think'],[data-variant='bash'],[data-variant='read'],[data-variant='write'],[data-variant='edit'],[data-variant='search'],[data-variant='others'],[data-chat-flow-kind='context'],[data-chat-flow-kind='system-prompt']) [data-disclosure-row] svg:not([class*='_chevron']){animation:none}}
+
+/* ── R33 · COLOR DONDE FALTABA ───────────────────────────────────────────────
+   Tres sitios que se habían quedado en gris: el panel «Tareas pendientes», el
+   botón partido de la cabecera (abrir la carpeta) y la píldora «Abierta a
+   ChatGPT». Vidrio con el degradado de la casa, como la caja de escribir. */
+section[data-testid='todo-panel']{border:1px solid color-mix(in srgb,var(--mr-principal) 38%,transparent)!important;border-radius:16px!important;
+ background:linear-gradient(100deg,color-mix(in srgb,var(--mr-principal) 13%,#15121d),color-mix(in srgb,var(--mr-aurora) 11%,#15121d))!important;
+ box-shadow:0 14px 40px -24px var(--mr-principal),inset 0 1px 0 #ffffff14}
+section[data-testid='todo-panel'] [class*='_header'] [class*='_title']{color:var(--mr-detalle)!important}
+section[data-testid='todo-panel'] [class*='_header'] svg{color:var(--mr-principal)}
+[class*='_split']{border-color:color-mix(in srgb,var(--mr-principal) 45%,transparent)!important;border-radius:12px!important;
+ background:color-mix(in srgb,var(--mr-principal) 9%,transparent)!important;transition:box-shadow .2s ease,border-color .2s ease}
+[class*='_split']:hover{border-color:var(--mr-principal)!important;box-shadow:0 0 18px -6px var(--mr-principal)}
+.mr-chatgpt-rotulo{color:var(--mr-detalle)!important}
+.mr-chatgpt :is(button,[role='switch']){border-color:color-mix(in srgb,var(--mr-principal) 50%,transparent)!important;border-radius:999px!important}
+
+/* ── R33 · AJUSTES, ORDENADO ─────────────────────────────────────────────────
+   El menú va de lo que más se usa a lo más técnico, y cada pestaña lleva SU
+   icono (el motor sólo trae tres y a las demás les pone el mismo engranaje).
+   ponytail: el motor no marca los botones del menú con su id, así que se les
+   llama por su puesto (`nth-child`), que sale del `order` de cada sección:
+   General 0 · Aspecto 5 · Modelos 10 · Modelos locales 12 · Plugins 15 ·
+   Modos 20 · Conexiones 25 · Actividad 26. Si un plugin mete otra sección en
+   medio, hay que rehacer esta tabla (o pedir al motor que marque el id). */
+[class*='_navList']{display:flex!important;flex-direction:column;gap:2px}
+[class*='_navList'] button{animation:mr-entrar .32s cubic-bezier(.2,.9,.3,1.1) both}
+[class*='_navList'] button [class*='_navIcon']{width:20px!important;height:20px!important;background-position:center;background-size:contain;background-repeat:no-repeat;transition:transform .3s cubic-bezier(.2,.8,.3,1.4),filter .2s ease}
+[class*='_navList'] button [class*='_navIcon']>*{display:none}
+[class*='_navList'] button:hover [class*='_navIcon']{transform:scale(1.18) rotate(-8deg)}
+[class*='_navList'] button[aria-current='true'] [class*='_navIcon']{filter:drop-shadow(0 0 5px var(--mr-principal))}
+/* General · engranaje */
+[class*='_navList'] button:nth-child(1){order:1;animation-delay:0ms}
+[class*='_navList'] button:nth-child(1) [class*='_navIcon']{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle stroke='%23e4f226' cx='12' cy='12' r='6.3'/%3E%3Cpath stroke='%23e4f226' d='M12 2.5v3.2M12 18.3v3.2M2.5 12h3.2M18.3 12h3.2M5.3 5.3l2.2 2.2M16.5 16.5l2.2 2.2M18.7 5.3l-2.2 2.2M7.5 16.5l-2.2 2.2'/%3E%3Ccircle stroke='%23ff268e' cx='12' cy='12' r='2.3'/%3E%3C/svg%3E")}
+/* Aspecto · paleta */
+[class*='_navList'] button:nth-child(2){order:2;animation-delay:35ms}
+[class*='_navList'] button:nth-child(2) [class*='_navIcon']{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke='%23e4f226' d='M12 3a9 9 0 1 0 0 18c1.7 0 2-1.3 1.3-2.3-.8-1.2 0-2.7 1.5-2.7H17a4 4 0 0 0 4-4c0-5-4-9-9-9Z'/%3E%3Cpath stroke='%23ff268e' stroke-width='2.6' d='M7.5 11.5h.01M10 7.5h.01M14.5 7.3h.01'/%3E%3C/svg%3E")}
+/* Modelos · chip */
+[class*='_navList'] button:nth-child(3){order:3;animation-delay:70ms}
+[class*='_navList'] button:nth-child(3) [class*='_navIcon']{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect stroke='%23e4f226' x='6' y='6' width='12' height='12' rx='2'/%3E%3Cpath stroke='%23e4f226' d='M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3'/%3E%3Crect stroke='%23ff268e' x='10' y='10' width='4' height='4' rx='.8'/%3E%3C/svg%3E")}
+/* Modelos locales · ordenador */
+[class*='_navList'] button:nth-child(4){order:4;animation-delay:105ms}
+[class*='_navList'] button:nth-child(4) [class*='_navIcon']{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect stroke='%23e4f226' x='3' y='4' width='18' height='12' rx='2'/%3E%3Cpath stroke='%23e4f226' d='M8 21h8M12 16v5'/%3E%3Cpath stroke='%23ff268e' stroke-width='2.6' d='M12 10h.01'/%3E%3C/svg%3E")}
+/* Modos · tres nodos */
+[class*='_navList'] button:nth-child(6){order:5;animation-delay:140ms}
+[class*='_navList'] button:nth-child(6) [class*='_navIcon']{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle stroke='%23e4f226' cx='12' cy='5.5' r='2.6'/%3E%3Ccircle stroke='%23e4f226' cx='5.5' cy='18' r='2.6'/%3E%3Ccircle stroke='%23ff268e' cx='18.5' cy='18' r='2.6'/%3E%3Cpath stroke='%23e4f226' d='M10.7 7.8 6.8 15.7M13.3 7.8l3.9 7.9M8.2 18h7.6'/%3E%3C/svg%3E")}
+/* Conexiones · enchufe */
+[class*='_navList'] button:nth-child(7){order:6;animation-delay:175ms}
+[class*='_navList'] button:nth-child(7) [class*='_navIcon']{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke='%23e4f226' d='M9 3v5M15 3v5M7 8h10v3a5 5 0 0 1-10 0ZM12 16v5'/%3E%3Cpath stroke='%23ff268e' stroke-width='2.6' d='M12 11.3h.01'/%3E%3C/svg%3E")}
+/* Actividad · pulso */
+[class*='_navList'] button:nth-child(8){order:7;animation-delay:210ms}
+[class*='_navList'] button:nth-child(8) [class*='_navIcon']{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke='%23e4f226' d='M2 12h5l2-6 4 12 2-6h4'/%3E%3Ccircle stroke='%23ff268e' cx='20.5' cy='12' r='1.5'/%3E%3C/svg%3E")}
+/* Avanzado · deslizadores */
+[class*='_navList'] button:nth-child(5){order:8;animation-delay:245ms}
+[class*='_navList'] button:nth-child(5) [class*='_navIcon']{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke='%23e4f226' d='M4 7h9M19 7h1M4 12h3M13 12h7M4 17h11'/%3E%3Ccircle stroke='%23ff268e' cx='16' cy='7' r='2'/%3E%3Ccircle stroke='%23ff268e' cx='10' cy='12' r='2'/%3E%3Ccircle stroke='%23ff268e' cx='18' cy='17' r='2'/%3E%3C/svg%3E")}
+/* Una raya fina separa lo técnico (Avanzado) del resto. */
+[class*='_navList'] button:nth-child(5){margin-top:10px}
+[class*='_navList'] button:nth-child(5)::after{content:'';position:absolute;left:10px;right:10px;top:-6px;height:1px;background:#ffffff14}
+/* «Abrir fichero de configuración» sólo pinta algo en General y en Avanzado. */
+[role='dialog']:not(:has([class*='_navList'] button:is(:nth-child(1),:nth-child(5))[aria-current='true'])) [data-slot='settings.action']{display:none!important}
+/* Cada pestaña entra con un fundido al cambiar. */
+[role='dialog'] [class*='_content']>*{animation:mr-aparecer .28s ease both}
+
+/* ── R33 · AJUSTES › ASPECTO ─────────────────────────────────────────────────
+   Tres tarjetas de estilo, cada una con su muestra en miniatura (una ventanita
+   con sus colores), y el interruptor de las ratas. */
+.mr-as{display:flex;flex-direction:column;gap:14px}
+.mr-as-titulo{margin:6px 0 0;font:700 15px/1.2 var(--mr-letra);letter-spacing:-.2px}
+.mr-as-estilos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.mr-estilo{position:relative;display:flex;flex-direction:column;gap:6px;text-align:left;cursor:pointer;padding:10px 10px 12px;border-radius:18px;font:inherit;color:inherit;
+ border:1px solid #ffffff1c;background:#ffffff08;transition:transform .2s cubic-bezier(.2,.8,.3,1.3),border-color .2s ease,box-shadow .25s ease}
+.mr-estilo:hover{transform:translateY(-3px);border-color:#ffffff40}
+.mr-estilo[aria-pressed='true']{border-color:var(--m1);box-shadow:0 18px 44px -22px var(--m1),0 0 0 3px color-mix(in srgb,var(--m1) 16%,transparent)}
+.mr-estilo[aria-pressed='true']::after{content:'En uso';position:absolute;top:16px;right:16px;padding:2px 8px;border-radius:999px;font:700 10px/1.5 var(--mr-letra);background:var(--m1);color:#101010}
+.mr-estilo b{font:800 13px/1.2 var(--mr-letra);letter-spacing:.3px}
+.mr-estilo-nota{font-size:12px;line-height:16px;color:var(--dsw-alias-label-tertiary,#9aa0a6)}
+/* La muestra: fondo, una barra lateral, una línea de texto y la caja de escribir con su borde. */
+.mr-estilo-muestra{position:relative;display:block;height:92px;border-radius:12px;overflow:hidden;background:var(--mf);border:1px solid #ffffff14}
+.mr-estilo-muestra i{position:absolute;display:block}
+.mr-estilo-muestra i:nth-child(1){left:0;top:0;bottom:0;width:26%;background:#ffffff0a;border-right:1px solid #ffffff14}
+.mr-estilo-muestra i:nth-child(1)::after{content:'';position:absolute;left:14%;right:14%;top:12px;height:9px;border-radius:9px;background:linear-gradient(120deg,var(--m1),var(--m2))}
+.mr-estilo-muestra i:nth-child(2){left:34%;top:18px;width:9px;height:9px;border-radius:50%;background:var(--m3);box-shadow:16px 14px 0 -1px var(--m1),34px 4px 0 -2px var(--m2),52px 16px 0 -1px var(--m3)}
+.mr-estilo-muestra i:nth-child(3){left:34%;right:8%;bottom:12px;height:22px;border-radius:9px;background:#ffffff0d;border:1px solid var(--m1)}
+.mr-estilo[data-tema='ratacode-pink']{--m1:#ff268e;--m2:#8b5cff;--m3:#e4f226;--mf:radial-gradient(70% 90% at 85% 10%,#ff268e55,transparent 70%),radial-gradient(60% 80% at 10% 100%,#8b5cff44,transparent 70%),#0c0a12}
+.mr-estilo[data-tema='ratacode-yellow']{--m1:#e4f226;--m2:#a8b31a;--m3:#8c8c8c;--mf:#161617}
+.mr-estilo[data-tema='minimal']{--m1:#e8e6df;--m2:#8c9396;--m3:#5c5c5e;--mf:#0d0d0e}
+.mr-as-fila{display:flex;align-items:center;gap:16px;padding:12px 14px;border-radius:16px;border:1px solid #ffffff1a;background:#ffffff08}
+.mr-as-fila p{flex:1;margin:0;font-size:13px;line-height:19px;color:var(--dsw-alias-label-secondary,#b8bdbb)}
+/* El interruptor: una píldora con su bola, que corre de un lado a otro. */
+.mr-interruptor{position:relative;flex:none;width:64px;height:30px;border-radius:999px;cursor:pointer;border:1px solid #ffffff2a;background:#ffffff12;color:#9aa0a6;font:700 11px/1 var(--mr-letra);transition:background .25s ease,border-color .25s ease}
+.mr-interruptor::before{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#8c9396;transition:transform .28s cubic-bezier(.2,.8,.3,1.4),background .25s ease}
+.mr-interruptor span{position:absolute;right:11px;top:50%;transform:translateY(-50%)}
+.mr-interruptor[aria-checked='true']{background:color-mix(in srgb,var(--mr-principal) 28%,transparent);border-color:var(--mr-principal);color:var(--mr-sobre)}
+.mr-interruptor[aria-checked='true']::before{transform:translateX(34px);background:var(--mr-degradado);box-shadow:0 0 12px var(--mr-principal)}
+.mr-interruptor[aria-checked='true'] span{right:auto;left:12px;color:var(--dsw-alias-label-primary,#f0eee6)}
+@media(max-width:900px){.mr-as-estilos{grid-template-columns:1fr}}
+
+/* ── R33 · NI UN ICONO GRIS ──────────────────────────────────────────────────
+   Todos los iconos del panel van en el color de detalle de la casa, y en el
+   principal al pasar por encima. Quedan fuera los que van SOBRE un botón de
+   color (heredan el suyo) y los de una fila que ha fallado (rojo). */
+html[data-ratacode-piel] svg{color:var(--mr-detalle)}
+html[data-ratacode-piel] :is(button,[role='button'],a):hover>svg{color:var(--mr-principal)}
+html[data-ratacode-piel] :is(button[class*='_newSession'],[data-composer-card] button[class*='_primary'],.mr-guia-boton) svg{color:inherit}
+html[data-ratacode-piel] [data-state='error'] svg{color:#ff5c7a}
+
+/* ── R33 · «FICHEROS MODIFICADOS», DE LA CASA ────────────────────────────────
+   Los enlaces y las fichas de los ficheros que deja una vuelta venían en el
+   azul del motor. Enlaces en el acento; fichas de vidrio con el icono del
+   tipo en el color principal. */
+[data-produced-files-row] [class*='_file']{color:var(--mr-acento)!important;border-color:transparent!important;font-weight:600}
+[data-produced-files-row] [class*='_file']:hover{text-decoration:underline;text-underline-offset:3px}
+[data-presented-file]{background:#ffffff0a!important;border:1px solid #ffffff1c!important;border-radius:16px!important;transition:transform .2s ease,border-color .2s ease,box-shadow .25s ease}
+[data-presented-file]:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--mr-principal) 55%,transparent)!important;box-shadow:0 16px 36px -22px var(--mr-principal)}
+[data-presented-file] [class*='_fileIcon'] svg{color:var(--mr-principal)!important;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--mr-principal) 55%,transparent))}
+
+/* ── R33 · LOS OTROS DOS ESTILOS ─────────────────────────────────────────────
+   GRIS Y AMARILLO: gris de verdad y un solo color. Todo lo que en MULTICOLOR
+   va por tipos (palabras, quesos, iconos) pasa a amarillo: las imágenes
+   (lienzo de ratas, tiras de iconos, iconos del menú) con un filtro; las
+   palabras, por color. SOBRIO: lo mismo, pero sin color ni brillos ni
+   adornos que se muevan. En los dos, las cajas pintadas a mano van en gris. */
+html:is([data-ratacode-tema='ratacode-yellow'],[data-ratacode-tema='minimal']) :is([class*='_sidebarCol'],[data-composer-card]){background:#161617!important}
+html:is([data-ratacode-tema='ratacode-yellow'],[data-ratacode-tema='minimal']) [role='dialog']{background:#151516f2!important}
+html:is([data-ratacode-tema='ratacode-yellow'],[data-ratacode-tema='minimal']) :is([role='menu'],[role='listbox']){background:#1d1d1ff2!important}
+html:is([data-ratacode-tema='ratacode-yellow'],[data-ratacode-tema='minimal']) header[class*='_header']{background:#0d0d0eb3!important}
+html:is([data-ratacode-tema='ratacode-yellow'],[data-ratacode-tema='minimal']) section[data-testid='todo-panel']{background:#1b1b1d!important}
+html:is([data-ratacode-tema='ratacode-yellow'],[data-ratacode-tema='minimal']) [class*='_bubble']{background:#232325!important}
+html[data-ratacode-tema='ratacode-yellow'] :is(.mr-vida,[data-disclosure-row] svg:not([class*='_chevron']),[class*='_navIcon']){filter:grayscale(1) sepia(1) saturate(6) hue-rotate(20deg) brightness(1.05)}
+html[data-ratacode-tema='ratacode-yellow'] [data-disclosure-row] [class*='_title']{color:var(--mr-yellow)!important}
+html[data-ratacode-tema='minimal'] :is(.mr-vida,[class*='_navIcon']){filter:saturate(0)}
+html[data-ratacode-tema='minimal'] .mr-vida-salida>.mr-vida{opacity:.3!important}
+html[data-ratacode-tema='minimal'] [data-disclosure-row] [class*='_title']{color:var(--dsw-alias-label-secondary,#b8bdbb)!important}
+html[data-ratacode-tema='minimal'] [class*='_turnStatus']:not([class*='_turnStatusClock']){background-image:linear-gradient(90deg,#b8bdbb 0%,#b8bdbb 40%,#fff 50%,#b8bdbb 60%,#b8bdbb 100%)!important}
+html[data-ratacode-tema='minimal'] [data-composer-card]{animation:none!important;border-color:#ffffff22!important;background:#161617!important}
+html[data-ratacode-tema='minimal'] :is(button[class*='_newSession'],.mr-guia-boton)::after{display:none}
+html[data-ratacode-tema='minimal'] :is([data-disclosure-row] svg:not([class*='_chevron']),[class*='_navList'] button){animation:none}
+
+/* ── R33 · EL AZUL DEL MOTOR, FUERA ──────────────────────────────────────────
+   Cuatro sitios donde seguía asomando el azul de DeepSeek: el botón de PARAR
+   (el de enviar ya era de la casa), los enlaces a ficheros dentro de una fila,
+   la ficha de tipo de fichero y la etiqueta USUARIO de la pestaña Actividad. */
+[data-composer-card] button[class*='_primary']{background:var(--mr-degradado)!important;color:var(--mr-sobre)!important;border-radius:50%!important;box-shadow:0 6px 18px -8px var(--mr-principal)}
+[class*='_fileLink']{color:var(--mr-acento)!important}
+[data-presented-file] [class*='_fileIcon']{color:var(--mr-principal)!important}
+
+/* ── R33 · LOS DATOS TÉCNICOS, GUARDADOS ─────────────────────────────────────
+   La línea de debajo de la caja (vueltas, tok/s, caché) y el uso de cada
+   respuesta son información de depuración: escondidos de fábrica. Se enseñan
+   en Ajustes › Aspecto › Datos técnicos (`<html data-mr-datos="si">`). */
+html:not([data-mr-datos='si']) [data-composer-stats]{display:none!important}
+html:not([data-mr-datos='si']) [data-slot='conversation.chat.turnTail']>*{display:none!important}
+
+/* ── R33 · AJUSTES › MODELOS, EN ORDEN ───────────────────────────────────────
+   Primero los proveedores que ya tienen clave; fuera la etiqueta
+   «Personalizado», que no dice nada; y el punto de la clave, que se lea: lima
+   con brillo si está puesta, apagado si falta. */
+li[class*='_rowCard']{border-radius:14px!important;border:1px solid #ffffff14;background:#ffffff06;transition:border-color .2s ease,background .2s ease}
+li[class*='_rowCard']:hover{border-color:color-mix(in srgb,var(--mr-principal) 40%,transparent);background:#ffffff0c}
+li[class*='_rowCard']:has([class*='_credentialDotConfigured']){order:-1}
+li[class*='_rowCard'] [class*='_rowTag']{display:none!important}
+li[class*='_rowCard'] [class*='_rowName']{font-weight:650}
+[class*='_credentialDotConfigured']{background:var(--mr-detalle)!important;box-shadow:0 0 10px var(--mr-detalle)}
+[class*='_credentialDotMissing']{background:#5c5c66!important;box-shadow:none}
+
+/* ── R33 · LA PESTAÑA ACTIVIDAD, CON LOS COLORES DE LA CASA ──────────────────
+   La línea de tiempo y las etiquetas de cada fila venían con la paleta del
+   motor. Aquí: lo que dice la IA en el principal, las herramientas en el de
+   detalle y lo que entra (usuario, contexto) en el de la aurora. */
+[data-timeline-span]{background:var(--mr-aurora)!important;border-radius:3px}
+[data-timeline-span='message']{background:var(--mr-principal)!important}
+[data-timeline-span='tool']{background:var(--mr-detalle)!important}
+[class*='_kindTag'],[class*='_kindTag'] *{color:var(--mr-aurora)!important;border-color:color-mix(in srgb,var(--mr-aurora) 45%,transparent)!important}
+[class*='_kindTag'][data-role-kind='message'],[class*='_kindTag'][data-role-kind='message'] *{color:var(--mr-principal)!important;border-color:color-mix(in srgb,var(--mr-principal) 45%,transparent)!important}
+[class*='_kindTag'][data-role-kind='tool'],[class*='_kindTag'][data-role-kind='tool'] *{color:var(--mr-detalle)!important;border-color:color-mix(in srgb,var(--mr-detalle) 45%,transparent)!important}
+
+/* R34 · confirmar la carpeta en la capa modal, independiente de la cabecera. */
+.mr-chatgpt-dialogo{
+ position:fixed;inset:0;margin:auto;box-sizing:border-box;
+ width:min(560px,calc(100vw - 32px));max-width:calc(100vw - 32px);height:fit-content;
+ max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;
+ padding:22px;border:1px solid var(--dsw-alias-border-l3,#453f58);border-radius:16px;
+ background:var(--dsw-alias-bg-layer-1,#15121d);color:var(--dsw-alias-label-primary,#f0eee6);
+ font:400 14px/1.5 var(--mr-letra,system-ui,sans-serif);text-align:left;
+ box-shadow:0 24px 80px #0009;
+}
+.mr-chatgpt-dialogo::backdrop{background:#000a;backdrop-filter:blur(3px)}
+.mr-chatgpt-dialogo-titulo{margin:0 0 14px;font:650 19px/1.3 var(--mr-letra,system-ui,sans-serif)}
+.mr-chatgpt-dialogo .mr-chatgpt-pregunta{
+ margin:0;min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;word-break:break-word;
+ color:var(--dsw-alias-label-primary,#f0eee6);font-size:14px;line-height:1.6;
+}
+.mr-chatgpt-dialogo-acciones{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px;margin-top:22px}
+.mr-chatgpt-dialogo .mr-chatgpt-boton{min-height:38px;padding:8px 18px;border-radius:10px;font-size:13px}
+.mr-chatgpt-dialogo .mr-chatgpt-dialogo-confirmar{background:var(--mr-degradado);color:var(--mr-sobre,#fff);border-color:transparent;font-weight:650}
+.mr-chatgpt-dialogo .mr-chatgpt-boton:focus-visible{outline:2px solid var(--mr-acento,#e4f226);outline-offset:3px}
