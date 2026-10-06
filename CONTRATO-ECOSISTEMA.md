@@ -1,10 +1,10 @@
 # CONTRATO DEL ECOSISTEMA · encargo para el agente de RATABROWSER
 
 > Pega este texto entero como primer mensaje al agente que trabaja en RATABROWSER.
-> El acento de RATABROWSER es el **VERDE MENTA**. Todo lo demás (fondos, letra,
-> formas, movimiento y manera de trabajar) es el de la casa, el mismo de RATACODE
-> y RATACLAW. La fuente de verdad es `piel/activos/ratacode-identidad.css` y
-> `piel/activos/ratacode-piel.css` del repo `kittcat-lab/ratacode`.
+> El acento de RATABROWSER es el **VERDE** de su icono (`#00f845`). Todo lo demás
+> (fondos, letra, formas, movimiento, el amarillo del marco y la manera de trabajar)
+> es el de la casa, el mismo de RATACODE y RATACLAW. La fuente de verdad es
+> `piel/activos/ratacode-identidad.css` y `piel/activos/ratacode-piel.css` del repo `kittcat-lab/ratacode`.
 
 ---
 
@@ -12,8 +12,18 @@
 
 Eres el agente de **RATABROWSER**, el navegador de la familia RATA (RATACODE,
 RATACLAW, RATABROWSER). Tu trabajo es que RATABROWSER **parezca de la misma casa**
-nada más abrirlo y que se distinga solo por su color: el **verde menta**. No
-rehagas lo que ya funciona. Cambia la cara, no las tripas.
+nada más abrirlo y que se distinga solo por su color: el **verde**.
+
+La familia, por color (es el círculo de cada icono; el marco amarillo es común):
+
+| App | Color propio |
+|---|---|
+| RATACODE | rosa `#fc0384` (en la piel, `#ff268e`) |
+| RATACLAW | cian `#00fbfa` |
+| RATABROWSER | verde `#00f845` |
+| naranja `#fc5b02` | pendiente: pregunta a qué app va |
+
+No rehagas lo que ya funciona. Cambia la cara, no las tripas.
 
 Antes de tocar nada:
 
@@ -37,20 +47,20 @@ los tres productos.
  --border:var(--mr-line); --border-soft:#221f2d;
  --text-1:var(--mr-white); --text-2:var(--mr-muted); --text-3:#8c9396;
 
- /* Identidad de RATABROWSER: verde menta */
- --mr-menta:#3df5b4;          /* menta viva: el color de marca */
- --mr-menta-clara:#a6ffd9;    /* menta pálida: la segunda voz */
+ /* Identidad de RATABROWSER: el verde de su icono */
+ --mr-verde:#00f845;          /* el color de marca */
+ --mr-yellow:#e4f226;         /* el amarillo de la casa: el marco de todos los iconos */
 
- /* Las tres palabras de la casa, en menta */
- --mr-principal:var(--mr-menta);        /* botones, marca, lo que pide el dedo */
- --mr-detalle:var(--mr-menta-clara);    /* filos, realces, estados */
- --mr-acento:var(--mr-menta);           /* foco y enlaces */
- --mr-principal-suave:#123a2d;          /* fondo de seleccionado/activo */
- --mr-sombra:var(--mr-menta); --mr-filo:var(--mr-menta-clara);
+ /* Las tres palabras de la casa: verde que manda, amarillo de segunda voz */
+ --mr-principal:var(--mr-verde);        /* botones, marca, lo que pide el dedo */
+ --mr-detalle:var(--mr-yellow);         /* filos, realces, estados */
+ --mr-acento:var(--mr-verde);           /* foco y enlaces */
+ --mr-principal-suave:#0f3a1d;          /* fondo de seleccionado/activo */
+ --mr-sombra:var(--mr-verde); --mr-filo:var(--mr-yellow);
 
  /* Cristal nocturno: la aurora violeta es el pegamento del ecosistema (no se cambia) */
  --mr-aurora:#8b5cff;
- --mr-sobre:#06140f;          /* tinta OSCURA encima de la menta (el blanco no se lee) */
+ --mr-sobre:#06140f;          /* tinta OSCURA encima del verde (el blanco no se lee) */
  --mr-degradado:linear-gradient(120deg,var(--mr-principal),var(--mr-aurora));
 
  --mr-letra:'Segoe UI Variable Display','Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;
@@ -61,13 +71,14 @@ los tres productos.
 
 Reglas de color:
 
-- **El rosa `#ff268e` y el amarillo `#e4f226` son de RATACODE.** En RATABROWSER
-  no aparecen como color de marca. Si los ves en el código, cámbialos por la menta.
-- **Texto sobre menta, siempre `--mr-sobre` (oscuro).** Nunca blanco sobre menta.
-- La menta es para **lo que se pulsa y lo que importa**: botón principal, pestaña
-  activa, foco, marca. No pintes fondos grandes de menta. Los fondos son los negros.
-- Seleccionado o activo: `--mr-principal-suave` de fondo y un filo menta. No uses
-  menta sólida.
+- **El rosa es de RATACODE y el cian de RATACLAW.** En RATABROWSER no aparecen
+  como color de marca. Si los ves en el código, cámbialos por el verde. El
+  amarillo sí es común: es el marco de todos los iconos y la segunda voz.
+- **Texto sobre verde, siempre `--mr-sobre` (oscuro).** Nunca blanco sobre verde.
+- El verde es para **lo que se pulsa y lo que importa**: botón principal, pestaña
+  activa, foco, marca. No pintes fondos grandes de verde. Los fondos son los negros.
+- Seleccionado o activo: `--mr-principal-suave` de fondo y un filo verde. No uses
+  verde sólido.
 - Enlaces y foco: `--mr-acento`. El cian `--mr-cyan` se queda solo como detalle de
   información, igual que en RATACODE.
 
@@ -84,8 +95,8 @@ Reglas de color:
 - Bordes: `1px solid #ffffff1a` sobre cristal, o `--mr-line` sobre panel.
 - Botón principal: `background:var(--mr-degradado)`, `color:var(--mr-sobre)`,
   `border-radius:999px`, `box-shadow:0 8px 24px -10px var(--mr-principal), inset 0 1px 0 #ffffff40`.
-  Al pasar por encima sube `1px` y gana un halo `0 0 0 4px` de menta al 14 %.
-- Caja de entrada con foco: borde menta al 55 % y halo de 4px al 11 %, como
+  Al pasar por encima sube `1px` y gana un halo `0 0 0 4px` de verde al 14 %.
+- Caja de entrada con foco: borde verde al 55 % y halo de 4px al 11 %, como
   `[data-composer-card]:focus-within` en `ratacode-piel.css`.
 - Foco de teclado en todo lo pulsable:
   `outline:1.5px solid color-mix(in srgb,var(--mr-principal) 70%,transparent); outline-offset:2px`.
@@ -98,34 +109,37 @@ Reglas de color:
 - La **aurora** es una capa `body::after` fija, `pointer-events:none`,
   `mix-blend-mode:screen`, opacidad `.55`, con tres manchas radiales (principal
   42 %, aurora 40 %, detalle 12 %). Se mueve con `@keyframes mr-aurora` en 22 s.
-  Cópiala tal cual de `ratacode-identidad.css`. Con la menta queda un degradado
-  menta y violeta.
-- **Las ratitas de fondo**, si RATABROWSER las lleva, se pintan en menta y menta
-  pálida y se pueden apagar en Ajustes (`<html data-mr-ratas="no">`).
+  Cópiala tal cual de `ratacode-identidad.css`. Con el verde queda un degradado
+  verde y violeta.
+- **Las ratitas de fondo**, si RATABROWSER las lleva, se pintan en verde y
+  amarillo y se pueden apagar en Ajustes (`<html data-mr-ratas="no">`).
 - Si el usuario pide menos movimiento (`prefers-reduced-motion: reduce`), se apaga
   toda animación y transición. Eso no es opcional.
 - Transiciones cortas: `transform .12s`, `background-color/border-color .15s`,
   `box-shadow .2s`. Nada de rebotes.
 
-## 4) El emblema
+## 4) El icono
 
-- La misma rata geométrica de `piel/activos/ratacode-emblema.svg` (cabeza
-  partida en dos mitades, orejas, ojos `#f0eee6`, nariz cian, bigotes grises,
-  arcos alrededor). **No dibujes otra rata.**
-- Cambia solo el color de los trazos: la mitad izquierda y su arco en
-  `#3df5b4`, y la mitad derecha, su arco y las orejas en `#a6ffd9`. El relleno
-  oscuro `#151619`, los ojos, la nariz y los bigotes no cambian.
-- Haz el icono de la app (192 y 512 px) y el favicon con ese emblema sobre `#101113`
-  con esquinas redondeadas, y pon `theme-color` a `#101113`.
+- El icono de RATABROWSER es **el PNG que te da el usuario**: la rata negra con
+  corona y bigotes amarillos sobre un círculo verde, dentro de un cuadrado
+  redondeado amarillo. **No lo redibujes ni lo recolorees.** Solo se recorta,
+  se escala y se exporta.
+- Las esquinas de fuera del cuadrado redondeado tienen que ser **transparentes**
+  (en el original vienen en negro o en blanco). Si no, en el escritorio y en la
+  barra de tareas sale un cuadrado con picos.
+- Se exporta a `.ico` con todos los tamaños (16, 20, 24, 32, 40, 48, 64, 96, 128 y
+  256 px) y a PNG de 192 y 512 px. En los tamaños pequeños (16–32) se mira a ojo
+  que la rata se siga reconociendo.
+- `theme-color` y el fondo de la ventana: `#101113`.
 
 ## 5) Temas (si RATABROWSER tiene selector de aspecto)
 
-Los mismos tres que RATACODE, en menta:
+Los mismos tres que RATACODE, en verde:
 
 | Tema | principal | detalle | acento | aurora |
 |---|---|---|---|---|
-| **RATABROWSER MENTA** (por defecto) | `#3df5b4` | `#a6ffd9` | `#3df5b4` | `#8b5cff`, visible |
-| **MENTA SOBRE GRIS** | `#3df5b4` | `#3df5b4` | `#3df5b4` | apagada; negros grises `#0d0d0e/#151516/#1d1d1f/#323234` |
+| **RATABROWSER VERDE** (por defecto) | `#00f845` | `#e4f226` | `#00f845` | `#8b5cff`, visible |
+| **VERDE SOBRE GRIS** | `#00f845` | `#00f845` | `#00f845` | apagada; negros grises `#0d0d0e/#151516/#1d1d1f/#323234` |
 | **MINIMAL** | `#e8e6df` | `#8c9396` | `#b8bdbb` | apagada, y sin ratitas |
 
 El tema activo se marca en `<html data-ratabrowser-tema="…">` y solo cambia las
@@ -139,19 +153,19 @@ Nada más.
 - No metas librerías nuevas ni fuentes descargadas para esto. La letra es la del
   sistema.
 - No dejes colores sueltos fuera de los tokens.
-- No pongas el rosa ni el amarillo de RATACODE como marca.
-- No pongas blanco sobre menta.
+- No pongas el rosa de RATACODE ni el cian de RATACLAW como marca.
+- No pongas blanco sobre verde.
 - No pongas nombres de personas ni de empresas ajenas en lo que ve el usuario.
 
 ## 7) Cómo se trabaja y cómo se entrega
 
 - **Por rondas pequeñas.** Cada commit hace una sola cosa y se titula como en
   RATACODE: `RNN · lo que cambia, dicho en llano` (por ejemplo
-  `R01 · los tokens de la casa, en menta`). En español.
+  `R01 · los tokens de la casa, en verde`). En español.
 - Orden recomendado:
   **R01** tokens → **R02** letra y wordmark → **R03** botones, foco y
   entrada → **R04** pestañas, filas y tarjetas → **R05** aurora y movimiento
-  reducido → **R06** emblema e iconos → **R07** temas (si los hay).
+  reducido → **R06** iconos → **R07** temas (si los hay).
 - Después de cada ronda, **mira la pantalla de verdad**: haz una captura de la
   ventana principal, de una pestaña activa, del foco con teclado y de un aviso.
   Si no puedes verla, dilo.
@@ -162,9 +176,9 @@ Nada más.
   2. **Visto con mis ojos**: lo que comprobaste en pantalla o con pruebas.
   3. **SOSPECHAS**: lo que no pudiste comprobar, marcado así, sin disfrazarlo.
   4. Colores escritos a mano que quedaron (debería ser ninguno) y por qué.
-  5. Contraste: menta sobre `--mr-black` y `--mr-sobre` sobre menta, con el
-     cálculo WCAG. Los dos deben pasar AA.
+  5. Contraste: verde sobre `--mr-black` y `--mr-sobre` sobre verde, con el
+     cálculo WCAG. Los dos deben pasar AA (dan 13,6 y 13,0).
 
 Hecho = RATABROWSER puesto al lado de RATACODE parece de la misma familia,
-cambia solo el color (menta donde allí es rosa) y el informe dice la verdad
+cambia solo el color (verde donde allí es rosa) y el informe dice la verdad
 sobre lo que se vio y lo que no.
