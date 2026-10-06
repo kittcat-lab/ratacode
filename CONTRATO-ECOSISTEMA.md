@@ -19,9 +19,9 @@ La familia, por color (es el círculo de cada icono; el marco amarillo es común
 | App | Color propio |
 |---|---|
 | RATACODE | rosa `#fc0384` (en la piel, `#ff268e`) |
-| RATACLAW | cian `#00fbfa` |
+| RATACLAW | turquesa `#00fbfa` |
 | RATABROWSER | verde `#00f845` |
-| naranja `#fc5b02` | pendiente: pregunta a qué app va |
+| RATABOAT | naranja `#fc5b02` |
 
 No rehagas lo que ya funciona. Cambia la cara, no las tripas.
 
@@ -71,7 +71,7 @@ los tres productos.
 
 Reglas de color:
 
-- **El rosa es de RATACODE y el cian de RATACLAW.** En RATABROWSER no aparecen
+- **El rosa es de RATACODE, el turquesa de RATACLAW y el naranja de RATABOAT.** En RATABROWSER no aparecen
   como color de marca. Si los ves en el código, cámbialos por el verde. El
   amarillo sí es común: es el marco de todos los iconos y la segunda voz.
 - **Texto sobre verde, siempre `--mr-sobre` (oscuro).** Nunca blanco sobre verde.
@@ -153,7 +153,7 @@ Nada más.
 - No metas librerías nuevas ni fuentes descargadas para esto. La letra es la del
   sistema.
 - No dejes colores sueltos fuera de los tokens.
-- No pongas el rosa de RATACODE ni el cian de RATACLAW como marca.
+- No pongas el rosa de RATACODE, el turquesa de RATACLAW ni el naranja de RATABOAT como marca.
 - No pongas blanco sobre verde.
 - No pongas nombres de personas ni de empresas ajenas en lo que ve el usuario.
 

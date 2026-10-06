@@ -6,7 +6,7 @@
 ---
 
 Trabajas en mi PC con Windows. Tengo una familia de apps: **RATACODE**,
-**RATACLAW** y **RATABROWSER**. Hay dos trabajos:
+**RATACLAW**, **RATABOAT** y **RATABROWSER**. Hay dos trabajos:
 
 1. **Acabar RATABROWSER** con la línea visual del ecosistema y su color, el verde.
 2. **Cambiar el icono de todas las apps** por los nuevos, para que se vean así en
@@ -36,9 +36,9 @@ color del círculo de dentro:
 | Círculo | Color (medido) | App |
 |---|---|---|
 | **verde** | `#00f845` | **RATABROWSER**, y es su color de acento |
-| **cian** | `#00fbfa` | **RATACLAW** |
+| **turquesa** | `#00fbfa` | **RATACLAW** |
 | **rosa** | `#fc0384` | **RATACODE** |
-| **naranja** | `#fc5b02` | **pregúntame a qué app va antes de usarlo** |
+| **naranja** | `#fc5b02` | **RATABOAT** |
 
 Para encontrarlos:
 
@@ -158,4 +158,3 @@ Entrégame un `.md` con:
 4. Tabla de accesos directos: ruta, icono viejo e icono nuevo.
 5. Contraste del verde: `#00f845` sobre `#0c0a12` y `#06140f` sobre `#00f845`
    (los dos pasan AA: dan 13,6 y 13,0).
-6. A qué app fue el icono naranja, según te dije.

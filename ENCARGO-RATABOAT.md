@@ -78,10 +78,9 @@ y tú mismo. Si no los encuentras, pregúntame.
 | App | Color | Qué es |
 |---|---|---|
 | **RATACODE** | rosa | La terminal de trabajo con IA, sobre DSH (`@deepseek-ai/dsh`, el motor no se toca) + nuestras tuberías + la API de B.AI. Modelos baratos (B.AI) o locales (Ollama, LM Studio) hacen el trabajo pesado. Corre en `http://localhost:3777`; su casa es `%USERPROFILE%\.ratacode`. Repo `ratacode`. |
-| **RATACLAW** | cian | Lo mismo, pero sobre OpenClaw, con las tuberías y un extra de control. Busca su carpeta y lee qué tuberías tiene ya y cuáles le faltan. |
+| **RATACLAW** | turquesa | Lo mismo, pero sobre OpenClaw, con las tuberías y un extra de control. Busca su carpeta y lee qué tuberías tiene ya y cuáles le faltan. |
 | **RATABROWSER** | verde | El navegador de la familia. Se está acabando con `ENCARGO-RATABROWSER-E-ICONOS.md` y `CONTRATO-ECOSISTEMA.md` (repo `ratacode`). |
-| **RATABOAT** | (pregúntame) | Tú, el orquestador, sobre Rowboat. Mira qué tuberías tienes ya y cuáles te faltan. |
-| (naranja) | naranja | Pendiente: pregúntame a qué app va. |
+| **RATABOAT** | naranja | Tú, el orquestador, sobre Rowboat. Mira qué tuberías tienes ya y cuáles te faltan. |
 
 **Cómo se maneja RATACODE.** Todo está en `apreton/` del repo `ratacode`; léelo
 entero, empezando por `tutor.md` y `mcp.md`. Hay tres vías:
@@ -208,12 +207,11 @@ mindmap
         headless
         MCP · run_task, send_to_session
         modelos B.AI y locales
-      RATACLAW · cian · sobre OpenClaw
+      RATACLAW · turquesa · sobre OpenClaw
         tuberías + control extra
-      RATABOAT · sobre Rowboat
+      RATABOAT · naranja · sobre Rowboat
         tuberías en marcha
       RATABROWSER · verde
-      naranja · pendiente
     Tuberías comunes
       MCP
       headless
